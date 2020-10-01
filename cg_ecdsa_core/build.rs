@@ -7,8 +7,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 fn main() {
-    let pari_dir = "./depend/pari";
+    let pari_dir = "../depend/pari";
     let pari_install = format!("{}/pari", env::var("OUT_DIR").unwrap());
+    println!("{:?}", pari_install);
     {
         let path = fs::canonicalize(format!("{}/Configure", pari_dir)).unwrap();
         let output = Command::new(path.to_str().unwrap())

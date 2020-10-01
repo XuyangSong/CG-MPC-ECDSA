@@ -6,11 +6,11 @@ Cargo.lock
 **/*.rs.bk
 
 # Ignore various build artifacts from PARI
-twoparty/depend/pari/Makefile
-twoparty/depend/pari/O*
-twoparty/depend/pari/config-*
-twoparty/depend/pari/config/linux-*
-twoparty/depend/pari/doc/
-twoparty/depend/pari/examples/
-twoparty/depend/pari/misc/tex2mail
-twoparty/depend/pari/src/desc/pari.desc
+epend/pari/Makefile
+depend/pari/O*
+depend/pari/config-*
+depend/pari/config/linux-*
+depend/pari/doc/
+depend/pari/examples/
+depend/pari/misc/tex2mail
+depend/pari/src/desc/pari.desc

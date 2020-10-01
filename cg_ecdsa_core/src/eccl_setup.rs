@@ -1,12 +1,10 @@
-use super::is_prime;
-use super::numerical_log;
-use super::prng;
-use super::ErrorReason;
-use crate::bn_to_gen;
+use crate::binaryqf::bn_to_gen;
 use crate::curv::arithmetic::traits::Modulo;
 use crate::curv::cryptographic_primitives::hashing::traits::Hash;
+use crate::error::ErrorReason;
 use crate::isprime;
 use crate::pari_init;
+use crate::primitive::{is_prime, numerical_log, prng};
 use crate::BinaryQF;
 use curv::arithmetic::traits::Samplable;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
@@ -15,6 +13,7 @@ use curv::BigInt;
 use curv::{FE, GE};
 use std::os::raw::c_int;
 
+// TBD: find the difference between SECURITY_BITS
 const SECURITY_PARAMETER: usize = 128;
 const C: usize = 10;
 
@@ -31,6 +30,7 @@ pub struct Ciphertext {
     pub c1: BinaryQF,
     pub c2: BinaryQF,
 }
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ECCLcipher {
     pub c1: BinaryQF,

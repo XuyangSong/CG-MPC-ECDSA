@@ -1,8 +1,3 @@
-const SECURITY_BITS: usize = 256;
-
-pub mod eccl_setup;
-pub mod party_one;
-pub mod party_two;
 use crate::curv::cryptographic_primitives::hashing::traits::Hash;
 use crate::BinaryQF;
 use curv::arithmetic::traits::Modulo;
@@ -12,35 +7,13 @@ use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::hmac_sha512::HMacSha512;
 use curv::cryptographic_primitives::hashing::traits::KeyedHash;
 use curv::BigInt;
-use std::error::Error;
-use std::fmt;
 use std::ops::Shl;
-#[derive(Debug, Clone, Copy)]
-pub struct ProofError;
 
-impl fmt::Display for ProofError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ProofError")
-    }
-}
+pub const SECURITY_BITS: usize = 256;
 
-impl Error for ProofError {
-    fn description(&self) -> &str {
-        "Error while verifying"
-    }
-}
-
-#[derive(Copy, PartialEq, Eq, Clone, Debug)]
-pub enum ErrorReason {
-    OpenCommError,
-    EvalError,
-    VDFVerifyError,
-    SetupError,
-    PoEError,
-}
 // base 10 numerical log
 //TODO: improve approximation, add source , add tests
-fn numerical_log(x: &BigInt) -> BigInt {
+pub fn numerical_log(x: &BigInt) -> BigInt {
     let mut aip1: BigInt;
     let mut bip1: BigInt;
     let two = BigInt::from(2);
@@ -71,7 +44,7 @@ pub fn hash_to_prime(u: &BinaryQF, w: &BinaryQF) -> BigInt {
     candidate
 }
 
-fn prng(seed: &BigInt, i: usize, bitlen: usize) -> BigInt {
+pub fn prng(seed: &BigInt, i: usize, bitlen: usize) -> BigInt {
     let i_bn = BigInt::from(i as i32);
     let mut res = HMacSha512::create_hmac(&i_bn, &vec![seed]);
     let mut tmp: BigInt = res.clone();
@@ -369,6 +342,3 @@ static SMALL_PRIMES: [u32; 2048] = [
     17609, 17623, 17627, 17657, 17659, 17669, 17681, 17683, 17707, 17713, 17729,
     17737, 17747, 17749, 17761, 17783, 17789, 17791, 17807, 17827, 17837, 17839,
     17851, 17863 ];
-
-#[cfg(test)]
-mod test;

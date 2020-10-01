@@ -1,7 +1,8 @@
 [workspace]
 
 members = [
-    "twoparty",
+    "cg_ecdsa_core",
+    "two_party",
 ]
 
 [patch.crates-io]

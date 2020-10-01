@@ -1,32 +1,11 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(dead_code)]
-
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-extern crate libc;
-#[macro_use]
-extern crate serde_derive;
-extern crate curv;
-extern crate serde;
-extern crate serde_json;
-use crate::curv::arithmetic::traits::Converter;
+use curv::arithmetic::traits::Converter;
 use curv::BigInt;
 use libc::c_char;
 use std::ffi::CStr;
 use std::ops::Neg;
 use std::str;
 
-pub mod protocols;
-#[derive(Copy, PartialEq, Eq, Clone, Debug)]
-pub enum Error {
-    InvalidKey,
-    InvalidSS,
-    InvalidCom,
-    InvalidSig,
-    Phase5BadSum,
-    Phase6Error,
-}
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct BinaryQF {
     pub a: BigInt,
