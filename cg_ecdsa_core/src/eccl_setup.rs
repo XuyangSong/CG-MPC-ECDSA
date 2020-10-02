@@ -141,7 +141,7 @@ impl CLGroup {
         }
     }
     pub fn setup_verify(&self, seed: &BigInt) -> Result<(), ErrorReason> {
-        unsafe { pari_init(100000000, 2) };
+        // unsafe { pari_init(100000000, 2) };
 
         let mut prime_forms_vec: Vec<BinaryQF> = Vec::new();
         let ln_delta_k = numerical_log(&(-&self.delta_k));
@@ -305,7 +305,7 @@ fn next_probable_small_prime(r: &BigInt) -> BigInt {
 }
 
 pub fn encrypt(group: &CLGroup, public_key: &PK, m: &FE) -> (Ciphertext, SK) {
-    unsafe { pari_init(10000000, 2) };
+    // unsafe { pari_init(10000000, 2) };
     let (r, R) = group.keygen();
     let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
     let h_exp_r = public_key.0.exp(&r.0);
@@ -325,7 +325,7 @@ pub fn encrypt_predefined_randomness(
     m: &FE,
     r: &SK,
 ) -> Ciphertext {
-    unsafe { pari_init(10000000, 2) };
+    // unsafe { pari_init(10000000, 2) };
     let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
     let h_exp_r = public_key.0.exp(&r.0);
 
@@ -375,7 +375,7 @@ impl CLDLProof {
         witness: (&FE, &SK, &FE),
         statement: (&PK, &ECCLcipher, &GE, &GE, &GE),
     ) -> Self {
-        unsafe { pari_init(10000000, 2) };
+        // unsafe { pari_init(10000000, 2) };
         // TBD: Construct new struct, use less copys.
         let (x, r1, r2) = witness;
         let (public_key, ciphertext, X, g, h) = statement;
@@ -442,7 +442,7 @@ impl CLDLProof {
         h: &GE,
         X: &GE,
     ) -> Result<(), ProofError> {
-        unsafe { pari_init(10000000, 2) };
+        // unsafe { pari_init(10000000, 2) };
         let mut flag = true;
 
         // reconstruct k
@@ -510,7 +510,7 @@ impl CLDLProof {
 }
 
 pub fn decrypt(group: &CLGroup, secret_key: &SK, c: &Ciphertext) -> FE {
-    unsafe { pari_init(10000000, 2) };
+    // unsafe { pari_init(10000000, 2) };
     let c1_x = c.c1.exp(&secret_key.0);
     let c1_x_inv = c1_x.inverse();
     let tmp = c.c2.compose(&c1_x_inv).reduce();
@@ -521,7 +521,7 @@ pub fn decrypt(group: &CLGroup, secret_key: &SK, c: &Ciphertext) -> FE {
 
 /// Multiplies the encrypted value by `val`.
 pub fn eval_scal(c: &Ciphertext, val: &BigInt) -> Ciphertext {
-    unsafe { pari_init(10000000, 2) };
+    // unsafe { pari_init(10000000, 2) };
     let c_new = Ciphertext {
         c1: c.c1.exp(&val),
         c2: c.c2.exp(&val),
@@ -531,7 +531,7 @@ pub fn eval_scal(c: &Ciphertext, val: &BigInt) -> Ciphertext {
 
 /// Homomorphically adds two ciphertexts so that the resulting ciphertext is the sum of the two input ciphertexts
 pub fn eval_sum(c1: &Ciphertext, c2: &Ciphertext) -> Ciphertext {
-    unsafe { pari_init(10000000, 2) };
+    // unsafe { pari_init(10000000, 2) };
     let c_new = Ciphertext {
         c1: c1.c1.compose(&c2.c1).reduce(),
         c2: c1.c2.compose(&c2.c2).reduce(),
