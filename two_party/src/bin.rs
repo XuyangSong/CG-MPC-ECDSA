@@ -92,7 +92,7 @@ fn main() {
     // Party two: compute partial signature
     let ephemeral_public_share_2 =
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
-    let last_msg = party_two_sign_new.sign(
+    let (last_msg, t_p) = party_two_sign_new.sign(
         &cl_group,
         &hsmcl_public,
         &ephemeral_public_share_2,
@@ -108,6 +108,8 @@ fn main() {
         &hsmcl_private,
         &last_msg,
         &ephemeral_public_share_1,
+        party_one_key_gen_init.keypair.get_secret_key(),
+        &t_p,
     );
 
     let sign_end = time::now();

@@ -90,11 +90,14 @@ impl SignPhase {
         hsmcl: &HSMCL,
         partial_sig_c3: &CLCiphertext,
         ephemeral_public_share: &GE,
+        secret_key: &FE,
+        t_p: &FE,
     ) -> Signature {
         let q = FE::q();
         let r_x: FE = ECScalar::from(&ephemeral_public_share.x_coor().unwrap().mod_floor(&q));
         let k1_inv = self.keypair.get_secret_key().invert();
-        let s_tag = decrypt(cl_group, &hsmcl.secret, &partial_sig_c3);
+        let x1_mul_tp = *secret_key * t_p;
+        let s_tag = decrypt(cl_group, &hsmcl.secret, &partial_sig_c3).sub(&x1_mul_tp.get_element());
         let s_tag_tag = k1_inv * s_tag;
         let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());
         Signature {

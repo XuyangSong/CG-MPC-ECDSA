@@ -319,6 +319,21 @@ pub fn encrypt(group: &CLGroup, public_key: &PK, m: &FE) -> (Ciphertext, SK) {
     )
 }
 
+pub fn encrypt_without_r(group: &CLGroup, m: &FE) -> (Ciphertext, SK) {
+    // unsafe { pari_init(10000000, 2) };
+    let r = SK::from(BigInt::from(0));
+    let R = group.pk_for_sk(&r);
+    let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
+
+    (
+        Ciphertext {
+            c1: R.0,
+            c2: exp_f,
+        },
+        r,
+    )
+}
+
 pub fn encrypt_predefined_randomness(
     group: &CLGroup,
     public_key: &PK,
