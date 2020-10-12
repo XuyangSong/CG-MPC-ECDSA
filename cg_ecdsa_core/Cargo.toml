@@ -1,0 +1,54 @@
+[package]
+name = "cg_ecdsa_core"
+version = "0.1.0"
+authors = ["hyq"]
+edition = "2018"
+links = "libpari"
+build = "build.rs"
+
+[build-dependencies]
+bindgen = "0.50"
+
+[lib]
+crate-type= ["lib"]
+
+[dependencies]
+libc = "0.2.0"
+subtle = { version = "2" }
+serde = { version = "1.0", features = ["derive"] }
+serde_derive="1.0"
+serde_json="1.0"
+zeroize = "0.10.1"
+time = "0.1"
+[dependencies.curv]
+git = "https://github.com/KZen-networks/curv"
+tag = "v0.2.6"
+features = ["ec_secp256k1"]
+
+[dependencies.centipede]
+git = "https://github.com/KZen-networks/centipede"
+tag = "v0.2.6"
+
+
+
+[dev-dependencies]
+criterion = "0.3"
+rust-crypto = "0.2"
+hex = "0.4"
+reqwest = { version = "0.9", default-features = false }
+uuid = { version = "0.8", features = ["v4"] }
+serde_json = "1.0"
+libsecp256k1 = "0.3.2"
+
+# [[bench]]
+# name = "keygen"
+# path = "benches/keygen.rs"
+# harness = false
+# [[bench]]
+# name = "sign"
+# path = "benches/sign.rs"
+# harness = false
+# [[bench]]
+# name = "setup"
+# path = "benches/setup.rs"
+# harness = false
