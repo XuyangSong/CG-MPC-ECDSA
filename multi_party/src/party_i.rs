@@ -57,7 +57,7 @@ impl KeyGen {
         &mut self,
         dl_com_zk_vec: &Vec<DLComZK>,
     ) -> Result<(), ProofError> {
-        // TBD: add size test
+        assert_eq!(dl_com_zk_vec.len(), self.params.share_count - 1);
 
         let mut signing_key = *self.private_signing_key.get_public_key();
         for element in dl_com_zk_vec.iter() {
@@ -70,21 +70,26 @@ impl KeyGen {
         Ok(())
     }
 
-    pub fn phase_four_generate_vss(&self) -> (VerifiableSS, Vec<FE>) {
-        VerifiableSS::share(
+    pub fn phase_four_generate_vss(&self) -> (VerifiableSS, Vec<FE>, usize) {
+        let (vss_scheme, secret_shares) = VerifiableSS::share(
             self.params.threshold as usize,
             self.params.share_count as usize,
             self.private_signing_key.get_secret_key(),
-        )
+        );
+
+        (vss_scheme, secret_shares, self.party_index)
     }
 
     pub fn phase_five_verify_vss_and_generate_pok_dlog(
         &mut self,
         q_vec: &Vec<GE>,
         secret_shares_vec: &Vec<FE>,
-        vss_scheme_vec: &Vec<&VerifiableSS>,
+        vss_scheme_vec: &Vec<VerifiableSS>,
     ) -> Result<DLogProof, ProofError> {
-        // TBD: add size test
+        assert_eq!(q_vec.len(), self.params.share_count);
+        assert_eq!(secret_shares_vec.len(), self.params.share_count);
+        assert_eq!(vss_scheme_vec.len(), self.params.share_count);
+
         for i in 0..q_vec.len() {
             if !(vss_scheme_vec[i]
                 .validate_share(&secret_shares_vec[i], self.party_index + 1)
@@ -96,8 +101,6 @@ impl KeyGen {
             }
         }
 
-        // let (head, tail) = q_vec.split_at(1);
-        // let y = tail.iter().fold(head[0], |acc, x| acc + x);
         let x_i = secret_shares_vec.iter().fold(FE::zero(), |acc, x| acc + x);
         let dlog_proof = DLogProof::prove(&x_i);
         self.share_private_key = x_i;
@@ -108,8 +111,8 @@ impl KeyGen {
         &self,
         dlog_proofs: &Vec<DLogProof>,
     ) -> Result<(), ProofError> {
-        // TBD: add size test
-        for i in 0..((self.params.share_count - 1) as usize) {
+        assert_eq!(dlog_proofs.len(), self.params.share_count);
+        for i in 0..self.params.share_count {
             DLogProof::verify(&dlog_proofs[i]).unwrap();
         }
 

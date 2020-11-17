@@ -1,76 +1,97 @@
 use crate::party_i::*;
 use cg_ecdsa_core::{CLGroup, DLComZK, Signature};
-use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof};
+// use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE};
 
-fn keygen_t_n_parties(params: &Parameters) -> (Vec<KeyGen>, VerifiableSS) {
-    let seed: BigInt = str::parse(
-        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-    ).unwrap();
-    let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
+fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> (Vec<KeyGen>, VerifiableSS) {
+    let n = params.share_count;
+    let t = params.threshold;
 
     // Key Gen Phase 1
-    let key_gen_vec = (0..params.share_count)
-        .map(|i| KeyGen::phase_one_init(&group, i, params.clone()))
+    let mut key_gen_vec = (0..n)
+        .map(|i| KeyGen::phase_one_init(group, i, params.clone()))
         .collect::<Vec<KeyGen>>();
-    let mut my_key_gen = key_gen_vec[0].clone();
 
     // Key Gen Phase 2
     let dl_com_zk_vec = key_gen_vec
         .iter()
         .map(|key_gen| key_gen.phase_two_generate_dl_com_zk())
         .collect::<Vec<_>>();
-    // let my_dl_com_zk = dl_com_zk_vec[0].clone();
+
     let q_vec = dl_com_zk_vec
         .iter()
-        .skip(1)
         .map(|k| k.get_public_share())
         .collect::<Vec<_>>();
 
     // Key Gen Phase 3
     let (_, received_dl_com_zk) = dl_com_zk_vec.split_at(1);
-    my_key_gen
+    key_gen_vec[0]
         .phase_three_verify_dl_com_zk_and_generate_signing_key(&received_dl_com_zk.to_vec())
         .unwrap();
 
+    // Assign public_signing_key
+    for i in 1..params.share_count {
+        key_gen_vec[i].public_signing_key = key_gen_vec[0].public_signing_key;
+    }
+
     // Key Gen Phase 4
-    let vss_vec = key_gen_vec
+    let vss_result = key_gen_vec
         .iter()
-        .skip(1)
         .map(|k| k.phase_four_generate_vss())
         .collect::<Vec<_>>();
-    let received_vss_vec = vss_vec.iter().map(|k| &k.0).collect::<Vec<_>>();
-    let received_secret_shares_vec = vss_vec.iter().map(|k| k.1[0]).collect::<Vec<_>>();
+
+    let mut vss_scheme_vec = Vec::new();
+    let mut secret_shares_vec = Vec::new();
+    let mut index_vec = Vec::new();
+    for (vss_scheme, secret_shares, index) in vss_result {
+        vss_scheme_vec.push(vss_scheme);
+        secret_shares_vec.push(secret_shares);
+        index_vec.push(index);
+    }
+
+    let party_shares = (0..n)
+        .map(|i| {
+            (0..n)
+                .map(|j| {
+                    let vec_j = &secret_shares_vec[j];
+                    vec_j[i]
+                })
+                .collect::<Vec<FE>>()
+        })
+        .collect::<Vec<Vec<FE>>>();
 
     // Key Gen Phase 5
-    let dl_log_proof = my_key_gen
-        .phase_five_verify_vss_and_generate_pok_dlog(
-            &q_vec,
-            &received_secret_shares_vec,
-            &received_vss_vec,
-        )
-        .unwrap();
+    let mut dlog_proof_vec = Vec::new();
+    for i in 0..n {
+        let dlog_proof = key_gen_vec[i]
+            .phase_five_verify_vss_and_generate_pok_dlog(&q_vec, &party_shares[i], &vss_scheme_vec)
+            .expect("invalid vss");
+        // shared_keys_vec.push(shared_keys);
+        dlog_proof_vec.push(dlog_proof);
+    }
 
     // Key Gen Phase 6
-    let dlog_proofs: Vec<DLogProof> = vec![dl_log_proof.clone(); params.share_count - 1];
-    my_key_gen
-        .phase_six_verify_dlog_proof(&dlog_proofs)
+    key_gen_vec[0]
+        .phase_six_verify_dlog_proof(&dlog_proof_vec)
         .unwrap();
 
     // test vss
+    let xi_vec = (0..=t)
+        .map(|i| key_gen_vec[i].share_private_key)
+        .collect::<Vec<FE>>();
+    let x = vss_scheme_vec[0]
+        .clone()
+        .reconstruct(&index_vec[0..=t], &xi_vec);
+    let sum_u_i = key_gen_vec.iter().fold(FE::zero(), |acc, x| acc + x.private_signing_key.get_secret_key());
 
+    assert_eq!(x, sum_u_i);
 
-    (key_gen_vec, vss_vec[0].0.clone())
+    (key_gen_vec, vss_scheme_vec[0].clone())
 }
 
-fn test_sign(params: &Parameters, key_gen_vec: &Vec<KeyGen>, vss_scheme: &VerifiableSS) {
-    let seed: BigInt = str::parse(
-        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-    ).unwrap();
-    let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
-
+fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>, vss_scheme: &VerifiableSS) {
     // Sign Init
     let party_num = key_gen_vec.len();
     let t = params.threshold as usize;
@@ -98,7 +119,7 @@ fn test_sign(params: &Parameters, key_gen_vec: &Vec<KeyGen>, vss_scheme: &Verifi
     let phase_one_result_vec = (0..party_num)
         .map(|i| {
             SignPhase::phase_one_generate_promise_sigma_and_com(
-                &group,
+                group,
                 &key_gen_vec[i].cl_keypair,
                 &key_gen_vec[i].ec_keypair,
             )
@@ -111,7 +132,7 @@ fn test_sign(params: &Parameters, key_gen_vec: &Vec<KeyGen>, vss_scheme: &Verifi
     let phase_two_result_vec = (0..party_num)
         .map(|i| {
             sign_vec[i].phase_two_generate_homo_cipher(
-                &group,
+                group,
                 &phase_one_result_vec[i].2,
                 &sign_vec[i].omega,
                 &phase_one_msg_vec,
@@ -133,7 +154,7 @@ fn test_sign(params: &Parameters, key_gen_vec: &Vec<KeyGen>, vss_scheme: &Verifi
             })
             .collect::<Vec<_>>();
         let msg = SignPhase::phase_two_decrypt_and_verify(
-            &group,
+            group,
             key_gen_vec[index].cl_keypair.get_secret_key(),
             &phase_one_result_vec[index].1,
             &phase_one_result_vec[index].2,
@@ -233,15 +254,19 @@ fn test_sign(params: &Parameters, key_gen_vec: &Vec<KeyGen>, vss_scheme: &Verifi
 
 #[test]
 fn test_key_gen() {
+    let seed: BigInt = str::parse(
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
+    ).unwrap();
+    let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
     let params = Parameters {
-        threshold: 5,
-        share_count: 10,
+        threshold: 2,
+        share_count: 4,
     };
 
-    let (key_gen_vec, vss_scheme) = keygen_t_n_parties(&params);
+    let (_key_gen_vec, _vss_scheme) = keygen_t_n_parties(&group, &params);
 
-    test_sign(&params, &key_gen_vec, &vss_scheme);
+    // test_sign(&group, &params, &key_gen_vec, &vss_scheme);
 }
 
 // #[test]
