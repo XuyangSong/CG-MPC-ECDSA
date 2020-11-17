@@ -1,17 +1,15 @@
+use cg_ecdsa_core::dl_com_zk::*;
+use cg_ecdsa_core::eccl_setup::{eval_scal, eval_sum, CLGroup, Ciphertext as CLCiphertext};
+use cg_ecdsa_core::eckeypair::EcKeyPair;
+use cg_ecdsa_core::hsmcl::HSMCLPublic;
+use curv::arithmetic::traits::Samplable;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::cryptographic_primitives::proofs::ProofError;
 use curv::elliptic::curves::traits::*;
-use cg_ecdsa_core::dl_com_zk::*;
-use cg_ecdsa_core::eccl_setup::{
-    encrypt_without_r, eval_scal, eval_sum, CLGroup, Ciphertext as CLCiphertext,
-};
-use cg_ecdsa_core::eckeypair::EcKeyPair;
-use cg_ecdsa_core::hsmcl::HSMCLPublic;
+use curv::BigInt;
 use curv::FE;
 use curv::GE;
 use serde::{Deserialize, Serialize};
-use curv::BigInt;
-use curv::arithmetic::traits::Samplable;
 
 //****************** Begin: Party Two structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -108,7 +106,7 @@ impl SignPhase {
         let k2_inv = self.keypair.get_secret_key().invert();
         let k2_inv_m = k2_inv * message;
 
-        let c1 = encrypt_without_r(cl_group, &k2_inv_m);
+        let c1 = CLCiphertext::encrypt_without_r(cl_group, &k2_inv_m);
         let v = k2_inv * r_x * secret_key;
         let t = BigInt::sample_below(&(&cl_group.stilde * BigInt::from(2).pow(40) * &q));
         let t_p = ECScalar::from(&t.mod_floor(&q));
@@ -118,7 +116,7 @@ impl SignPhase {
             c2: hsmcl_public.encrypted_share.c2.clone(),
         };
         let c2 = eval_scal(&clcipher, &t_plus);
-        
+
         (eval_sum(&c1.0, &c2), t_p)
     }
 }
