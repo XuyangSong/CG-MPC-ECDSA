@@ -3,6 +3,7 @@
 members = [
     "cg_ecdsa_core",
     "two_party",
+    "multi_party",
 ]
 
 [patch.crates-io]
