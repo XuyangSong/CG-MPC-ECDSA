@@ -1,9 +1,8 @@
 use crate::party_i::*;
 use cg_ecdsa_core::{CLGroup, DLComZK, Signature};
-// use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE};
+use curv::{BigInt, FE, GE};
 
 fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> (Vec<KeyGen>, VerifiableSS) {
     let n = params.share_count;
@@ -68,7 +67,6 @@ fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> (Vec<KeyGen>, Ver
         let dlog_proof = key_gen_vec[i]
             .phase_five_verify_vss_and_generate_pok_dlog(&q_vec, &party_shares[i], &vss_scheme_vec)
             .expect("invalid vss");
-        // shared_keys_vec.push(shared_keys);
         dlog_proof_vec.push(dlog_proof);
     }
 
@@ -84,17 +82,24 @@ fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> (Vec<KeyGen>, Ver
     let x = vss_scheme_vec[0]
         .clone()
         .reconstruct(&index_vec[0..=t], &xi_vec);
-    let sum_u_i = key_gen_vec.iter().fold(FE::zero(), |acc, x| acc + x.private_signing_key.get_secret_key());
+    let sum_u_i = key_gen_vec.iter().fold(FE::zero(), |acc, x| {
+        acc + x.private_signing_key.get_secret_key()
+    });
 
     assert_eq!(x, sum_u_i);
 
     (key_gen_vec, vss_scheme_vec[0].clone())
 }
 
-fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>, vss_scheme: &VerifiableSS) {
+fn test_sign(
+    group: &CLGroup,
+    params: &Parameters,
+    key_gen_vec: &Vec<KeyGen>,
+    vss_scheme: &VerifiableSS,
+) {
     // Sign Init
     let party_num = key_gen_vec.len();
-    let t = params.threshold as usize;
+    let t = params.threshold;
     assert!(party_num > t);
 
     let subset = (0..party_num)
@@ -109,11 +114,14 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>, vs
                 vss_scheme,
                 &subset,
                 &key_gen_vec[i].share_private_key,
+                party_num,
             )
             .unwrap()
         })
         .collect::<Vec<_>>();
-    // let my_sign = sign_vec[0].clone();
+
+    let base: GE = ECPoint::generator();
+    let omega_big_vec = sign_vec.iter().map(|k| base * k.omega).collect::<Vec<_>>();
 
     // Sign phase 1
     let phase_one_result_vec = (0..party_num)
@@ -128,6 +136,7 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>, vs
     let phase_one_msg_vec = (0..party_num)
         .map(|i| phase_one_result_vec[i].0.clone())
         .collect::<Vec<_>>();
+
     // Sign phase 2
     let phase_two_result_vec = (0..party_num)
         .map(|i| {
@@ -139,6 +148,7 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>, vs
             )
         })
         .collect::<Vec<_>>();
+
     let mut phase_three_msg_vec: Vec<SignPhaseThreeMsg> = Vec::with_capacity(party_num);
     let mut sigma_vec: Vec<FE> = Vec::with_capacity(party_num);
     for index in 0..party_num {
@@ -153,21 +163,43 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>, vs
                 }
             })
             .collect::<Vec<_>>();
-        let msg = SignPhase::phase_two_decrypt_and_verify(
+
+        let mut phase_two_random = phase_two_result_vec[index].1.clone();
+        phase_two_random.remove(index);
+
+        let mut omega_vec = omega_big_vec.clone();
+        omega_vec.remove(index);
+
+        let msg = sign_vec[index].phase_two_decrypt_and_verify(
             group,
             key_gen_vec[index].cl_keypair.get_secret_key(),
             &phase_one_result_vec[index].1,
             &phase_one_result_vec[index].2,
             &sign_vec[index].omega,
-            &phase_two_result_vec[index].1,
+            &phase_two_random,
             &phase_two_msg_vec,
+            &omega_vec,
         );
         phase_three_msg_vec.push(msg.0);
         sigma_vec.push(msg.1);
     }
 
     // Sign phase 3
-    let delta_sum = SignPhase::phase_two_compute_delta_sum(&phase_three_msg_vec);
+    let delta_sum = sign_vec[0].phase_two_compute_delta_sum(&phase_three_msg_vec);
+
+    // For test
+    {
+        let sum_k = phase_one_result_vec
+            .iter()
+            .fold(FE::zero(), |acc, x| acc + x.1);
+        let sum_gamma = phase_one_result_vec
+            .iter()
+            .fold(FE::zero(), |acc, x| acc + x.2);
+        let sum_omega = sign_vec.iter().fold(FE::zero(), |acc, x| acc + x.omega);
+        let sum_sigma = sigma_vec.iter().fold(FE::zero(), |acc, x| acc + x);
+        assert_eq!(delta_sum, sum_k * sum_gamma);
+        assert_eq!(sum_sigma, sum_k * sum_omega);
+    }
 
     // Sign phase 4
     let message: FE = ECScalar::new_random();
@@ -177,24 +209,10 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>, vs
             witness: phase_one_result_vec[i].3.witness.clone(),
         })
         .collect::<Vec<_>>();
-    // let phase_four_result_vec = (0..party_num)
-    //     .map(|i| SignPhase::phase_four_verify_dl_com_zk(&delta_sum, &dl_com_zk_vec).unwrap())
-    //     .collect::<Vec<_>>();
-    let phase_four_result =
-        SignPhase::phase_four_verify_dl_com_zk(&delta_sum, &dl_com_zk_vec).unwrap();
 
-    // Sign phase 5
-    // let phase_five_step_one_result_vec = (0..party_num)
-    //     .map(|i| {
-    //         SignPhase::phase_five_step_onetwo_generate_com_and_zk(
-    //             &message,
-    //             &phase_one_result_vec[i].1,
-    //             &sigma_vec[i],
-    //             &phase_four_result.0,
-    //             &phase_four_result.1,
-    //         )
-    //     })
-    //     .collect::<Vec<_>>();
+    let phase_four_result = sign_vec[0]
+        .phase_four_verify_dl_com_zk(&delta_sum, &dl_com_zk_vec)
+        .unwrap();
 
     let mut phase_five_step_one_msg_vec: Vec<SignPhaseFiveStepOneMsg> =
         Vec::with_capacity(party_num);
@@ -224,7 +242,7 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>, vs
     for i in 0..party_num {
         let ret = SignPhase::phase_five_step_three_verify_com_and_zk(
             &message,
-            &key_gen_vec[i].public_signing_key,
+            &key_gen_vec[0].public_signing_key,
             &phase_four_result.0,
             &phase_four_result.1,
             &phase_five_rho_and_l[i].0,
@@ -261,26 +279,10 @@ fn test_key_gen() {
 
     let params = Parameters {
         threshold: 2,
-        share_count: 4,
+        share_count: 3,
     };
 
-    let (_key_gen_vec, _vss_scheme) = keygen_t_n_parties(&group, &params);
+    let (key_gen_vec, vss_scheme) = keygen_t_n_parties(&group, &params);
 
-    // test_sign(&group, &params, &key_gen_vec, &vss_scheme);
+    test_sign(&group, &params, &key_gen_vec, &vss_scheme);
 }
-
-// #[test]
-// fn test_index() {
-//     // for i in 0..=2 {
-//     //     println!("1");
-//     // }
-
-//     let list = vec![1, 2, 3];
-//     // let ret = list.iter().enumerate().filter(|&(i, _)| i != 1);//.map(|(_, v)| v).collect::<Vec<_>>();
-//     let ret = list
-//         .iter()
-//         .enumerate()
-//         .filter_map(|(i, e)| if i != 1 { Some(e) } else { None })
-//         .collect::<Vec<_>>();
-//     println!("{:?}", ret);
-// }

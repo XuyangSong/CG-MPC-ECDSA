@@ -125,7 +125,7 @@ pub struct SignPhase {
     pub party_index: usize,
     pub params: Parameters,
     pub omega: FE,
-    // pub party_num: u16,
+    pub party_num: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -194,11 +194,8 @@ impl SignPhase {
         vss_scheme: &VerifiableSS,
         subset: &[usize],
         x: &FE,
-        // party_num: u16,
+        party_num: usize,
     ) -> Result<Self, ProofError> {
-        // if party_num > params.share_count || party_num <= params.threshold {
-        //     return Err(ProofError);
-        // }
         let lamda = vss_scheme.map_share_to_new_params(party_index, subset);
         let omega = lamda * x;
 
@@ -206,7 +203,7 @@ impl SignPhase {
             party_index,
             params,
             omega,
-            // party_num,
+            party_num,
         })
     }
 
@@ -238,6 +235,7 @@ impl SignPhase {
 
         // Generate commitment
         let gamma_pair = EcKeyPair::new();
+        // TBD: remove POK
         let dl_com_zk = DLComZK::new(&gamma_pair);
         // let commitment_blind_factor = BigInt::sample(SECURITY_BITS);
         // let commitment = HashCommitment::create_commitment_with_user_defined_randomness(
@@ -268,8 +266,10 @@ impl SignPhase {
         omega: &FE,
         sign_phase_one_msg_vec: &Vec<SignPhaseOneMsg>,
     ) -> (Vec<SignPhaseTwoMsg>, Vec<(FE, FE)>) {
+        assert_eq!(sign_phase_one_msg_vec.len(), self.party_num);
         let mut msgs: Vec<SignPhaseTwoMsg> = Vec::new();
         let mut randoms: Vec<(FE, FE)> = Vec::new();
+        let zero = FE::zero();
         for msg in sign_phase_one_msg_vec.iter() {
             // Verify promise proof
             msg.proof.verify(group, &msg.promise_state).unwrap();
@@ -290,7 +290,8 @@ impl SignPhase {
                 let rho_plus_t = gamma.to_big_int() + t;
 
                 // Handle CL cipher.
-                let (r_cipher, _r_blind) = CLCipher::encrypt_without_r(&group, &beta.invert());
+                let (r_cipher, _r_blind) =
+                    CLCipher::encrypt_without_r(&group, &zero.sub(&beta.get_element()));
                 let c11 = cipher.c1.exp(&rho_plus_t);
                 let c21 = cipher.c2.exp(&rho_plus_t);
                 let c1 = c11.compose(&r_cipher.c1).reduce();
@@ -303,18 +304,19 @@ impl SignPhase {
                 // Generate random.
                 let t = BigInt::sample_below(&(&group.stilde * BigInt::from(2).pow(40) * &FE::q()));
                 t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
-                let rho_plus_t = omega.to_big_int() + t;
+                let omega_plus_t = omega.to_big_int() + t;
 
                 // Handle CL cipher.
-                let (r_cipher, _r_blind) = CLCipher::encrypt_without_r(&group, &v.invert());
-                let c11 = cipher.c1.exp(&rho_plus_t);
-                let c21 = cipher.c2.exp(&rho_plus_t);
+                let (r_cipher, _r_blind) =
+                    CLCipher::encrypt_without_r(&group, &zero.sub(&v.get_element()));
+                let c11 = cipher.c1.exp(&omega_plus_t);
+                let c21 = cipher.c2.exp(&omega_plus_t);
                 let c1 = c11.compose(&r_cipher.c1).reduce();
                 let c2 = c21.compose(&r_cipher.c2).reduce();
                 homocipher_plus = CLCipher { c1, c2 };
 
                 let base: GE = ECPoint::generator();
-                b = base.scalar_mul(&v.get_element());
+                b = base * v;
             }
 
             let msg = SignPhaseTwoMsg {
@@ -333,6 +335,7 @@ impl SignPhase {
     }
 
     pub fn phase_two_decrypt_and_verify(
+        &self,
         group: &CLGroup,
         sk: &CLSK,
         k: &FE,
@@ -340,7 +343,11 @@ impl SignPhase {
         omega: &FE,
         random_vec: &Vec<(FE, FE)>,
         msg_vec: &Vec<SignPhaseTwoMsg>,
+        omega_big_vec: &Vec<GE>,
     ) -> (SignPhaseThreeMsg, FE) {
+        assert_eq!(msg_vec.len(), self.party_num - 1);
+        assert_eq!(random_vec.len(), self.party_num - 1);
+        assert_eq!(omega_big_vec.len(), self.party_num - 1);
         let mut delta = (*k) * (*gamma);
         let mut sigma = (*k) * (*omega);
         for i in 0..msg_vec.len() {
@@ -356,32 +363,29 @@ impl SignPhase {
                 .sub(&k_mul_t_plus.get_element());
             sigma = sigma + miu + random_vec[i].1;
 
-            // TBD: Check kW = uP + B
-            // let base: GE = ECPoint::generator();
+            // Check kW = uP + B
+            let k_omega = omega_big_vec[i] * k;
+            let base: GE = ECPoint::generator();
+            let up_plus_b = base * miu + msg_vec[i].b;
+            assert_eq!(k_omega, up_plus_b);
         }
 
         (SignPhaseThreeMsg { delta }, sigma)
     }
 
-    pub fn phase_two_compute_delta_sum(delta_vec: &Vec<SignPhaseThreeMsg>) -> FE {
-        // TBD: use acc
-        let mut delta_sum = delta_vec[0].delta;
-        for i in delta_vec.iter().skip(1) {
-            delta_sum = delta_sum + i.delta;
-        }
-
-        delta_sum
+    pub fn phase_two_compute_delta_sum(&self, delta_vec: &Vec<SignPhaseThreeMsg>) -> FE {
+        assert_eq!(delta_vec.len(), self.party_num);
+        delta_vec.iter().fold(FE::zero(), |acc, x| acc + x.delta)
     }
 
     pub fn phase_four_verify_dl_com_zk(
-        // gamma_i: &GE,
+        &self,
         delta: &FE,
         dl_com_zk_vec: &Vec<DLComZK>,
     ) -> Result<(FE, GE), ProofError> {
-        // TBD: fix it
+        assert_eq!(dl_com_zk_vec.len(), self.party_num);
         for dl_com_zk in dl_com_zk_vec.iter() {
             dl_com_zk.verify_commitments_and_dlog_proof()?;
-            // r = r + dl_com_zk.witness.public_share;
         }
 
         let (head, tail) = dl_com_zk_vec.split_at(1);
@@ -508,10 +512,6 @@ impl SignPhase {
         let v_big = v_sum
             .sub_point(&mp.get_element())
             .sub_point(&rq.get_element());
-        // let mut v_sum = (*v_i)
-        //     .sub_point(&mp.get_element())
-        //     .sub_point(&rq.get_element());
-        // let mut a_sum = *a_i;
 
         let u_i = v_big * rho_i;
         let t_i = a_sum * l_i;
@@ -545,11 +545,11 @@ impl SignPhase {
             .all(|x| x);
 
         let t_vec = (0..msgs_step_four.len())
-            .map(|i| &msgs_step_five[i].t_i)
-            .collect::<Vec<&GE>>();
+            .map(|i| msgs_step_five[i].t_i)
+            .collect::<Vec<GE>>();
         let u_vec = (0..msgs_step_four.len())
-            .map(|i| &msgs_step_five[i].u_i)
-            .collect::<Vec<&GE>>();
+            .map(|i| msgs_step_five[i].u_i)
+            .collect::<Vec<GE>>();
 
         let base: GE = ECPoint::generator();
         let biased_sum_ti = t_vec.iter().fold(base, |acc, x| acc + *x);
@@ -565,7 +565,6 @@ impl SignPhase {
     }
 
     pub fn phase_five_step_eight_generate_signature(
-        // s_i: &FE,
         msgs_step_seven: &Vec<SignPhaseFiveStepSevenMsg>,
         r_x: &FE,
     ) -> Signature {
