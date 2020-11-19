@@ -141,12 +141,7 @@ fn test_sign(
 
     // Sign phase 2
     let phase_two_result_vec = (0..party_num)
-        .map(|i| {
-            sign_vec[i].phase_two_generate_homo_cipher(
-                group,
-                &phase_one_msg_vec,
-            )
-        })
+        .map(|i| sign_vec[i].phase_two_generate_homo_cipher(group, &phase_one_msg_vec))
         .collect::<Vec<_>>();
 
     let mut phase_three_msg_vec: Vec<SignPhaseThreeMsg> = Vec::with_capacity(party_num);
@@ -182,7 +177,9 @@ fn test_sign(
     }
 
     // Sign phase 3
-    sign_vec[0].phase_two_compute_delta_sum(&phase_three_msg_vec);
+    for i in 0..sign_vec.len() {
+        sign_vec[i].phase_two_compute_delta_sum(&phase_three_msg_vec);
+    }
 
     // Sign phase 4
     let message: FE = ECScalar::new_random();
@@ -190,9 +187,11 @@ fn test_sign(
         .map(|i| phase_one_result_vec[i].1.clone())
         .collect::<Vec<_>>();
 
-    let phase_four_result = sign_vec[0]
-        .phase_four_verify_dl_com(&phase_one_msg_vec, &phase_four_msg_vec)
-        .unwrap();
+    for i in 0..sign_vec.len() {
+        sign_vec[i]
+            .phase_four_verify_dl_com(&phase_one_msg_vec, &phase_four_msg_vec)
+            .unwrap();
+    }
 
     let mut phase_five_step_one_msg_vec: Vec<SignPhaseFiveStepOneMsg> =
         Vec::with_capacity(party_num);
@@ -202,12 +201,7 @@ fn test_sign(
         Vec::with_capacity(party_num);
     let mut phase_five_rho_and_l: Vec<(FE, FE)> = Vec::with_capacity(party_num);
     for i in 0..party_num {
-        let ret = sign_vec[i].phase_five_step_onetwo_generate_com_and_zk(
-            &message,
-            &sigma_vec[i],
-            &phase_four_result.0,
-            &phase_four_result.1,
-        );
+        let ret = sign_vec[i].phase_five_step_onetwo_generate_com_and_zk(&message, &sigma_vec[i]);
         phase_five_step_one_msg_vec.push(ret.0);
         phase_five_step_two_msg_vec.push(ret.1);
         phase_five_step_seven_msg_vec.push(ret.2);
@@ -219,17 +213,16 @@ fn test_sign(
     let mut phase_five_step_five_msg_vec: Vec<SignPhaseFiveStepFiveMsg> =
         Vec::with_capacity(party_num);
     for i in 0..party_num {
-        let ret = SignPhase::phase_five_step_three_verify_com_and_zk(
-            &message,
-            &key_gen_vec[0].public_signing_key,
-            &phase_four_result.0,
-            &phase_four_result.1,
-            &phase_five_rho_and_l[i].0,
-            &phase_five_rho_and_l[i].1,
-            &phase_five_step_one_msg_vec,
-            &phase_five_step_two_msg_vec,
-        )
-        .unwrap();
+        let ret = sign_vec[i]
+            .phase_five_step_three_verify_com_and_zk(
+                &message,
+                &key_gen_vec[0].public_signing_key,
+                &phase_five_rho_and_l[i].0,
+                &phase_five_rho_and_l[i].1,
+                &phase_five_step_one_msg_vec,
+                &phase_five_step_two_msg_vec,
+            )
+            .unwrap();
         phase_five_step_four_msg_vec.push(ret.0);
         phase_five_step_five_msg_vec.push(ret.1);
     }
@@ -240,9 +233,8 @@ fn test_sign(
     )
     .unwrap();
 
-    let sig = SignPhase::phase_five_step_eight_generate_signature(
+    let sig = sign_vec[0].phase_five_step_eight_generate_signature(
         &phase_five_step_seven_msg_vec,
-        &phase_four_result.0,
     );
 
     // Verify Signature

@@ -40,6 +40,8 @@ pub struct SignPhase {
     pub k: FE,
     pub gamma: FE,
     pub delta_sum: FE,
+    pub r_x: FE,
+    pub r_point: GE,
 }
 
 #[derive(Clone, Debug)]
@@ -206,9 +208,11 @@ impl SignPhase {
             params,
             omega,
             party_num,
-            k: FE::zero(),  // Init k, generate later.
-            gamma: FE::zero(), // Init gamma, generate later.
-            delta_sum: FE::zero(), // Init delta_sum, compute later.
+            k: FE::zero(),            // Init k, generate later.
+            gamma: FE::zero(),        // Init gamma, generate later.
+            delta_sum: FE::zero(),    // Init delta_sum, compute later.
+            r_x: FE::zero(),          // Init r_x, compute later.
+            r_point: GE::generator(), // Init r_point, compute later.
         })
     }
 
@@ -369,12 +373,11 @@ impl SignPhase {
         self.delta_sum = delta_vec.iter().fold(FE::zero(), |acc, x| acc + x.delta);
     }
 
-    // TBD: put r and r_x in self.
     pub fn phase_four_verify_dl_com(
-        &self,
+        &mut self,
         dl_com_vec: &Vec<SignPhaseOneMsg>,
         dl_open_vec: &Vec<SignPhaseFourMsg>,
-    ) -> Result<(FE, GE), ProofError> {
+    ) -> Result<(), ProofError> {
         assert_eq!(dl_com_vec.len(), self.party_num);
         assert_eq!(dl_open_vec.len(), self.party_num);
         for i in 0..dl_com_vec.len() {
@@ -382,21 +385,19 @@ impl SignPhase {
         }
 
         let (head, tail) = dl_open_vec.split_at(1);
-        let mut r = tail.iter().fold(head[0].open.public_share, |acc, x| {
+        let r = tail.iter().fold(head[0].open.public_share, |acc, x| {
             acc + x.open.public_share
         });
 
-        r = r * self.delta_sum.invert();
-        let r_x: FE = ECScalar::from(&r.x_coor().unwrap().mod_floor(&FE::q()));
-        Ok((r_x, r))
+        self.r_point = r * self.delta_sum.invert();
+        self.r_x = ECScalar::from(&self.r_point.x_coor().unwrap().mod_floor(&FE::q()));
+        Ok(())
     }
 
     pub fn phase_five_step_onetwo_generate_com_and_zk(
         &self,
         message: &FE,
         sigma: &FE,
-        r_x: &FE,
-        r: &GE,
     ) -> (
         SignPhaseFiveStepOneMsg,
         SignPhaseFiveStepTwoMsg,
@@ -404,13 +405,13 @@ impl SignPhase {
         FE,
         FE,
     ) {
-        let s_i = (*message) * self.k + (*sigma) * r_x;
+        let s_i = (*message) * self.k + (*sigma) * self.r_x;
         let l_i: FE = ECScalar::new_random();
         let rho_i: FE = ECScalar::new_random();
         let l_i_rho_i = l_i * rho_i;
 
         let base: GE = ECPoint::generator();
-        let v_i = r * &s_i + base * l_i;
+        let v_i = self.r_point * &s_i + base * l_i;
         let a_i = base * rho_i;
         let b_i = base * l_i_rho_i;
 
@@ -424,7 +425,7 @@ impl SignPhase {
         let witness = HomoElGamalWitness { r: l_i, x: s_i };
         let delta = HomoElGamalStatement {
             G: a_i,
-            H: *r,
+            H: self.r_point,
             Y: base,
             D: v_i,
             E: b_i,
@@ -447,10 +448,9 @@ impl SignPhase {
     }
 
     pub fn phase_five_step_three_verify_com_and_zk(
+        &self,
         message: &FE,
         q: &GE,
-        r_x: &FE,
-        r: &GE,
         rho_i: &FE,
         l_i: &FE,
         msgs_step_one: &Vec<SignPhaseFiveStepOneMsg>,
@@ -482,7 +482,7 @@ impl SignPhase {
             // Verify zk proof
             let delta = HomoElGamalStatement {
                 G: msgs_step_two[i].a_i,
-                H: *r,
+                H: self.r_point,
                 Y: base,
                 D: msgs_step_two[i].v_i,
                 E: msgs_step_two[i].b_i,
@@ -497,7 +497,7 @@ impl SignPhase {
         let v_sum = tail.iter().fold(head[0].v_i, |acc, x| acc + x.v_i);
         let a_sum = tail.iter().fold(head[0].a_i, |acc, x| acc + x.a_i);
         let mp = base * message;
-        let rq = q * r_x;
+        let rq = q * &self.r_x;
         let v_big = v_sum
             .sub_point(&mp.get_element())
             .sub_point(&rq.get_element());
@@ -554,8 +554,8 @@ impl SignPhase {
     }
 
     pub fn phase_five_step_eight_generate_signature(
+        &self,
         msgs_step_seven: &Vec<SignPhaseFiveStepSevenMsg>,
-        r_x: &FE,
     ) -> Signature {
         let mut s = msgs_step_seven
             .iter()
@@ -566,6 +566,6 @@ impl SignPhase {
             s = ECScalar::from(&s_tag_bn);
         }
 
-        Signature { s, r: *r_x }
+        Signature { s, r: self.r_x }
     }
 }
