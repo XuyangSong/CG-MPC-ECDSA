@@ -367,21 +367,22 @@ impl SignPhase {
         delta_vec.iter().fold(FE::zero(), |acc, x| acc + x.delta)
     }
 
-    // TBD: seperate commitment and open
     // TBD: put r and r_x in self.
     pub fn phase_four_verify_dl_com(
         &self,
         delta: &FE,
-        dl_com_vec: &Vec<DlogCommitment>,
+        dl_com_vec: &Vec<SignPhaseOneMsg>,
+        dl_open_vec: &Vec<SignPhaseFourMsg>,
     ) -> Result<(FE, GE), ProofError> {
         assert_eq!(dl_com_vec.len(), self.party_num);
-        for dl_com in dl_com_vec.iter() {
-            dl_com.verify()?;
+        assert_eq!(dl_open_vec.len(), self.party_num);
+        for i in 0..dl_com_vec.len() {
+            DlogCommitment::verify_dlog(&dl_com_vec[i].commitment, &dl_open_vec[i].open)?;
         }
 
-        let (head, tail) = dl_com_vec.split_at(1);
-        let mut r = tail.iter().fold(head[0].get_public_share(), |acc, x| {
-            acc + x.get_public_share()
+        let (head, tail) = dl_open_vec.split_at(1);
+        let mut r = tail.iter().fold(head[0].open.public_share, |acc, x| {
+            acc + x.open.public_share
         });
 
         r = r * delta.invert();

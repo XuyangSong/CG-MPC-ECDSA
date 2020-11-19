@@ -1,5 +1,5 @@
 use crate::party_i::*;
-use cg_ecdsa_core::{CLGroup, DlogCommitment, Signature};
+use cg_ecdsa_core::{CLGroup, Signature};
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE, GE};
@@ -189,15 +189,15 @@ fn test_sign(
     let phase_four_msg_vec = (0..party_num)
         .map(|i| phase_one_result_vec[i].1.clone())
         .collect::<Vec<_>>();
-    let dl_com_vec = (0..party_num)
-        .map(|i| DlogCommitment {
-            commitment: phase_one_msg_vec[i].commitment.clone(),
-            open: phase_four_msg_vec[i].open.clone(),
-        })
-        .collect::<Vec<_>>();
+    // let dl_com_vec = (0..party_num)
+    //     .map(|i| DlogCommitment {
+    //         commitment: phase_one_msg_vec[i].commitment.clone(),
+    //         open: phase_four_msg_vec[i].open.clone(),
+    //     })
+    //     .collect::<Vec<_>>();
 
     let phase_four_result = sign_vec[0]
-        .phase_four_verify_dl_com(&delta_sum, &dl_com_vec)
+        .phase_four_verify_dl_com(&delta_sum, &phase_one_msg_vec, &phase_four_msg_vec)
         .unwrap();
 
     let mut phase_five_step_one_msg_vec: Vec<SignPhaseFiveStepOneMsg> =
