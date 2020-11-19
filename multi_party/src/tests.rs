@@ -1,5 +1,5 @@
 use crate::party_i::*;
-use cg_ecdsa_core::{CLGroup, DLComZK, Signature};
+use cg_ecdsa_core::{CLGroup, DlogCommitment, Signature};
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE, GE};
@@ -14,20 +14,20 @@ fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> (Vec<KeyGen>, Ver
         .collect::<Vec<KeyGen>>();
 
     // Key Gen Phase 2
-    let dl_com_zk_vec = key_gen_vec
+    let dl_com_vec = key_gen_vec
         .iter()
-        .map(|key_gen| key_gen.phase_two_generate_dl_com_zk())
+        .map(|key_gen| key_gen.phase_two_generate_dl_com())
         .collect::<Vec<_>>();
 
-    let q_vec = dl_com_zk_vec
+    let q_vec = dl_com_vec
         .iter()
         .map(|k| k.get_public_share())
         .collect::<Vec<_>>();
 
     // Key Gen Phase 3
-    let (_, received_dl_com_zk) = dl_com_zk_vec.split_at(1);
+    let (_, received_dl_com) = dl_com_vec.split_at(1);
     key_gen_vec[0]
-        .phase_three_verify_dl_com_zk_and_generate_signing_key(&received_dl_com_zk.to_vec())
+        .phase_three_verify_dl_com_and_generate_signing_key(&received_dl_com.to_vec())
         .unwrap();
 
     // Assign public_signing_key
@@ -203,15 +203,15 @@ fn test_sign(
 
     // Sign phase 4
     let message: FE = ECScalar::new_random();
-    let dl_com_zk_vec = (0..party_num)
-        .map(|i| DLComZK {
-            commitments: phase_one_result_vec[i].0.commitment.clone(),
-            witness: phase_one_result_vec[i].3.witness.clone(),
+    let dl_com_vec = (0..party_num)
+        .map(|i| DlogCommitment {
+            commitment: phase_one_result_vec[i].0.commitment.clone(),
+            open: phase_one_result_vec[i].3.open.clone(),
         })
         .collect::<Vec<_>>();
 
     let phase_four_result = sign_vec[0]
-        .phase_four_verify_dl_com_zk(&delta_sum, &dl_com_zk_vec)
+        .phase_four_verify_dl_com(&delta_sum, &dl_com_vec)
         .unwrap();
 
     let mut phase_five_step_one_msg_vec: Vec<SignPhaseFiveStepOneMsg> =

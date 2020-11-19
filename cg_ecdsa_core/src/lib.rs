@@ -25,7 +25,9 @@ mod signature;
 
 pub use self::binaryqf::{bn_to_gen, BinaryQF};
 pub use self::clkeypair::ClKeyPair;
-pub use self::dl_com_zk::{CommWitness, DLComZK, DLCommitments};
+pub use self::dl_com_zk::{
+    CommWitness, DLComZK, DLCommitments, DlogCommitment, DlogCommitmentOpen,
+};
 pub use self::eccl_setup::{CLGroup, Ciphertext, PK, SK};
 pub use self::eckeypair::EcKeyPair;
 pub use self::error::{ErrorReason, ProofError};

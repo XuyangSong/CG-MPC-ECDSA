@@ -1,5 +1,5 @@
 use cg_ecdsa_core::{
-    CLGroup, Ciphertext as CLCipher, ClKeyPair, CommWitness, DLComZK, DLCommitments, EcKeyPair,
+    CLGroup, Ciphertext as CLCipher, ClKeyPair, DlogCommitment, DlogCommitmentOpen, EcKeyPair,
     PromiseCipher, PromiseProof, PromiseState, PromiseWit, ProofError, Signature, SECURITY_BITS,
     SK as CLSK,
 };
@@ -31,13 +31,80 @@ pub struct KeyGen {
     pub share_private_key: FE,          // x_i
 }
 
+#[derive(Clone, Debug)]
+pub struct SignPhase {
+    pub party_index: usize,
+    pub params: Parameters,
+    pub omega: FE,
+    pub party_num: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseOneMsg {
+    pub commitment: BigInt,
+    pub promise_state: PromiseState,
+    pub proof: PromiseProof,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseTwoMsg {
+    pub party_index: usize,
+    pub homocipher: CLCipher,
+    pub homocipher_plus: CLCipher,
+    pub t_p: FE,
+    pub t_p_plus: FE,
+    pub b: GE,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseThreeMsg {
+    pub delta: FE,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseFourMsg {
+    pub open: DlogCommitmentOpen,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseFiveStepOneMsg {
+    commitment: BigInt,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseFiveStepTwoMsg {
+    v_i: GE,
+    a_i: GE,
+    b_i: GE,
+    blind: BigInt,
+    dl_proof: DLogProof,
+    proof: HomoELGamalProof,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseFiveStepFourMsg {
+    commitment: BigInt,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseFiveStepFiveMsg {
+    blind: BigInt,
+    u_i: GE,
+    t_i: GE,
+}
+
+#[derive(Clone, Debug)]
+pub struct SignPhaseFiveStepSevenMsg {
+    pub s_i: FE,
+}
+
 impl KeyGen {
     pub fn phase_one_init(group: &CLGroup, party_index: usize, params: Parameters) -> Self {
-        let ec_keypair = EcKeyPair::new();
-        let cl_keypair = ClKeyPair::new(group);
-        let private_signing_key = EcKeyPair::new();
-        let public_signing_key = ECPoint::generator();
-        let share_private_key = ECScalar::zero();
+        let ec_keypair = EcKeyPair::new(); // Generate ec key pair.
+        let cl_keypair = ClKeyPair::new(group); // Generate cl key pair.
+        let private_signing_key = EcKeyPair::new(); // Generate private key pair.
+        let public_signing_key = ECPoint::generator(); // Init public key, compute later.
+        let share_private_key = ECScalar::zero(); // Init share private key, compute later.
         Self {
             party_index,
             params,
@@ -49,19 +116,19 @@ impl KeyGen {
         }
     }
 
-    pub fn phase_two_generate_dl_com_zk(&self) -> DLComZK {
-        DLComZK::new(&self.private_signing_key)
+    pub fn phase_two_generate_dl_com(&self) -> DlogCommitment {
+        DlogCommitment::new(&self.private_signing_key.get_public_key())
     }
 
-    pub fn phase_three_verify_dl_com_zk_and_generate_signing_key(
+    pub fn phase_three_verify_dl_com_and_generate_signing_key(
         &mut self,
-        dl_com_zk_vec: &Vec<DLComZK>,
+        dl_com_vec: &Vec<DlogCommitment>,
     ) -> Result<(), ProofError> {
-        assert_eq!(dl_com_zk_vec.len(), self.params.share_count - 1);
+        assert_eq!(dl_com_vec.len(), self.params.share_count - 1);
 
         let mut signing_key = *self.private_signing_key.get_public_key();
-        for element in dl_com_zk_vec.iter() {
-            element.verify_commitments_and_dlog_proof()?;
+        for element in dl_com_vec.iter() {
+            element.verify()?;
             signing_key = signing_key + element.get_public_share();
         }
 
@@ -120,73 +187,6 @@ impl KeyGen {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct SignPhase {
-    pub party_index: usize,
-    pub params: Parameters,
-    pub omega: FE,
-    pub party_num: usize,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseOneMsg {
-    pub commitment: DLCommitments,
-    pub promise_state: PromiseState,
-    pub proof: PromiseProof,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseTwoMsg {
-    pub party_index: usize,
-    pub homocipher: CLCipher,
-    pub homocipher_plus: CLCipher,
-    pub t_p: FE,
-    pub t_p_plus: FE,
-    pub b: GE,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseThreeMsg {
-    pub delta: FE,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseFourMsg {
-    pub witness: CommWitness,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseFiveStepOneMsg {
-    commitment: BigInt,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseFiveStepTwoMsg {
-    v_i: GE,
-    a_i: GE,
-    b_i: GE,
-    blind: BigInt,
-    dl_proof: DLogProof,
-    proof: HomoELGamalProof,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseFiveStepFourMsg {
-    commitment: BigInt,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseFiveStepFiveMsg {
-    blind: BigInt,
-    u_i: GE,
-    t_i: GE,
-}
-
-#[derive(Clone, Debug)]
-pub struct SignPhaseFiveStepSevenMsg {
-    pub s_i: FE,
-}
-
 impl SignPhase {
     pub fn init(
         party_index: usize,
@@ -235,16 +235,10 @@ impl SignPhase {
 
         // Generate commitment
         let gamma_pair = EcKeyPair::new();
-        // TBD: remove POK
-        let dl_com_zk = DLComZK::new(&gamma_pair);
-        // let commitment_blind_factor = BigInt::sample(SECURITY_BITS);
-        // let commitment = HashCommitment::create_commitment_with_user_defined_randomness(
-        //     &gamma_pair.get_public_key().bytes_compressed_to_big_int(),
-        //     &commitment_blind_factor,
-        // );
+        let dl_com = DlogCommitment::new(&gamma_pair.get_public_key());
 
         let msg = SignPhaseOneMsg {
-            commitment: dl_com_zk.commitments,
+            commitment: dl_com.commitment,
             promise_state: promise_state,
             proof,
         };
@@ -253,9 +247,7 @@ impl SignPhase {
             msg,
             k,
             gamma_pair.secret_share,
-            SignPhaseFourMsg {
-                witness: dl_com_zk.witness,
-            },
+            SignPhaseFourMsg { open: dl_com.open },
         )
     }
 
@@ -378,17 +370,17 @@ impl SignPhase {
         delta_vec.iter().fold(FE::zero(), |acc, x| acc + x.delta)
     }
 
-    pub fn phase_four_verify_dl_com_zk(
+    pub fn phase_four_verify_dl_com(
         &self,
         delta: &FE,
-        dl_com_zk_vec: &Vec<DLComZK>,
+        dl_com_vec: &Vec<DlogCommitment>,
     ) -> Result<(FE, GE), ProofError> {
-        assert_eq!(dl_com_zk_vec.len(), self.party_num);
-        for dl_com_zk in dl_com_zk_vec.iter() {
-            dl_com_zk.verify_commitments_and_dlog_proof()?;
+        assert_eq!(dl_com_vec.len(), self.party_num);
+        for dl_com in dl_com_vec.iter() {
+            dl_com.verify()?;
         }
 
-        let (head, tail) = dl_com_zk_vec.split_at(1);
+        let (head, tail) = dl_com_vec.split_at(1);
         let mut r = tail.iter().fold(head[0].get_public_share(), |acc, x| {
             acc + x.get_public_share()
         });
