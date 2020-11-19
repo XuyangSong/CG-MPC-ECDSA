@@ -106,7 +106,7 @@ fn test_sign(
         .map(|i| key_gen_vec[i].party_index)
         .collect::<Vec<_>>();
 
-    let sign_vec = (0..party_num)
+    let mut sign_vec = (0..party_num)
         .map(|i| {
             SignPhase::init(
                 key_gen_vec[i].party_index,
@@ -121,12 +121,14 @@ fn test_sign(
         .collect::<Vec<_>>();
 
     let base: GE = ECPoint::generator();
+
+    // TBD: handle the big omega and check sum.
     let omega_big_vec = sign_vec.iter().map(|k| base * k.omega).collect::<Vec<_>>();
 
     // Sign phase 1
     let phase_one_result_vec = (0..party_num)
         .map(|i| {
-            SignPhase::phase_one_generate_promise_sigma_and_com(
+            sign_vec[i].phase_one_generate_promise_sigma_and_com(
                 group,
                 &key_gen_vec[i].cl_keypair,
                 &key_gen_vec[i].ec_keypair,
@@ -142,8 +144,6 @@ fn test_sign(
         .map(|i| {
             sign_vec[i].phase_two_generate_homo_cipher(
                 group,
-                &phase_one_result_vec[i].2,
-                &sign_vec[i].omega,
                 &phase_one_msg_vec,
             )
         })
@@ -173,9 +173,6 @@ fn test_sign(
         let msg = sign_vec[index].phase_two_decrypt_and_verify(
             group,
             key_gen_vec[index].cl_keypair.get_secret_key(),
-            &phase_one_result_vec[index].1,
-            &phase_one_result_vec[index].2,
-            &sign_vec[index].omega,
             &phase_two_random,
             &phase_two_msg_vec,
             &omega_vec,
@@ -187,26 +184,15 @@ fn test_sign(
     // Sign phase 3
     let delta_sum = sign_vec[0].phase_two_compute_delta_sum(&phase_three_msg_vec);
 
-    // For test
-    {
-        let sum_k = phase_one_result_vec
-            .iter()
-            .fold(FE::zero(), |acc, x| acc + x.1);
-        let sum_gamma = phase_one_result_vec
-            .iter()
-            .fold(FE::zero(), |acc, x| acc + x.2);
-        let sum_omega = sign_vec.iter().fold(FE::zero(), |acc, x| acc + x.omega);
-        let sum_sigma = sigma_vec.iter().fold(FE::zero(), |acc, x| acc + x);
-        assert_eq!(delta_sum, sum_k * sum_gamma);
-        assert_eq!(sum_sigma, sum_k * sum_omega);
-    }
-
     // Sign phase 4
     let message: FE = ECScalar::new_random();
+    let phase_four_msg_vec = (0..party_num)
+        .map(|i| phase_one_result_vec[i].1.clone())
+        .collect::<Vec<_>>();
     let dl_com_vec = (0..party_num)
         .map(|i| DlogCommitment {
-            commitment: phase_one_result_vec[i].0.commitment.clone(),
-            open: phase_one_result_vec[i].3.open.clone(),
+            commitment: phase_one_msg_vec[i].commitment.clone(),
+            open: phase_four_msg_vec[i].open.clone(),
         })
         .collect::<Vec<_>>();
 
@@ -222,9 +208,8 @@ fn test_sign(
         Vec::with_capacity(party_num);
     let mut phase_five_rho_and_l: Vec<(FE, FE)> = Vec::with_capacity(party_num);
     for i in 0..party_num {
-        let ret = SignPhase::phase_five_step_onetwo_generate_com_and_zk(
+        let ret = sign_vec[i].phase_five_step_onetwo_generate_com_and_zk(
             &message,
-            &phase_one_result_vec[i].1,
             &sigma_vec[i],
             &phase_four_result.0,
             &phase_four_result.1,
