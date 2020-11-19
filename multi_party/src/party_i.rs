@@ -39,6 +39,7 @@ pub struct SignPhase {
     pub party_num: usize,
     pub k: FE,
     pub gamma: FE,
+    pub sigma: FE,
     pub delta_sum: FE,
     pub r_x: FE,
     pub r_point: GE,
@@ -210,6 +211,7 @@ impl SignPhase {
             party_num,
             k: FE::zero(),            // Init k, generate later.
             gamma: FE::zero(),        // Init gamma, generate later.
+            sigma: FE::zero(),        // Init sigma, generate later.
             delta_sum: FE::zero(),    // Init delta_sum, compute later.
             r_x: FE::zero(),          // Init r_x, compute later.
             r_point: GE::generator(), // Init r_point, compute later.
@@ -333,18 +335,18 @@ impl SignPhase {
     }
 
     pub fn phase_two_decrypt_and_verify(
-        &self,
+        &mut self,
         group: &CLGroup,
         sk: &CLSK,
         random_vec: &Vec<(FE, FE)>,
         msg_vec: &Vec<SignPhaseTwoMsg>,
         omega_big_vec: &Vec<GE>,
-    ) -> (SignPhaseThreeMsg, FE) {
+    ) -> SignPhaseThreeMsg {
         assert_eq!(msg_vec.len(), self.party_num - 1);
         assert_eq!(random_vec.len(), self.party_num - 1);
         assert_eq!(omega_big_vec.len(), self.party_num - 1);
         let mut delta = self.k * self.gamma;
-        let mut sigma = self.k * self.omega;
+        self.sigma = self.k * self.omega;
         for i in 0..msg_vec.len() {
             // Compute delta
             let k_mul_t = self.k * msg_vec[i].t_p;
@@ -356,7 +358,7 @@ impl SignPhase {
             let k_mul_t_plus = self.k * msg_vec[i].t_p_plus;
             let miu = CLCipher::decrypt(&group, &sk, &msg_vec[i].homocipher_plus)
                 .sub(&k_mul_t_plus.get_element());
-            sigma = sigma + miu + random_vec[i].1;
+            self.sigma = self.sigma + miu + random_vec[i].1;
 
             // Check kW = uP + B
             let k_omega = omega_big_vec[i] * self.k;
@@ -365,7 +367,7 @@ impl SignPhase {
             assert_eq!(k_omega, up_plus_b);
         }
 
-        (SignPhaseThreeMsg { delta }, sigma)
+        SignPhaseThreeMsg { delta }
     }
 
     pub fn phase_two_compute_delta_sum(&mut self, delta_vec: &Vec<SignPhaseThreeMsg>) {
@@ -397,7 +399,6 @@ impl SignPhase {
     pub fn phase_five_step_onetwo_generate_com_and_zk(
         &self,
         message: &FE,
-        sigma: &FE,
     ) -> (
         SignPhaseFiveStepOneMsg,
         SignPhaseFiveStepTwoMsg,
@@ -405,7 +406,7 @@ impl SignPhase {
         FE,
         FE,
     ) {
-        let s_i = (*message) * self.k + (*sigma) * self.r_x;
+        let s_i = (*message) * self.k + self.sigma * self.r_x;
         let l_i: FE = ECScalar::new_random();
         let rho_i: FE = ECScalar::new_random();
         let l_i_rho_i = l_i * rho_i;

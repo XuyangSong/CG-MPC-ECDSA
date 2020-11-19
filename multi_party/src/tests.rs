@@ -145,7 +145,6 @@ fn test_sign(
         .collect::<Vec<_>>();
 
     let mut phase_three_msg_vec: Vec<SignPhaseThreeMsg> = Vec::with_capacity(party_num);
-    let mut sigma_vec: Vec<FE> = Vec::with_capacity(party_num);
     for index in 0..party_num {
         let phase_two_msg_vec = phase_two_result_vec
             .iter()
@@ -172,8 +171,7 @@ fn test_sign(
             &phase_two_msg_vec,
             &omega_vec,
         );
-        phase_three_msg_vec.push(msg.0);
-        sigma_vec.push(msg.1);
+        phase_three_msg_vec.push(msg);
     }
 
     // Sign phase 3
@@ -201,7 +199,7 @@ fn test_sign(
         Vec::with_capacity(party_num);
     let mut phase_five_rho_and_l: Vec<(FE, FE)> = Vec::with_capacity(party_num);
     for i in 0..party_num {
-        let ret = sign_vec[i].phase_five_step_onetwo_generate_com_and_zk(&message, &sigma_vec[i]);
+        let ret = sign_vec[i].phase_five_step_onetwo_generate_com_and_zk(&message);
         phase_five_step_one_msg_vec.push(ret.0);
         phase_five_step_two_msg_vec.push(ret.1);
         phase_five_step_seven_msg_vec.push(ret.2);
@@ -233,9 +231,7 @@ fn test_sign(
     )
     .unwrap();
 
-    let sig = sign_vec[0].phase_five_step_eight_generate_signature(
-        &phase_five_step_seven_msg_vec,
-    );
+    let sig = sign_vec[0].phase_five_step_eight_generate_signature(&phase_five_step_seven_msg_vec);
 
     // Verify Signature
     Signature::verify(&sig, &key_gen_vec[0].public_signing_key, &message).unwrap();
