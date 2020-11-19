@@ -39,6 +39,7 @@ pub struct SignPhase {
     pub party_num: usize,
     pub k: FE,
     pub gamma: FE,
+    pub delta_sum: FE,
 }
 
 #[derive(Clone, Debug)]
@@ -207,6 +208,7 @@ impl SignPhase {
             party_num,
             k: FE::zero(),  // Init k, generate later.
             gamma: FE::zero(), // Init gamma, generate later.
+            delta_sum: FE::zero(), // Init delta_sum, compute later.
         })
     }
 
@@ -362,15 +364,14 @@ impl SignPhase {
         (SignPhaseThreeMsg { delta }, sigma)
     }
 
-    pub fn phase_two_compute_delta_sum(&self, delta_vec: &Vec<SignPhaseThreeMsg>) -> FE {
+    pub fn phase_two_compute_delta_sum(&mut self, delta_vec: &Vec<SignPhaseThreeMsg>) {
         assert_eq!(delta_vec.len(), self.party_num);
-        delta_vec.iter().fold(FE::zero(), |acc, x| acc + x.delta)
+        self.delta_sum = delta_vec.iter().fold(FE::zero(), |acc, x| acc + x.delta);
     }
 
     // TBD: put r and r_x in self.
     pub fn phase_four_verify_dl_com(
         &self,
-        delta: &FE,
         dl_com_vec: &Vec<SignPhaseOneMsg>,
         dl_open_vec: &Vec<SignPhaseFourMsg>,
     ) -> Result<(FE, GE), ProofError> {
@@ -385,7 +386,7 @@ impl SignPhase {
             acc + x.open.public_share
         });
 
-        r = r * delta.invert();
+        r = r * self.delta_sum.invert();
         let r_x: FE = ECScalar::from(&r.x_coor().unwrap().mod_floor(&FE::q()));
         Ok((r_x, r))
     }

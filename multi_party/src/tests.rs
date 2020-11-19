@@ -182,22 +182,16 @@ fn test_sign(
     }
 
     // Sign phase 3
-    let delta_sum = sign_vec[0].phase_two_compute_delta_sum(&phase_three_msg_vec);
+    sign_vec[0].phase_two_compute_delta_sum(&phase_three_msg_vec);
 
     // Sign phase 4
     let message: FE = ECScalar::new_random();
     let phase_four_msg_vec = (0..party_num)
         .map(|i| phase_one_result_vec[i].1.clone())
         .collect::<Vec<_>>();
-    // let dl_com_vec = (0..party_num)
-    //     .map(|i| DlogCommitment {
-    //         commitment: phase_one_msg_vec[i].commitment.clone(),
-    //         open: phase_four_msg_vec[i].open.clone(),
-    //     })
-    //     .collect::<Vec<_>>();
 
     let phase_four_result = sign_vec[0]
-        .phase_four_verify_dl_com(&delta_sum, &phase_one_msg_vec, &phase_four_msg_vec)
+        .phase_four_verify_dl_com(&phase_one_msg_vec, &phase_four_msg_vec)
         .unwrap();
 
     let mut phase_five_step_one_msg_vec: Vec<SignPhaseFiveStepOneMsg> =
