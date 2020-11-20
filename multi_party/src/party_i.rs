@@ -29,14 +29,17 @@ pub struct KeyGen {
     pub private_signing_key: EcKeyPair, // (u_i, u_iP)
     pub public_signing_key: GE,         // Q
     pub share_private_key: FE,          // x_i
+    pub share_public_key: Vec<GE>,      // X_i
+    pub vss_scheme_vec: Vec<VerifiableSS>,
 }
 
 #[derive(Clone, Debug)]
 pub struct SignPhase {
     pub party_index: usize,
+    pub party_num: usize,
     pub params: Parameters,
     pub omega: FE,
-    pub party_num: usize,
+    pub big_omega_vec: Vec<GE>,
     pub k: FE,
     pub gamma: FE,
     pub sigma: FE,
@@ -45,6 +48,8 @@ pub struct SignPhase {
     pub r_point: GE,
     pub rho: FE,
     pub l: FE,
+    pub beta_vec: Vec<FE>,
+    pub v_vec: Vec<FE>,
 }
 
 #[derive(Clone, Debug)]
@@ -112,7 +117,9 @@ impl KeyGen {
         let cl_keypair = ClKeyPair::new(group); // Generate cl key pair.
         let private_signing_key = EcKeyPair::new(); // Generate private key pair.
         let public_signing_key = private_signing_key.get_public_key().clone(); // Init public key, compute later.
+        let share_public_key = Vec::with_capacity(params.share_count); // Init share public key, receive later.
         let share_private_key = ECScalar::zero(); // Init share private key, compute later.
+        let vss_scheme_vec = Vec::with_capacity(params.share_count); // Init vss_scheme_vec, receive later.
         Self {
             party_index,
             params,
@@ -121,6 +128,8 @@ impl KeyGen {
             private_signing_key,
             public_signing_key,
             share_private_key,
+            share_public_key,
+            vss_scheme_vec,
         }
     }
 
@@ -174,6 +183,9 @@ impl KeyGen {
             }
         }
 
+        // Assign vss_scheme_vec
+        self.vss_scheme_vec = vss_scheme_vec.clone();
+
         // Compute share private key(x_i)
         self.share_private_key = secret_shares_vec.iter().fold(FE::zero(), |acc, x| acc + x);
         let dlog_proof = DLogProof::prove(&self.share_private_key);
@@ -182,12 +194,13 @@ impl KeyGen {
     }
 
     pub fn phase_six_verify_dlog_proof(
-        &self,
+        &mut self,
         dlog_proofs: &Vec<DLogProof>,
     ) -> Result<(), ProofError> {
         assert_eq!(dlog_proofs.len(), self.params.share_count);
         for i in 0..self.params.share_count {
             DLogProof::verify(&dlog_proofs[i]).unwrap();
+            self.share_public_key.push(dlog_proofs[i].pk);
         }
 
         Ok(())
@@ -198,29 +211,45 @@ impl SignPhase {
     pub fn init(
         party_index: usize,
         params: Parameters,
-        vss_scheme: &VerifiableSS,
+        vss_scheme_vec: &Vec<VerifiableSS>,
         subset: &[usize],
+        share_public_key: &Vec<GE>,
         x: &FE,
         party_num: usize,
     ) -> Result<Self, ProofError> {
         assert!(party_num > params.threshold);
+        assert_eq!(vss_scheme_vec.len(), params.share_count);
+        assert_eq!(share_public_key.len(), params.share_count);
 
-        let lamda = vss_scheme.map_share_to_new_params(party_index, subset);
+        let lamda = vss_scheme_vec[party_index].map_share_to_new_params(party_index, subset);
         let omega = lamda * x;
+        let big_omega_vec = subset
+            .iter()
+            .filter_map(|&i| {
+                if i != party_index {
+                    Some(share_public_key[i] * vss_scheme_vec[i].map_share_to_new_params(i, subset))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
         Ok(Self {
             party_index,
+            party_num,
             params,
             omega,
-            party_num,
-            k: FE::zero(),            // Init k, generate later.
-            gamma: FE::zero(),        // Init gamma, generate later.
-            sigma: FE::zero(),        // Init sigma, generate later.
-            delta_sum: FE::zero(),    // Init delta_sum, compute later.
-            r_x: FE::zero(),          // Init r_x, compute later.
-            r_point: GE::generator(), // Init r_point, compute later.
-            rho: FE::zero(),          // Init rho, generate later.
-            l: FE::zero(),            // Init l, generate later.
+            big_omega_vec,
+            k: FE::zero(),                               // Init k, generate later.
+            gamma: FE::zero(),                           // Init gamma, generate later.
+            sigma: FE::zero(),                           // Init sigma, generate later.
+            delta_sum: FE::zero(),                       // Init delta_sum, compute later.
+            r_x: FE::zero(),                             // Init r_x, compute later.
+            r_point: GE::generator(),                    // Init r_point, compute later.
+            rho: FE::zero(),                             // Init rho, generate later.
+            l: FE::zero(),                               // Init l, generate later.
+            beta_vec: Vec::with_capacity(party_num - 1), // Init random beta, generate later.
+            v_vec: Vec::with_capacity(party_num - 1),    // Init random v, generate later.
         })
     }
 
@@ -267,17 +296,15 @@ impl SignPhase {
         )
     }
 
-    // refine beta and v
     pub fn phase_two_generate_homo_cipher(
-        &self,
+        &mut self,
         group: &CLGroup,
         sign_phase_one_msg_vec: &Vec<SignPhaseOneMsg>,
-    ) -> (Vec<SignPhaseTwoMsg>, Vec<(FE, FE)>) {
+    ) -> Vec<SignPhaseTwoMsg> {
         assert_eq!(sign_phase_one_msg_vec.len(), self.party_num);
         let mut msgs: Vec<SignPhaseTwoMsg> = Vec::new();
-        let mut randoms: Vec<(FE, FE)> = Vec::new();
         let zero = FE::zero();
-        for msg in sign_phase_one_msg_vec.iter() {
+        for (i, msg) in sign_phase_one_msg_vec.iter().enumerate() {
             // Verify promise proof
             msg.proof.verify(group, &msg.promise_state).unwrap();
 
@@ -334,25 +361,26 @@ impl SignPhase {
                 t_p_plus,
                 b,
             };
+
             msgs.push(msg);
-            randoms.push((beta, v));
+
+            if i != self.party_index {
+                self.beta_vec.push(beta);
+                self.v_vec.push(v);
+            }
         }
 
-        (msgs, randoms)
+        msgs
     }
 
-    // TBD: refine random_vec and omega_big_vec
     pub fn phase_two_decrypt_and_verify(
         &mut self,
         group: &CLGroup,
         sk: &CLSK,
-        random_vec: &Vec<(FE, FE)>,
         msg_vec: &Vec<SignPhaseTwoMsg>,
-        omega_big_vec: &Vec<GE>,
     ) -> SignPhaseThreeMsg {
         assert_eq!(msg_vec.len(), self.party_num - 1);
-        assert_eq!(random_vec.len(), self.party_num - 1);
-        assert_eq!(omega_big_vec.len(), self.party_num - 1);
+        assert_eq!(self.big_omega_vec.len(), self.party_num - 1);
         let mut delta = self.k * self.gamma;
         self.sigma = self.k * self.omega;
         for i in 0..msg_vec.len() {
@@ -360,16 +388,16 @@ impl SignPhase {
             let k_mul_t = self.k * msg_vec[i].t_p;
             let alpha =
                 CLCipher::decrypt(&group, &sk, &msg_vec[i].homocipher).sub(&k_mul_t.get_element());
-            delta = delta + alpha + random_vec[i].0;
+            delta = delta + alpha + self.beta_vec[i];
 
             // Compute sigma
             let k_mul_t_plus = self.k * msg_vec[i].t_p_plus;
             let miu = CLCipher::decrypt(&group, &sk, &msg_vec[i].homocipher_plus)
                 .sub(&k_mul_t_plus.get_element());
-            self.sigma = self.sigma + miu + random_vec[i].1;
+            self.sigma = self.sigma + miu + self.v_vec[i];
 
             // Check kW = uP + B
-            let k_omega = omega_big_vec[i] * self.k;
+            let k_omega = self.big_omega_vec[i] * self.k;
             let base: GE = ECPoint::generator();
             let up_plus_b = base * miu + msg_vec[i].b;
             assert_eq!(k_omega, up_plus_b);
