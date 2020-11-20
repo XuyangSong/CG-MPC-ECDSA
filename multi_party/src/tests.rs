@@ -99,9 +99,6 @@ fn test_sign(
 ) {
     // Sign Init
     let party_num = key_gen_vec.len();
-    let t = params.threshold;
-    assert!(party_num > t);
-
     let subset = (0..party_num)
         .map(|i| key_gen_vec[i].party_index)
         .collect::<Vec<_>>();
@@ -191,19 +188,18 @@ fn test_sign(
             .unwrap();
     }
 
+    // Sign phase 5
     let mut phase_five_step_one_msg_vec: Vec<SignPhaseFiveStepOneMsg> =
         Vec::with_capacity(party_num);
     let mut phase_five_step_two_msg_vec: Vec<SignPhaseFiveStepTwoMsg> =
         Vec::with_capacity(party_num);
     let mut phase_five_step_seven_msg_vec: Vec<SignPhaseFiveStepSevenMsg> =
         Vec::with_capacity(party_num);
-    let mut phase_five_rho_and_l: Vec<(FE, FE)> = Vec::with_capacity(party_num);
     for i in 0..party_num {
         let ret = sign_vec[i].phase_five_step_onetwo_generate_com_and_zk(&message);
         phase_five_step_one_msg_vec.push(ret.0);
         phase_five_step_two_msg_vec.push(ret.1);
         phase_five_step_seven_msg_vec.push(ret.2);
-        phase_five_rho_and_l.push((ret.3, ret.4));
     }
 
     let mut phase_five_step_four_msg_vec: Vec<SignPhaseFiveStepFourMsg> =
@@ -214,9 +210,7 @@ fn test_sign(
         let ret = sign_vec[i]
             .phase_five_step_three_verify_com_and_zk(
                 &message,
-                &key_gen_vec[0].public_signing_key,
-                &phase_five_rho_and_l[i].0,
-                &phase_five_rho_and_l[i].1,
+                &key_gen_vec[i].public_signing_key,
                 &phase_five_step_one_msg_vec,
                 &phase_five_step_two_msg_vec,
             )

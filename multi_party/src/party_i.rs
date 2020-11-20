@@ -43,6 +43,8 @@ pub struct SignPhase {
     pub delta_sum: FE,
     pub r_x: FE,
     pub r_point: GE,
+    pub rho: FE,
+    pub l: FE,
 }
 
 #[derive(Clone, Debug)]
@@ -201,6 +203,8 @@ impl SignPhase {
         x: &FE,
         party_num: usize,
     ) -> Result<Self, ProofError> {
+        assert!(party_num > params.threshold);
+
         let lamda = vss_scheme.map_share_to_new_params(party_index, subset);
         let omega = lamda * x;
 
@@ -215,6 +219,8 @@ impl SignPhase {
             delta_sum: FE::zero(),    // Init delta_sum, compute later.
             r_x: FE::zero(),          // Init r_x, compute later.
             r_point: GE::generator(), // Init r_point, compute later.
+            rho: FE::zero(),          // Init rho, generate later.
+            l: FE::zero(),            // Init l, generate later.
         })
     }
 
@@ -261,6 +267,7 @@ impl SignPhase {
         )
     }
 
+    // refine beta and v
     pub fn phase_two_generate_homo_cipher(
         &self,
         group: &CLGroup,
@@ -334,6 +341,7 @@ impl SignPhase {
         (msgs, randoms)
     }
 
+    // TBD: refine random_vec and omega_big_vec
     pub fn phase_two_decrypt_and_verify(
         &mut self,
         group: &CLGroup,
@@ -397,14 +405,12 @@ impl SignPhase {
     }
 
     pub fn phase_five_step_onetwo_generate_com_and_zk(
-        &self,
+        &mut self,
         message: &FE,
     ) -> (
         SignPhaseFiveStepOneMsg,
         SignPhaseFiveStepTwoMsg,
         SignPhaseFiveStepSevenMsg,
-        FE,
-        FE,
     ) {
         let s_i = (*message) * self.k + self.sigma * self.r_x;
         let l_i: FE = ECScalar::new_random();
@@ -445,15 +451,15 @@ impl SignPhase {
         };
         let msg_step_seven = SignPhaseFiveStepSevenMsg { s_i };
 
-        (msg_step_one, msg_step_two, msg_step_seven, rho_i, l_i)
+        self.rho = rho_i;
+        self.l = l_i;
+        (msg_step_one, msg_step_two, msg_step_seven)
     }
 
     pub fn phase_five_step_three_verify_com_and_zk(
         &self,
         message: &FE,
-        q: &GE,
-        rho_i: &FE,
-        l_i: &FE,
+        q: &GE, // signing public key
         msgs_step_one: &Vec<SignPhaseFiveStepOneMsg>,
         msgs_step_two: &Vec<SignPhaseFiveStepTwoMsg>,
     ) -> Result<(SignPhaseFiveStepFourMsg, SignPhaseFiveStepFiveMsg), ProofError> {
@@ -503,8 +509,8 @@ impl SignPhase {
             .sub_point(&mp.get_element())
             .sub_point(&rq.get_element());
 
-        let u_i = v_big * rho_i;
-        let t_i = a_sum * l_i;
+        let u_i = v_big * self.rho;
+        let t_i = a_sum * self.l;
         let input_hash = HSha256::create_hash_from_ge(&[&u_i, &t_i]).to_big_int();
         let blind = BigInt::sample(SECURITY_BITS);
         let commitment =
