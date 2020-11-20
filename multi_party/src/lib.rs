@@ -1,6 +1,6 @@
 extern crate cg_ecdsa_core;
 
-mod party_i;
+pub mod party_i;
 
 #[cfg(test)]
 mod tests;

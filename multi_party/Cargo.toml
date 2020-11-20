@@ -33,3 +33,6 @@ crate-type= ["lib"]
 
 [[example]]
 name = "multi_party_demo"
+
+[[example]]
+name = "bench"
