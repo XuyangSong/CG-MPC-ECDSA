@@ -3,10 +3,10 @@ mod party_two;
 
 extern crate time;
 use cg_ecdsa_core::eccl_setup::CLGroup;
+use cg_ecdsa_core::hsmcl::HSMCL;
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use curv::{FE, GE};
-use cg_ecdsa_core::hsmcl::HSMCL;
 
 fn main() {
     // init class group, cl keypair and elegamal keypair:
@@ -38,7 +38,8 @@ fn main() {
     let party_one_init_round_two_msg = party_one_key_gen_init
         .verify_and_get_next_msg(&party_two_key_gen_round_one_msg)
         .unwrap();
-    let party_one_share_key = party_one_key_gen_init.compute_public_key(&party_two_key_gen_round_one_msg.pk);
+    let party_one_share_key =
+        party_one_key_gen_init.compute_public_key(&party_two_key_gen_round_one_msg.pk);
 
     // Party two round 2: verify received msg
     party_two::KeyGenInit::verify_received_dl_com_zk(

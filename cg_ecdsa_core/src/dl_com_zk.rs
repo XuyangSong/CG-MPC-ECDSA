@@ -10,6 +10,18 @@ use curv::{BigInt, GE};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DlogCommitment {
+    pub commitment: BigInt,
+    pub open: DlogCommitmentOpen,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DlogCommitmentOpen {
+    pub blind_factor: BigInt,
+    pub public_share: GE,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DLComZK {
     pub commitments: DLCommitments,
     pub witness: CommWitness,
@@ -27,6 +39,52 @@ pub struct CommWitness {
     pub zk_pok_blind_factor: BigInt,
     pub public_share: GE,
     pub d_log_proof: DLogProof,
+}
+
+impl DlogCommitment {
+    pub fn new(public_share: &GE) -> Self {
+        let blind_factor = BigInt::sample(SECURITY_BITS);
+        let commitment = HashCommitment::create_commitment_with_user_defined_randomness(
+            &public_share.bytes_compressed_to_big_int(),
+            &blind_factor,
+        );
+
+        Self {
+            commitment,
+            open: DlogCommitmentOpen {
+                blind_factor,
+                public_share: public_share.clone(),
+            },
+        }
+    }
+
+    pub fn verify(&self) -> Result<(), ProofError> {
+        if HashCommitment::create_commitment_with_user_defined_randomness(
+            &self.open.public_share.bytes_compressed_to_big_int(),
+            &self.open.blind_factor,
+        ) != self.commitment
+        {
+            return Err(ProofError);
+        }
+
+        Ok(())
+    }
+
+    pub fn verify_dlog(commitment: &BigInt, open: &DlogCommitmentOpen) -> Result<(), ProofError> {
+        if HashCommitment::create_commitment_with_user_defined_randomness(
+            &open.public_share.bytes_compressed_to_big_int(),
+            &open.blind_factor,
+        ) != *commitment
+        {
+            return Err(ProofError);
+        }
+
+        Ok(())
+    }
+
+    pub fn get_public_share(&self) -> GE {
+        self.open.public_share
+    }
 }
 
 impl DLComZK {

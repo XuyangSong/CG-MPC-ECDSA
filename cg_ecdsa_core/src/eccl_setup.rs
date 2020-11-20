@@ -1,10 +1,12 @@
-use crate::binaryqf::bn_to_gen;
+use super::is_prime;
+use super::numerical_log;
+use super::prng;
+use super::ErrorReason;
+use crate::bn_to_gen;
 use crate::curv::arithmetic::traits::Modulo;
 use crate::curv::cryptographic_primitives::hashing::traits::Hash;
-use crate::error::ErrorReason;
 use crate::isprime;
 use crate::pari_init;
-use crate::primitive::{is_prime, numerical_log, prng};
 use crate::BinaryQF;
 use curv::arithmetic::traits::Samplable;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
@@ -13,7 +15,6 @@ use curv::BigInt;
 use curv::{FE, GE};
 use std::os::raw::c_int;
 
-// TBD: find the difference between SECURITY_BITS
 const SECURITY_PARAMETER: usize = 128;
 const C: usize = 10;
 
@@ -30,7 +31,6 @@ pub struct Ciphertext {
     pub c1: BinaryQF,
     pub c2: BinaryQF,
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ECCLcipher {
     pub c1: BinaryQF,
@@ -141,7 +141,7 @@ impl CLGroup {
         }
     }
     pub fn setup_verify(&self, seed: &BigInt) -> Result<(), ErrorReason> {
-        // unsafe { pari_init(100000000, 2) };
+        unsafe { pari_init(100000000, 2) };
 
         let mut prime_forms_vec: Vec<BinaryQF> = Vec::new();
         let ln_delta_k = numerical_log(&(-&self.delta_k));
@@ -207,9 +207,10 @@ impl CLGroup {
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PK(BinaryQF);
+pub struct PK(pub BinaryQF);
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SK(BigInt);
+pub struct SK(pub BigInt);
 
 impl From<SK> for BigInt {
     fn from(sk: SK) -> Self {
@@ -304,82 +305,104 @@ fn next_probable_small_prime(r: &BigInt) -> BigInt {
     qtilde
 }
 
-pub fn encrypt(group: &CLGroup, public_key: &PK, m: &FE) -> (Ciphertext, SK) {
-    // unsafe { pari_init(10000000, 2) };
-    let (r, R) = group.keygen();
-    let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
-    let h_exp_r = public_key.0.exp(&r.0);
+impl Ciphertext {
+    pub fn encrypt(group: &CLGroup, public_key: &PK, m: &FE) -> (Ciphertext, SK) {
+        // unsafe { pari_init(10000000, 2) };
+        let (r, R) = group.keygen();
+        let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
+        let h_exp_r = public_key.0.exp(&r.0);
 
-    (
-        Ciphertext {
-            c1: R.0,
-            c2: h_exp_r.compose(&exp_f).reduce(),
-        },
-        r,
-    )
-}
-
-pub fn encrypt_without_r(group: &CLGroup, m: &FE) -> (Ciphertext, SK) {
-    // unsafe { pari_init(10000000, 2) };
-    let r = SK::from(BigInt::from(0));
-    let R = group.pk_for_sk(&r);
-    let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
-
-    (
-        Ciphertext {
-            c1: R.0,
-            c2: exp_f,
-        },
-        r,
-    )
-}
-
-pub fn encrypt_predefined_randomness(
-    group: &CLGroup,
-    public_key: &PK,
-    m: &FE,
-    r: &SK,
-) -> Ciphertext {
-    // unsafe { pari_init(10000000, 2) };
-    let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
-    let h_exp_r = public_key.0.exp(&r.0);
-
-    Ciphertext {
-        c1: group.gq.exp(&r.0),
-        c2: h_exp_r.compose(&exp_f).reduce(),
+        (
+            Ciphertext {
+                c1: R.0,
+                c2: h_exp_r.compose(&exp_f).reduce(),
+            },
+            r,
+        )
     }
-}
 
-pub fn verifiably_encrypt(
-    group: &CLGroup,
-    public_key: &PK,
-    DL_pair: (&FE, &GE),
-    EC_pair: (&GE, &GE),
-) -> (ECCLcipher, CLDLProof) {
-    // TBD: Construct new struct, use less copys.
-    let (x, X) = DL_pair;
-    let (g, h) = EC_pair;
-    let (ciphertext1, r1) = encrypt(group, public_key, x);
-    let r2: FE = ECScalar::new_random();
-    let gr = g * &r2;
-    let _hr = h * &r2;
-    let mg = g * x;
-    let (c3, c4) = (gr, _hr + mg);
-    let hpscipher = ECCLcipher {
-        c1: ciphertext1.c1.clone(),
-        c2: ciphertext1.c2.clone(),
-        c3,
-        c4,
-    };
+    pub fn encrypt_without_r(group: &CLGroup, m: &FE) -> (Ciphertext, SK) {
+        // unsafe { pari_init(10000000, 2) };
+        let r = SK::from(BigInt::from(0));
+        let R = group.pk_for_sk(&r);
+        let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
 
-    // TBD: Seperate CL and DL proof imp.
-    let proof = CLDLProof::prove(group, (&x, &r1, &r2), (public_key, &hpscipher, X, g, h));
-    (hpscipher, proof)
+        (Ciphertext { c1: R.0, c2: exp_f }, r)
+    }
+
+    pub fn encrypt_predefined_randomness(
+        group: &CLGroup,
+        public_key: &PK,
+        m: &FE,
+        r: &SK,
+    ) -> Ciphertext {
+        // unsafe { pari_init(10000000, 2) };
+        let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
+        let h_exp_r = public_key.0.exp(&r.0);
+
+        Ciphertext {
+            c1: group.gq.exp(&r.0),
+            c2: h_exp_r.compose(&exp_f).reduce(),
+        }
+    }
+
+    pub fn verifiably_encrypt(
+        group: &CLGroup,
+        public_key: &PK,
+        DL_pair: (&FE, &GE),
+        EC_pair: (&GE, &GE),
+    ) -> (ECCLcipher, CLDLProof) {
+        let (x, X) = DL_pair;
+        let (g, h) = EC_pair;
+        let (ciphertext1, r1) = encrypt(group, public_key, x);
+        let r2: FE = ECScalar::new_random();
+        let gr = g * &r2;
+        let _hr = h * &r2;
+        let mg = g * x;
+        let (c3, c4) = (gr, _hr + mg);
+        let hpscipher = ECCLcipher {
+            c1: ciphertext1.c1.clone(),
+            c2: ciphertext1.c2.clone(),
+            c3,
+            c4,
+        };
+
+        let proof = CLDLProof::prove(group, (&x, &r1, &r2), (public_key, &hpscipher, X, g, h));
+        (hpscipher, proof)
+    }
+    pub fn decrypt(group: &CLGroup, secret_key: &SK, c: &Ciphertext) -> FE {
+        // unsafe { pari_init(10000000, 2) };
+        let c1_x = c.c1.exp(&secret_key.0);
+        let c1_x_inv = c1_x.inverse();
+        let tmp = c.c2.compose(&c1_x_inv).reduce();
+        let plaintext = BinaryQF::discrete_log_f(&FE::q(), &group.delta_q, &tmp);
+        debug_assert!(plaintext < FE::q());
+        ECScalar::from(&plaintext)
+    }
+
+    /// Multiplies the encrypted value by `val`.
+    pub fn eval_scal(c: &Ciphertext, val: &BigInt) -> Ciphertext {
+        // unsafe { pari_init(10000000, 2) };
+        let c_new = Ciphertext {
+            c1: c.c1.exp(&val),
+            c2: c.c2.exp(&val),
+        };
+        c_new
+    }
+
+    /// Homomorphically adds two ciphertexts so that the resulting ciphertext is the sum of the two input ciphertexts
+    pub fn eval_sum(c1: &Ciphertext, c2: &Ciphertext) -> Ciphertext {
+        // unsafe { pari_init(10000000, 2) };
+        let c_new = Ciphertext {
+            c1: c1.c1.compose(&c2.c1).reduce(),
+            c2: c1.c2.compose(&c2.c2).reduce(),
+        };
+        c_new
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CLDLProof {
-    // TBD: rename the structs and variables.
     first_message: Firstcomit,
     second_message: U1U2U3,
 }
@@ -391,7 +414,6 @@ impl CLDLProof {
         statement: (&PK, &ECCLcipher, &GE, &GE, &GE),
     ) -> Self {
         // unsafe { pari_init(10000000, 2) };
-        // TBD: Construct new struct, use less copys.
         let (x, r1, r2) = witness;
         let (public_key, ciphertext, X, g, h) = statement;
 
@@ -522,6 +544,63 @@ impl CLDLProof {
             false => Err(ProofError),
         }
     }
+}
+
+/// Multiplies the encrypted value by `val`.
+pub fn encrypt(group: &CLGroup, public_key: &PK, m: &FE) -> (Ciphertext, SK) {
+    // unsafe { pari_init(10000000, 2) };
+    let (r, R) = group.keygen();
+    let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
+    let h_exp_r = public_key.0.exp(&r.0);
+
+    (
+        Ciphertext {
+            c1: R.0,
+            c2: h_exp_r.compose(&exp_f).reduce(),
+        },
+        r,
+    )
+}
+
+pub fn encrypt_predefined_randomness(
+    group: &CLGroup,
+    public_key: &PK,
+    m: &FE,
+    r: &SK,
+) -> Ciphertext {
+    // unsafe { pari_init(10000000, 2) };
+    let exp_f = BinaryQF::expo_f(&FE::q(), &group.delta_q, &m.to_big_int());
+    let h_exp_r = public_key.0.exp(&r.0);
+
+    Ciphertext {
+        c1: group.gq.exp(&r.0),
+        c2: h_exp_r.compose(&exp_f).reduce(),
+    }
+}
+
+pub fn verifiably_encrypt(
+    group: &CLGroup,
+    public_key: &PK,
+    DL_pair: (&FE, &GE),
+    EC_pair: (&GE, &GE),
+) -> (ECCLcipher, CLDLProof) {
+    let (x, X) = DL_pair;
+    let (g, h) = EC_pair;
+    let (ciphertext1, r1) = encrypt(group, public_key, x);
+    let r2: FE = ECScalar::new_random();
+    let gr = g * &r2;
+    let _hr = h * &r2;
+    let mg = g * x;
+    let (c3, c4) = (gr, _hr + mg);
+    let hpscipher = ECCLcipher {
+        c1: ciphertext1.c1.clone(),
+        c2: ciphertext1.c2.clone(),
+        c3,
+        c4,
+    };
+
+    let proof = CLDLProof::prove(group, (&x, &r1, &r2), (public_key, &hpscipher, X, g, h));
+    (hpscipher, proof)
 }
 
 pub fn decrypt(group: &CLGroup, secret_key: &SK, c: &Ciphertext) -> FE {

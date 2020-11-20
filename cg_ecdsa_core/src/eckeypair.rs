@@ -3,8 +3,8 @@ use curv::{FE, GE};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EcKeyPair {
-    public_share: GE,
-    secret_share: FE,
+    pub public_share: GE,
+    pub secret_share: FE,
 }
 
 impl EcKeyPair {
