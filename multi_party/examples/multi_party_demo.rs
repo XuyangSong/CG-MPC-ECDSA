@@ -57,7 +57,6 @@ fn main() {
                             }
                             NodeNotification::MessageReceived(pid, msg) => {
                                 // handle msg
-                                // console.node.broadcast(Message("hi".as_bytes().to_vec())).await;
                                 println!(
                                     "\n=> Received: `{}` from {}",
                                     String::from_utf8_lossy(&msg).into_owned(),
@@ -92,6 +91,7 @@ enum UserCommand {
     // KeyGen
     // Signature
     Broadcast(String),
+    SendMsg(PeerID, String),
     Disconnect(PeerID), // peer id
     ListPeers,
     Exit,
@@ -150,7 +150,7 @@ impl Console {
                 for (i, addr) in addrs.iter().enumerate() {
                     // skip connect myself
                     if i != self.index {
-                        println!("\n=>    Peer i: {}, index: {}", i, self.index);
+                        // println!("\n=>    Peer i: {}, index: {}", i, self.index);
                         self.node
                             .connect_to_peer(&addr, None, i)
                             .await
@@ -164,6 +164,10 @@ impl Console {
             UserCommand::Broadcast(msg) => {
                 println!("=> Broadcasting: {:?}", &msg);
                 self.node.broadcast(Message(msg.as_bytes().to_vec())).await;
+            }
+            UserCommand::SendMsg(peer_id, msg) => {
+                println!("=> Send: {:?}, to {}", &msg, peer_id);
+                self.node.sendmsg(peer_id, Message(msg.as_bytes().to_vec())).await;
             }
             UserCommand::ListPeers => {
                 let peer_infos = self.node.list_peers().await;
@@ -204,6 +208,20 @@ impl Console {
             Ok(UserCommand::Connect(addrs))
         } else if command == "broadcast" {
             Ok(UserCommand::Broadcast(rest.unwrap_or("").into()))
+        } else if command == "sendmsg" {
+            let s = rest.unwrap_or("").to_string();
+            let mut ss = s.splitn(2, " ");
+            let spid = ss
+            .next()
+            .ok_or_else(|| {
+                "Invalid peer ID".to_string()
+            })?;
+            let msg = ss.next();
+            if let Some(id) = PeerID::from_string(&spid) {
+                Ok(UserCommand::SendMsg(id, msg.unwrap_or("").into()))
+            } else {
+                Err(format!("Invalid peer ID `{}`", spid))
+            }
         } else if command == "peers" {
             Ok(UserCommand::ListPeers)
         } else if command == "disconnect" {

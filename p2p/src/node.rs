@@ -99,6 +99,7 @@ enum NodeMessage<Custom: Codable> {
     ConnectPeer(net::TcpStream, Option<PeerID>, usize),
     RemovePeer(PeerID),
     Broadcast(Custom),
+    SendMsg(PeerID, Custom),
     CountPeers(Reply<usize>),
     ListPeers(Reply<Vec<PeerInfo>>),
 }
@@ -229,6 +230,11 @@ impl<Custom: Codable> NodeHandle<Custom> {
         self.send_internal(NodeMessage::Broadcast(msg)).await
     }
 
+    /// Send a message to a peer.
+    pub async fn sendmsg(&mut self, peer_id: PeerID, msg: Custom) {
+        self.send_internal(NodeMessage::SendMsg(peer_id, msg)).await
+    }
+
     pub async fn list_peers(&mut self) -> Vec<PeerInfo> {
         let (tx, rx) = sync::oneshot::channel::<Vec<PeerInfo>>();
         self.send_internal(NodeMessage::ListPeers(tx)).await;
@@ -266,6 +272,7 @@ where
             }
             NodeMessage::RemovePeer(peer_id) => self.remove_peer(&peer_id).await,
             NodeMessage::Broadcast(msg) => self.broadcast(msg).await,
+            NodeMessage::SendMsg(pid, msg) => self.send_to_peer(&pid, PeerMessage::Data(msg)).await,
             NodeMessage::CountPeers(reply) => self.count_peers(reply).await,
             NodeMessage::ListPeers(reply) => self.list_peers(reply).await,
         }
