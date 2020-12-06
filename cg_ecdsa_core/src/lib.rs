@@ -22,15 +22,17 @@ pub mod hsmcl;
 mod primitive;
 mod promise_sigma;
 mod signature;
+mod cl_enc_proof;
 
 pub use self::binaryqf::{bn_to_gen, BinaryQF};
 pub use self::clkeypair::ClKeyPair;
 pub use self::dl_com_zk::{
     CommWitness, DLComZK, DLCommitments, DlogCommitment, DlogCommitmentOpen,
 };
-pub use self::eccl_setup::{CLGroup, Ciphertext, PK, SK};
+pub use self::eccl_setup::{CLGroup, Ciphertext, PK, SK, next_probable_prime};
 pub use self::eckeypair::EcKeyPair;
 pub use self::error::{ErrorReason, ProofError};
 pub use self::primitive::{is_prime, numerical_log, prng, SECURITY_BITS};
 pub use self::promise_sigma::{PromiseCipher, PromiseProof, PromiseState, PromiseWit};
+pub use self::cl_enc_proof::{CLEncState, CLEncProof, CLEncWit};
 pub use self::signature::Signature;

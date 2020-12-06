@@ -1,0 +1,27 @@
+[package]
+name = "multi_party_pkc20"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies.cg_ecdsa_core]
+path = "../cg_ecdsa_core"
+
+[dependencies]
+libc = "0.2.0"
+subtle = { version = "2" }
+serde = { version = "1.0", features = ["derive"] }
+serde_derive="1.0"
+serde_json="1.0"
+zeroize = "0.10.1"
+time = "0.1"
+
+[dependencies.curv]
+git = "https://github.com/KZen-networks/curv"
+tag = "v0.2.6"
+features = ["ec_secp256k1"]
+
+[lib]
+crate-type= ["lib"]
+
+[[example]]
+name = "pkc20_bench"

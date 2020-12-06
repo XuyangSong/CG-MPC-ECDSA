@@ -140,6 +140,89 @@ impl CLGroup {
             stilde,
         }
     }
+
+    pub fn new_from_qtilde(seed: &BigInt, input_qtilde: &BigInt) -> Self {
+        let q = &FE::q();
+        unsafe { pari_init(100000000, 2) };
+        // let mu = q.bit_length();
+        // assert!(lam > &(mu + 2));
+        // let k = lam - mu;
+        // let two = BigInt::from(2);
+        // let mut r = BigInt::sample_range(
+        //     &two.pow((k - 1) as u32),
+        //     &(two.pow(k as u32) - BigInt::one()),
+        // );
+
+        let mut qtilde = input_qtilde.clone();
+
+        while (q * &qtilde).mod_floor(&BigInt::from(4)) != BigInt::from(3)
+            || jacobi(q, &qtilde).unwrap() != -1
+        {
+            // r = BigInt::sample_range(
+            //     &two.pow((k - 1) as u32),
+            //     &(two.pow(k as u32) - BigInt::one()),
+            // );
+            qtilde = next_probable_prime(&qtilde);
+        }
+
+        debug_assert!(&(BigInt::from(4) * q) < &qtilde);
+
+        let delta_k = -q * &qtilde;
+        let delta_q = &delta_k * q.pow(2);
+
+        let delta_k_abs: BigInt = -delta_k.clone();
+        let log_delta_k_abs = numerical_log(&delta_k_abs);
+        let delta_k_abs_sqrt = delta_k_abs.sqrt();
+        let stilde = log_delta_k_abs * delta_k_abs_sqrt;
+
+        let mut prime_forms_vec: Vec<BinaryQF> = Vec::new();
+        let mut r = BigInt::from(3);
+        let ln_delta_k = numerical_log(&(-&delta_k));
+
+        let num_of_prime_forms = ln_delta_k.div_floor(&numerical_log(&ln_delta_k));
+
+        let mut i = BigInt::zero();
+        while i < num_of_prime_forms {
+            while jacobi(&delta_k, &r).unwrap() != 1 {
+                r = next_probable_small_prime(&r)
+            }
+            prime_forms_vec.push(BinaryQF::primeform(&delta_k, &r));
+            r = next_probable_small_prime(&r);
+            i = i + 1;
+        }
+        let mut rgoth = BinaryQF::binary_quadratic_form_principal(&delta_k);
+
+        // find exponent
+        let mut i = 0;
+        let mut rand_bits_i: BigInt;
+        let mut prod_exponent = BigInt::one();
+        while i < prime_forms_vec.len() {
+            // extract 15bits
+            rand_bits_i = prng(seed, i.clone(), 15);
+            while rand_bits_i.gcd(&prod_exponent) != BigInt::one() {
+                rand_bits_i = rand_bits_i + 1;
+            }
+            rgoth = rgoth
+                .compose(&prime_forms_vec[i].exp(&rand_bits_i))
+                .reduce();
+            prod_exponent = prod_exponent * &rand_bits_i;
+            i = i + 1;
+        }
+
+        let rgoth_square = rgoth.compose(&rgoth).reduce();
+
+        let gq_tmp = rgoth_square.phi_q_to_the_minus_1(&q).reduce();
+
+        let gq = gq_tmp.exp(&q);
+
+        CLGroup {
+            delta_k,
+            delta_q,
+            gq,
+            stilde,
+        }
+    }
+
     pub fn setup_verify(&self, seed: &BigInt) -> Result<(), ErrorReason> {
         unsafe { pari_init(100000000, 2) };
 
@@ -283,7 +366,7 @@ fn reciprocity(num: &BigInt, den: &BigInt) -> i8 {
     }
 }
 
-fn next_probable_prime(r: &BigInt) -> BigInt {
+pub fn next_probable_prime(r: &BigInt) -> BigInt {
     let one = BigInt::from(1);
     let mut qtilde = r + &one;
     while !is_prime(&qtilde) {
