@@ -149,7 +149,7 @@ pub struct SignPhaseFiveStepSevenMsg {
 }
 
 impl Setup {
-    pub fn init(&mut self, discriminant: usize) -> Self {
+    pub fn init(discriminant: usize) -> Self {
         let q = &FE::q();
         let mu = q.bit_length();
         assert!(discriminant > (mu + 2));
@@ -224,7 +224,7 @@ impl Setup {
         (msg_three, msg_four)
     }
 
-    pub fn phase_four_verify_commitment_and_generate_gp(msg_three_vec: &Vec<SetupPhaseThreeMsg>, msg_four_vec: &Vec<SetupPhaseFourMsg>) -> Result<(), ProofError> {
+    pub fn phase_four_verify_commitment(msg_three_vec: &Vec<SetupPhaseThreeMsg>, msg_four_vec: &Vec<SetupPhaseFourMsg>) -> Result<(), ProofError> {
         for i in 0..msg_three_vec.len() {
             let input_hash = HSha256::create_hash_from_slice(&msg_four_vec[i].open.0.to_bytes());
             if HashCommitment::create_commitment_with_user_defined_randomness(
@@ -485,6 +485,7 @@ impl SignPhase {
 
             // Homo
             let cipher = &msg.cl_enc_state.cipher;
+            let pk = &msg.cl_enc_state.cl_pub_key;
             let homocipher;
             let homocipher_plus;
             // let t_p;
@@ -500,7 +501,7 @@ impl SignPhase {
 
                 // Handle CL cipher.
                 let (r_cipher, _r_blind) =
-                    CLCipher::encrypt_without_r(&group, &zero.sub(&beta.get_element()));
+                    CLCipher::encrypt(&group, pk, &zero.sub(&beta.get_element()));
                 let c11 = cipher.c1.exp(&self.gamma.to_big_int());
                 let c21 = cipher.c2.exp(&self.gamma.to_big_int());
                 let c1 = c11.compose(&r_cipher.c1).reduce();
@@ -517,7 +518,7 @@ impl SignPhase {
 
                 // Handle CL cipher.
                 let (r_cipher, _r_blind) =
-                    CLCipher::encrypt_without_r(&group, &zero.sub(&v.get_element()));
+                    CLCipher::encrypt(&group, pk, &zero.sub(&v.get_element()));
                 let c11 = cipher.c1.exp(&self.omega.to_big_int());
                 let c21 = cipher.c2.exp(&self.omega.to_big_int());
                 let c1 = c11.compose(&r_cipher.c1).reduce();

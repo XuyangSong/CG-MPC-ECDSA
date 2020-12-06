@@ -3,6 +3,61 @@ use cg_ecdsa_core::{CLGroup, Signature};
 use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE};
 
+fn setup_n(n: usize, discriminant: usize) {
+    // Setup Init
+    let mut setup_vec = (0..n)
+        .map(|_| Setup::init(discriminant))
+        .collect::<Vec<Setup>>();
+
+    // Setup Phase 1
+    let phase_one_result_vec = (0..n)
+        .map(|i| {
+            setup_vec[i].phase_one_generate_commitment()
+        })
+        .collect::<Vec<_>>();
+
+    let phase_one_msg_vec = (0..n)
+        .map(|i| phase_one_result_vec[i].0.clone())
+        .collect::<Vec<_>>();
+
+    let phase_two_msg_vec = (0..n)
+        .map(|i| phase_one_result_vec[i].1.clone())
+        .collect::<Vec<_>>();
+
+    let qtilde = setup_vec[0].phase_two_verify_commitment_and_generate_qtilde(&phase_one_msg_vec, &phase_two_msg_vec).unwrap();
+
+    let seed: BigInt = str::parse(
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
+    ).unwrap();
+    let group = Setup::cl_setup(&seed, &qtilde);
+
+    let phase_three_result_vec = (0..n)
+        .map(|i| {
+            setup_vec[i].phase_three_generate_gi_and_commitment(&group)
+        })
+        .collect::<Vec<_>>();
+
+    let phase_three_msg_vec = (0..n)
+        .map(|i| phase_three_result_vec[i].0.clone())
+        .collect::<Vec<_>>();
+
+    let phase_four_msg_vec = (0..n)
+        .map(|i| phase_three_result_vec[i].1.clone())
+        .collect::<Vec<_>>();
+
+    Setup::phase_four_verify_commitment(&phase_three_msg_vec, &phase_four_msg_vec).unwrap();
+
+    let phase_five_result_vec = (0..n)
+        .map(|i| {
+            setup_vec[i].phase_five_generate_zkpok(&group)
+        })
+        .collect::<Vec<_>>();
+
+    let (_, received_zkpok) = phase_five_result_vec.split_at(1);
+    setup_vec[0].phase_five_verify_zkpok_and_generate_gq(&group, &received_zkpok.to_vec()).unwrap();
+
+}
+
 fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> Vec<KeyGen> {
     let n = params.share_count;
     let t = params.threshold;
@@ -230,4 +285,9 @@ fn test_pkc20() {
     let key_gen_vec = keygen_t_n_parties(&group, &params);
 
     test_sign(&group, &params, &key_gen_vec);
+}
+
+#[test]
+fn test_pkc20_setup() {
+    setup_n(5, 1348);
 }

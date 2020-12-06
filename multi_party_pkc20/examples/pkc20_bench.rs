@@ -7,16 +7,100 @@ fn main() {
     let seed: BigInt = str::parse(
         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
     ).unwrap();
-    let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
+
+    let discriminant = 1348;  // discriminant 1348
+    let group = CLGroup::new_from_setup(&discriminant, &seed);
 
     let params = Parameters {
         threshold: 2,
         share_count: 3,
     };
 
+    setup_n(3, discriminant);
+
     let key_gen_vec = keygen(&group, &params);
 
     sign(&group, &params, &key_gen_vec);
+}
+
+fn setup_n(n: usize, discriminant: usize) {
+    // Setup Init
+    let n_i32 = n as i32;
+    let setup_init_start = time::now();
+    let mut setup_vec = (0..n)
+        .map(|_| Setup::init(discriminant))
+        .collect::<Vec<Setup>>();
+
+    // Setup Phase 1
+    let phase_one_result_vec = (0..n)
+        .map(|i| {
+            setup_vec[i].phase_one_generate_commitment()
+        })
+        .collect::<Vec<_>>();
+    let setup_phase_one_time = (time::now() - setup_init_start) / n_i32;
+
+    let phase_one_msg_vec = (0..n)
+        .map(|i| phase_one_result_vec[i].0.clone())
+        .collect::<Vec<_>>();
+
+    let phase_two_msg_vec = (0..n)
+        .map(|i| phase_one_result_vec[i].1.clone())
+        .collect::<Vec<_>>();
+
+    let setup_phase_two_start = time::now();
+    let qtilde = setup_vec[0].phase_two_verify_commitment_and_generate_qtilde(&phase_one_msg_vec, &phase_two_msg_vec).unwrap();
+    let setup_phase_two_time = (time::now() - setup_phase_two_start) / n_i32;
+
+    let seed: BigInt = str::parse(
+        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
+    ).unwrap();
+    let group = Setup::cl_setup(&seed, &qtilde);
+
+    // Phase 3
+    let setup_phase_three_start = time::now();
+    let phase_three_result_vec = (0..n)
+        .map(|i| {
+            setup_vec[i].phase_three_generate_gi_and_commitment(&group)
+        })
+        .collect::<Vec<_>>();
+    let setup_phase_three_time = (time::now() - setup_phase_three_start) / n_i32;
+
+    let phase_three_msg_vec = (0..n)
+        .map(|i| phase_three_result_vec[i].0.clone())
+        .collect::<Vec<_>>();
+
+    let phase_four_msg_vec = (0..n)
+        .map(|i| phase_three_result_vec[i].1.clone())
+        .collect::<Vec<_>>();
+
+    // Phase 4
+    let setup_phase_four_start = time::now();
+    Setup::phase_four_verify_commitment(&phase_three_msg_vec, &phase_four_msg_vec).unwrap();
+    let setup_phase_four_time = (time::now() - setup_phase_four_start) / n_i32;
+
+    // Phase 5
+    let setup_phase_five_start1 = time::now();
+    let phase_five_result_vec = (0..n)
+        .map(|i| {
+            setup_vec[i].phase_five_generate_zkpok(&group)
+        })
+        .collect::<Vec<_>>();
+    let setup_phase_five_time1 = (time::now() - setup_phase_five_start1) / n_i32;
+
+    let (_, received_zkpok) = phase_five_result_vec.split_at(1);
+
+    let setup_phase_five_start2 = time::now();
+    setup_vec[0].phase_five_verify_zkpok_and_generate_gq(&group, &received_zkpok.to_vec()).unwrap();
+    let setup_phase_five_time2 = (time::now() - setup_phase_five_start2) / (n_i32-1);
+
+    // phase 5: 4 round; 40bit soundness
+    let time_n = setup_phase_two_time + setup_phase_four_time + setup_phase_five_time2 * 4;
+    let time_constant = setup_phase_one_time + setup_phase_three_time + setup_phase_five_time1 * 4;
+    println!(
+        "setup total time: {:?} * n + {:?}\n\n",
+        time_n, time_constant
+    );
+
 }
 
 fn keygen(group: &CLGroup, params: &Parameters) -> Vec<KeyGen> {
@@ -309,7 +393,7 @@ fn sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>) {
         + sign_phase_five_step_three_time
         + sign_phase_five_step_six_time;
     let time_constant = sign_phase_init_time + sign_phase_one_time + sign_phase_five_step_one_time;
-    println!("key gen total time: {:?} * t + {:?}", time_t, time_constant);
+    println!("sign total time: {:?} * t + {:?}", time_t, time_constant);
 
     // Verify Signature
     Signature::verify(&sig, &key_gen_vec[0].public_signing_key, &message).unwrap();

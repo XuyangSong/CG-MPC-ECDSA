@@ -309,7 +309,7 @@ fn sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>) {
         + sign_phase_five_step_three_time
         + sign_phase_five_step_six_time;
     let time_constant = sign_phase_init_time + sign_phase_one_time + sign_phase_five_step_one_time;
-    println!("key gen total time: {:?} * t + {:?}", time_t, time_constant);
+    println!("sign total time: {:?} * t + {:?}", time_t, time_constant);
 
     // Verify Signature
     Signature::verify(&sig, &key_gen_vec[0].public_signing_key, &message).unwrap();
