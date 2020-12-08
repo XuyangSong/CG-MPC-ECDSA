@@ -6,6 +6,7 @@ members = [
     "multi_party",
     "readerwriter",
     "p2p",
+    "multi_party_pkc20",
 ]
 
 [patch.crates-io]

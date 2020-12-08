@@ -1,5 +1,5 @@
 [package]
-name = "multi_party"
+name = "multi_party_pkc20"
 version = "0.1.0"
 edition = "2018"
 
@@ -14,25 +14,14 @@ serde_derive="1.0"
 serde_json="1.0"
 zeroize = "0.10.1"
 time = "0.1"
-tokio = {version = "0.2", features=["full","sync"]}
-tokio-util = {version = "0.3.1", features=["codec"]}
-rand = "0.7"
-curve25519-dalek = { version = "3", features = ["serde"] }
-readerwriter = {path = "../readerwriter", features=["bytes"]}
 
 [dependencies.curv]
 git = "https://github.com/KZen-networks/curv"
 tag = "v0.2.6"
 features = ["ec_secp256k1"]
 
-[dependencies.p2p]
-path = "../p2p"
-
 [lib]
 crate-type= ["lib"]
 
 [[example]]
-name = "multi_party_demo"
-
-[[example]]
-name = "bench"
+name = "pkc20_bench"
