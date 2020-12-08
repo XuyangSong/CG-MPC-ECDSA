@@ -1,7 +1,7 @@
 use super::eccl_setup::{CLGroup, Ciphertext as CLCipher, PK, SK};
 use super::elgamal::ElgamalCipher;
 use super::ProofError;
-use super::SECURITY_BITS;
+use crate::eccl_setup::SECURITY_PARAMETER;
 use crate::curv::arithmetic::traits::*;
 use crate::curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use crate::curv::cryptographic_primitives::hashing::traits::Hash;
@@ -81,7 +81,7 @@ impl PromiseProof {
         let s2: BigInt = BigInt::sample_below(
             &(&group.stilde
                 * BigInt::from(2).pow(40)
-                * BigInt::from(2).pow(SECURITY_BITS as u32)
+                * BigInt::from(2).pow(SECURITY_PARAMETER as u32)
                 * BigInt::from(2).pow(40)),
         );
         let a1 = G * s1;
@@ -128,7 +128,7 @@ impl PromiseProof {
             &BigInt::from(b2.to_bytes().as_ref()),
         ]);
 
-        let hash128 = &BigInt::to_vec(&hash256)[..SECURITY_BITS / 8];
+        let hash128 = &BigInt::to_vec(&hash256)[..SECURITY_PARAMETER / 8];
         BigInt::from(hash128)
     }
 

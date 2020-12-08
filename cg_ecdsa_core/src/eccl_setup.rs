@@ -15,7 +15,7 @@ use curv::BigInt;
 use curv::{FE, GE};
 use std::os::raw::c_int;
 
-const SECURITY_PARAMETER: usize = 128;
+pub const SECURITY_PARAMETER: usize = 128;
 const C: usize = 10;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

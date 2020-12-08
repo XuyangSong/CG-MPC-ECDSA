@@ -1,7 +1,7 @@
 use super::eccl_setup::{CLGroup, Ciphertext as CLCipher, PK};
 use crate::BinaryQF;
 use curv::{BigInt, FE};
-use super::SECURITY_BITS;
+use super::eccl_setup::SECURITY_PARAMETER;
 use crate::curv::arithmetic::traits::*;
 use crate::curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use crate::curv::cryptographic_primitives::hashing::traits::Hash;
@@ -33,7 +33,7 @@ impl CLEncProof {
         let r1: BigInt = BigInt::sample_below(
             &(&group.stilde
                 * BigInt::from(2).pow(40)
-                * BigInt::from(2).pow(SECURITY_BITS as u32)
+                * BigInt::from(2).pow(SECURITY_PARAMETER as u32)
                 * BigInt::from(2).pow(40)),
         );
         let r2: FE = FE::new_random();
@@ -65,8 +65,7 @@ impl CLEncProof {
             &BigInt::from(t2.to_bytes().as_ref()),
         ]);
 
-        // TBD: the size of challenge?
-        let hash128 = &BigInt::to_vec(&hash256)[..SECURITY_BITS / 8];
+        let hash128 = &BigInt::to_vec(&hash256)[..SECURITY_PARAMETER / 8];
         BigInt::from(hash128)
     }
 
