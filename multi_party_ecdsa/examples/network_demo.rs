@@ -9,6 +9,10 @@ use tokio::task;
 use p2p::cybershake;
 use p2p::{Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
 
+use multi_party_ecdsa::protocols::multi_party::ours::party_i::*;
+use class_group::primitives::cl_dl_public_setup::CLGroup;
+use curv::BigInt;
+
 fn main() {
     // Create the runtime.
     let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
@@ -21,7 +25,7 @@ fn main() {
             // TBD: Read config file. Including ip, port, index and (t, n).
 
             let config = NodeConfig {
-                index: 1,
+                index: 2,
                 listen_ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
                 listen_port: 0,
                 inbound_limit: 100,
@@ -47,6 +51,13 @@ fn main() {
             // Spawn the notifications loop
             let notifications_loop = {
                 task::spawn_local(async move {
+                    let seed: BigInt = str::parse(
+                        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
+                    ).unwrap();
+                    let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
+                    let mut keygen: KeyGen;
+                    // let mut sign: SignPhase;
+
                     while let Some(notif) = notifications_channel.recv().await {
                         match notif {
                             NodeNotification::PeerAdded(_pid, index) => {
@@ -62,6 +73,18 @@ fn main() {
                                     String::from_utf8_lossy(&msg).into_owned(),
                                     pid
                                 )
+                            }
+                            NodeNotification::KeyGen(index) => {
+                                let params = Parameters {
+                                    threshold: 2,
+                                    share_count: 3,
+                                };
+                                keygen = KeyGen::phase_one_init(&group, index, params);
+                                keygen.phase_two_generate_dl_com();
+                                println!("KeyGen...")
+                            }
+                            NodeNotification::Sign => {
+                                println!("Sign...")
                             }
                             NodeNotification::InboundConnectionFailure(err) => {
                                 println!("\n=> Inbound connection failure: {:?}", err)
@@ -88,8 +111,8 @@ fn main() {
 enum UserCommand {
     Nop,
     Connect(Vec<String>),
-    // KeyGen
-    // Signature
+    KeyGen,
+    Sign,
     Broadcast(String),
     SendMsg(PeerID, String),
     Disconnect(PeerID), // peer id
@@ -176,6 +199,15 @@ impl Console {
                     println!("  {}", peer_info);
                 }
             }
+            UserCommand::KeyGen => {
+                println!("=> KeyGen Begin...");
+                self.node.keygen().await;
+
+            }
+            UserCommand::Sign => {
+                println!("=> Signature Begin...");
+                self.node.sign().await;
+            }
         }
         Ok(())
     }
@@ -231,6 +263,10 @@ impl Console {
             } else {
                 Err(format!("Invalid peer ID `{}`", s))
             }
+        } else if command == "keygen" {
+            Ok(UserCommand::KeyGen)
+        } else if command == "sign" {
+            Ok(UserCommand::Sign)
         } else if command == "exit" || command == "quit" || command == "q" {
             Ok(UserCommand::Exit)
         } else {

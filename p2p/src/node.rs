@@ -80,6 +80,8 @@ pub enum NodeNotification<Custom: Codable> {
     MessageReceived(PeerID, Custom),
     InboundConnectionFailure(io::Error),
     OutboundConnectionFailure(io::Error),
+    KeyGen(usize),
+    Sign,
     /// Node has finished running.
     Shutdown,
 }
@@ -102,6 +104,8 @@ enum NodeMessage<Custom: Codable> {
     SendMsg(PeerID, Custom),
     CountPeers(Reply<usize>),
     ListPeers(Reply<Vec<PeerInfo>>),
+    KeyGen,
+    Sign,
 }
 
 impl NodeConfig {
@@ -235,6 +239,16 @@ impl<Custom: Codable> NodeHandle<Custom> {
         self.send_internal(NodeMessage::SendMsg(peer_id, msg)).await
     }
 
+     /// KeyGen begin.
+     pub async fn keygen(&mut self) {
+        self.send_internal(NodeMessage::KeyGen).await
+    }
+
+    /// Sign begin.
+    pub async fn sign(&mut self) {
+        self.send_internal(NodeMessage::Sign).await
+    }
+
     pub async fn list_peers(&mut self) -> Vec<PeerInfo> {
         let (tx, rx) = sync::oneshot::channel::<Vec<PeerInfo>>();
         self.send_internal(NodeMessage::ListPeers(tx)).await;
@@ -275,6 +289,8 @@ where
             NodeMessage::SendMsg(pid, msg) => self.send_to_peer(&pid, PeerMessage::Data(msg)).await,
             NodeMessage::CountPeers(reply) => self.count_peers(reply).await,
             NodeMessage::ListPeers(reply) => self.list_peers(reply).await,
+            NodeMessage::KeyGen => self.keygen().await,
+            NodeMessage::Sign => self.sign().await,
         }
     }
 
@@ -504,6 +520,14 @@ where
         if let Some(peer) = self.peers.get_mut(&pid) {
             peer.link.send(msg).await;
         }
+    }
+
+    async fn keygen(&mut self) {
+        self.notify(NodeNotification::KeyGen(self.index)).await;
+    }
+
+    async fn sign(&mut self) {
+        self.notify(NodeNotification::Sign).await;
     }
 
     async fn handle_peer_notification(&mut self, notif: PeerNotification<Custom>) {
