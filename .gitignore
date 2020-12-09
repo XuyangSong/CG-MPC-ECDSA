@@ -6,15 +6,16 @@ Cargo.lock
 **/*.rs.bk
 
 # Ignore various build artifacts from PARI
-depend/pari/Makefile
-depend/pari/O*
-depend/pari/config-*
-depend/pari/config/linux-*
-depend/pari/config/darwin-*
-depend/pari/doc/
-depend/pari/examples/
-depend/pari/misc/tex2mail
-depend/pari/src/desc/pari.desc
+# depend/pari/Makefile
+# depend/pari/O*
+# depend/pari/config-*
+# depend/pari/config/linux-*
+# depend/pari/config/darwin-*
+# depend/pari/doc/
+# depend/pari/examples/
+# depend/pari/misc/tex2mail
+# depend/pari/src/desc/pari.desc
 
+class
 .DS_Store
 .vscode

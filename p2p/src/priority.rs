@@ -1,4 +1,5 @@
 //! Prioritization utilities.
+#![allow(dead_code)]
 
 use std::cmp::Eq;
 use std::collections::HashMap;

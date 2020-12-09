@@ -1,12 +1,9 @@
 [workspace]
 
 members = [
-    "cg_ecdsa_core",
-    "two_party",
-    "multi_party",
+    "multi_party_ecdsa",
     "readerwriter",
     "p2p",
-    "multi_party_pkc20",
 ]
 
 [patch.crates-io]
