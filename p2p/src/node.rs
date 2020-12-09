@@ -319,8 +319,14 @@ where
             // TBD: fake index, No ues
             let peer_index = 0;
 
-            self.register_peer(peer_link, addr, Direction::Inbound, LOW_PRIORITY, peer_index)
-                .await;
+            self.register_peer(
+                peer_link,
+                addr,
+                Direction::Inbound,
+                LOW_PRIORITY,
+                peer_index,
+            )
+            .await;
 
             Ok(())
         }
@@ -435,11 +441,10 @@ where
         // The peer did not exist - simply add it.
         let _ = self.peers.insert(id, peer);
 
-
         // If this is an outbound connection, tell our port.
         if direction == Direction::Outbound {
             self.notify(NodeNotification::PeerAdded(id, peer_index))
-            .await;
+                .await;
 
             self.send_to_peer(
                 &id,

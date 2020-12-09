@@ -1,0 +1,60 @@
+[package]
+name = "multi-party-ecdsa"
+version = "0.1.0"
+edition = "2018"
+authors = [
+    "songxuyang <xuyangsong1012@gmail.com>",
+    "wanghailong"
+]
+keywords = [
+    "ecdsa",
+    "multi-party-ecdsa",
+    "signature",
+    "rust",
+    "secret-shares",
+    "cryptography",
+]
+
+[lib]
+crate-type= ["lib"]
+
+[dependencies]
+libc = "0.2.0"
+subtle = { version = "2" }
+serde = { version = "1.0", features = ["derive"] }
+serde_derive="1.0"
+serde_json="1.0"
+zeroize = "0.10.1"
+time = "0.1"
+
+[dependencies.curv]
+git = "https://github.com/KZen-networks/curv"
+tag = "v0.2.6"
+features = ["ec_secp256k1"]
+
+[dependencies.centipede]
+git = "https://github.com/KZen-networks/centipede"
+tag = "v0.2.6"
+
+[dependencies.class_group]
+git = "https://github.com/XuyangSong/class"
+tag = "v1.4.18"
+
+
+[dev-dependencies]
+criterion = "0.3"
+rust-crypto = "0.2"
+hex = "0.4"
+reqwest = { version = "0.9", default-features = false }
+uuid = { version = "0.8", features = ["v4"] }
+serde_json = "1.0"
+libsecp256k1 = "0.3.2"
+
+[[example]]
+name = "two_party"
+
+[[example]]
+name = "multi_party"
+
+[[example]]
+name = "pkc20"
