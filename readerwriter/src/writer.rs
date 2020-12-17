@@ -25,6 +25,10 @@ pub trait Writer {
     /// Remaining number of bytes that can be written.
     fn remaining_capacity(&self) -> usize;
 
+    fn write_size(&mut self, label: &'static [u8], x: usize) -> Result<(), WriteError> {
+        self.write_u32(label, x as u32)
+    }
+
     /// Writes a single byte.
     #[inline]
     fn write_u8(&mut self, label: &'static [u8], x: u8) -> Result<(), WriteError> {

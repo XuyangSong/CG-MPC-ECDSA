@@ -7,11 +7,14 @@ use tokio::prelude::*;
 use tokio::task;
 
 use p2p::cybershake;
-use p2p::{Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
+use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
 
-use multi_party_ecdsa::protocols::multi_party::ours::party_i::*;
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use curv::BigInt;
+use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
+use multi_party_ecdsa::communication::sending_messages::SendingMessages;
+use multi_party_ecdsa::protocols::multi_party::ours::party_i::MultiKeyGenMessage;
+use multi_party_ecdsa::protocols::multi_party::ours::party_i::*;
 
 fn main() {
     // Create the runtime.
@@ -40,10 +43,13 @@ fn main() {
                 .expect("Should bind normally.");
 
             println!(
-                "Listening on {} with peer ID: {}",
+                "Listening on {} with peer ID: {} with index: {}",
                 node.socket_address(),
-                node.id()
+                node.id(),
+                index,
             );
+
+            let mut node2 = node.clone();
 
             // Begin the UI.
             let interactive_loop = Console::spawn(node, index);
@@ -55,7 +61,12 @@ fn main() {
                         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
                     ).unwrap();
                     let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
-                    let mut keygen: KeyGen;
+                    let params = Parameters {
+                        threshold: 2,
+                        share_count: 3,
+                    };
+                    // TBD: add a new func, init it latter.
+                    let mut keygen = KeyGen::phase_one_init(&group, index, params);
                     // let mut sign: SignPhase;
 
                     while let Some(notif) = notifications_channel.recv().await {
@@ -66,21 +77,44 @@ fn main() {
                             NodeNotification::PeerDisconnected(pid) => {
                                 println!("\n=> Peer disconnected: {}", pid)
                             }
-                            NodeNotification::MessageReceived(pid, msg) => {
+                            NodeNotification::MessageReceived(pid, index, msg) => {
+                                // Decode msg
+                                let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
+                                let sending_msg;
+                                match received_msg {
+                                    ReceivingMessages::MultiKeyGenMessage(msg) => {
+                                        sending_msg = keygen.msg_handler(index, &msg);
+                                    }
+                                }
+
+                                match sending_msg {
+                                    SendingMessages::P2pMessage(msgs) => {
+                                        for (index, msg) in msgs.iter() {
+                                            node2.sendmsgbyindex(*index, Message(msg.to_vec())).await;
+                                        }
+                                        println!("sending p2p msg");
+                                    }
+                                    SendingMessages::BroadcastMessage(msg) => {
+                                        node2.broadcast(Message(msg)).await;
+                                        println!("sending broadcast msg");
+                                    }
+                                    SendingMessages::EmptyMsg => {
+                                        println!("no msg to send");
+                                    }
+
+                                }
                                 // handle msg
                                 println!(
-                                    "\n=> Received: `{}` from {}",
-                                    String::from_utf8_lossy(&msg).into_owned(),
-                                    pid
+                                    "\n=> Received: from {}",
+                                    // String::from_utf8_lossy(&msg).into_owned(),
+                                    index
                                 )
                             }
                             NodeNotification::KeyGen(index) => {
-                                let params = Parameters {
-                                    threshold: 2,
-                                    share_count: 3,
-                                };
-                                keygen = KeyGen::phase_one_init(&group, index, params);
-                                keygen.phase_two_generate_dl_com();
+                                let msg = keygen.phase_two_generate_dl_com_msg();
+                                // // Broadcast first msg
+                                let msg_bytes = bincode::serialize(&msg).unwrap();
+                                node2.broadcast(Message(msg_bytes)).await;
                                 println!("KeyGen...")
                             }
                             NodeNotification::Sign => {
@@ -147,6 +181,7 @@ impl Console {
                 }
                 .await;
 
+                // println!("log: {:?}", result);
                 match result {
                     Err(e) => {
                         if e == "Command::Exit" {
@@ -168,7 +203,10 @@ impl Console {
     async fn process_command(&mut self, command: UserCommand) -> Result<(), String> {
         match command {
             UserCommand::Nop => {}
-            UserCommand::Exit => return Err("Command::Exit".into()),
+            UserCommand::Exit => {
+                self.node.exit().await;
+                return Err("Command::Exit".into());
+            }
             UserCommand::Connect(addrs) => {
                 for (i, addr) in addrs.iter().enumerate() {
                     // skip connect myself
@@ -190,7 +228,9 @@ impl Console {
             }
             UserCommand::SendMsg(peer_id, msg) => {
                 println!("=> Send: {:?}, to {}", &msg, peer_id);
-                self.node.sendmsg(peer_id, Message(msg.as_bytes().to_vec())).await;
+                self.node
+                    .sendmsg(peer_id, Message(msg.as_bytes().to_vec()))
+                    .await;
             }
             UserCommand::ListPeers => {
                 let peer_infos = self.node.list_peers().await;
@@ -201,8 +241,11 @@ impl Console {
             }
             UserCommand::KeyGen => {
                 println!("=> KeyGen Begin...");
-                self.node.keygen().await;
-
+                let msg = bincode::serialize(&ReceivingMessages::MultiKeyGenMessage(
+                    MultiKeyGenMessage::KeyGenBegin,
+                ))
+                .unwrap();
+                self.node.keygen(Message(msg)).await;
             }
             UserCommand::Sign => {
                 println!("=> Signature Begin...");
@@ -243,11 +286,7 @@ impl Console {
         } else if command == "sendmsg" {
             let s = rest.unwrap_or("").to_string();
             let mut ss = s.splitn(2, " ");
-            let spid = ss
-            .next()
-            .ok_or_else(|| {
-                "Invalid peer ID".to_string()
-            })?;
+            let spid = ss.next().ok_or_else(|| "Invalid peer ID".to_string())?;
             let msg = ss.next();
             if let Some(id) = PeerID::from_string(&spid) {
                 Ok(UserCommand::SendMsg(id, msg.unwrap_or("").into()))
@@ -268,35 +307,10 @@ impl Console {
         } else if command == "sign" {
             Ok(UserCommand::Sign)
         } else if command == "exit" || command == "quit" || command == "q" {
+            // println!("log: {:?}", command);
             Ok(UserCommand::Exit)
         } else {
             Err(format!("Unknown command `{}`", command))
         }
-    }
-}
-
-use readerwriter::{Decodable, Encodable, ReadError, Reader, WriteError, Writer};
-use std::ops::Deref;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Message(pub Vec<u8>);
-
-impl Deref for Message {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Encodable for Message {
-    fn encode(&self, dst: &mut impl Writer) -> Result<(), WriteError> {
-        Ok(dst.write(b"data", self.as_slice()).unwrap())
-    }
-}
-
-impl Decodable for Message {
-    fn decode(buf: &mut impl Reader) -> Result<Self, ReadError> {
-        Ok(Self(buf.read_bytes(buf.remaining_bytes()).unwrap()))
     }
 }

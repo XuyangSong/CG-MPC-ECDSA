@@ -9,6 +9,8 @@ use class_group::primitives::cl_dl_public_setup::{
     decrypt, encrypt_without_r, CLGroup, Ciphertext as CLCipher, SK as CLSK,
 };
 
+use crate::communication::receiving_messages::ReceivingMessages;
+use crate::communication::sending_messages::SendingMessages;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -19,6 +21,9 @@ use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof, ProveDLog};
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE, GE};
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 pub struct Parameters {
@@ -37,6 +42,52 @@ pub struct KeyGen {
     pub share_private_key: FE,          // x_i
     pub share_public_key: Vec<GE>,      // X_i
     pub vss_scheme_vec: Vec<VerifiableSS>,
+    pub msgs: KeyGenMsgs,
+}
+
+#[derive(Clone, Debug)]
+pub struct KeyGenMsgs {
+    pub phase_two_msgs: HashMap<usize, KeyGenPhaseTwoMsg>,
+    pub phase_three_msgs: HashMap<usize, KeyGenPhaseThreeMsg>,
+    pub phase_four_msgs: HashMap<usize, KeyGenPhaseFourMsg>,
+    pub phase_five_msgs: HashMap<usize, KeyGenPhaseFiveMsg>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyGenPhaseTwoMsg {
+    // pub ec_pk: GE,
+    // pub cl_pk: CLPK,
+    pub commitment: BigInt,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyGenPhaseThreeMsg {
+    pub open: DlogCommitmentOpen,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyGenPhaseFourMsg {
+    pub vss_scheme: VerifiableSS,
+    pub secret_share: FE,
+}
+
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct KeyGenPhaseFourMsgTwo {
+//     pub secret_share: FE,
+// }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyGenPhaseFiveMsg {
+    pub dl_proof: DLogProof,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum MultiKeyGenMessage {
+    KeyGenBegin,
+    PhaseTwoMsg(KeyGenPhaseTwoMsg),
+    PhaseThreeMsg(KeyGenPhaseThreeMsg),
+    PhaseFourMsg(KeyGenPhaseFourMsg),
+    PhaseFiveMsg(KeyGenPhaseFiveMsg),
 }
 
 #[derive(Clone, Debug)]
@@ -136,11 +187,30 @@ impl KeyGen {
             share_private_key,
             share_public_key,
             vss_scheme_vec,
+            msgs: KeyGenMsgs::new(),
         }
     }
 
     pub fn phase_two_generate_dl_com(&self) -> DlogCommitment {
         DlogCommitment::new(&self.private_signing_key.get_public_key())
+    }
+
+    pub fn phase_two_generate_dl_com_msg(&mut self) -> ReceivingMessages {
+        let dlog_com = DlogCommitment::new(&self.private_signing_key.get_public_key());
+        let msg_2 = KeyGenPhaseTwoMsg {
+            commitment: dlog_com.commitment,
+        };
+
+        let msg_3 = KeyGenPhaseThreeMsg {
+            open: dlog_com.open,
+        };
+
+        self.msgs
+            .phase_two_msgs
+            .insert(self.party_index, msg_2.clone());
+        self.msgs.phase_three_msgs.insert(self.party_index, msg_3);
+
+        ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseTwoMsg(msg_2))
     }
 
     pub fn phase_three_verify_dl_com_and_generate_signing_key(
@@ -157,6 +227,27 @@ impl KeyGen {
         Ok(())
     }
 
+    pub fn phase_three_verify_dl_com_and_generate_signing_key_msg(
+        &mut self,
+    ) -> Result<(), ProofError> {
+        assert_eq!(self.msgs.phase_two_msgs.len(), self.params.share_count);
+        assert_eq!(self.msgs.phase_three_msgs.len(), self.params.share_count);
+        for i in 0..self.params.share_count {
+            if i == self.party_index {
+                continue;
+            }
+            let commitment = self.msgs.phase_two_msgs.get(&i).unwrap().commitment.clone();
+            let open = self.msgs.phase_three_msgs.get(&i).unwrap().open.clone();
+
+            let dlog_com = DlogCommitment { commitment, open };
+            dlog_com.verify()?;
+
+            self.public_signing_key = self.public_signing_key + dlog_com.get_public_share();
+        }
+
+        Ok(())
+    }
+
     pub fn phase_four_generate_vss(&self) -> (VerifiableSS, Vec<FE>, usize) {
         let (vss_scheme, secret_shares) = VerifiableSS::share(
             self.params.threshold as usize,
@@ -165,6 +256,48 @@ impl KeyGen {
         );
 
         (vss_scheme, secret_shares, self.party_index)
+    }
+
+    pub fn phase_five_verify_vss_and_generate_pok_dlog_msg(
+        &mut self,
+        // q_vec: &Vec<GE>,
+        // secret_shares_vec: &Vec<FE>,
+        // vss_scheme_vec: &Vec<VerifiableSS>,
+    ) -> Result<DLogProof, ProofError> {
+        // assert_eq!(q_vec.len(), self.params.share_count);
+        // assert_eq!(secret_shares_vec.len(), self.params.share_count);
+        // assert_eq!(vss_scheme_vec.len(), self.params.share_count);
+
+        // Check VSS
+        for i in 0..(self.params.share_count) {
+            let q = self
+                .msgs
+                .phase_three_msgs
+                .get(&i)
+                .unwrap()
+                .open
+                .public_share;
+            let vss = self.msgs.phase_four_msgs.get(&i).unwrap();
+            if !(vss
+                .vss_scheme
+                .validate_share(&vss.secret_share, self.party_index + 1)
+                .is_ok()
+                && vss.vss_scheme.commitments[0] == q)
+            {
+                // TBD: use new error type
+                return Err(ProofError);
+            }
+
+            self.share_private_key = self.share_private_key + vss.secret_share;
+            // Assign vss_scheme_vec
+            self.vss_scheme_vec.push(vss.vss_scheme.clone());
+        }
+
+        // Compute share private key(x_i)
+        // self.share_private_key = secret_shares_vec.iter().fold(FE::zero(), |acc, x| acc + x);
+        let dlog_proof = DLogProof::prove(&self.share_private_key);
+
+        Ok(dlog_proof)
     }
 
     pub fn phase_five_verify_vss_and_generate_pok_dlog(
@@ -210,6 +343,110 @@ impl KeyGen {
         }
 
         Ok(())
+    }
+
+    pub fn phase_six_verify_dlog_proof_msg(&mut self) -> Result<(), ProofError> {
+        // assert_eq!(self.msgs.phase_five_msgs.len(), self.params.share_count);
+        for i in 0..self.params.share_count {
+            let msg = self.msgs.phase_five_msgs.get(&i).unwrap();
+            DLogProof::verify(&msg.dl_proof).unwrap();
+            self.share_public_key.push(msg.dl_proof.pk);
+        }
+
+        Ok(())
+    }
+
+    pub fn msg_handler(&mut self, index: usize, msg: &MultiKeyGenMessage) -> SendingMessages {
+        // Handle msg
+        println!("handle receiving msg: {:?}", msg);
+
+        match msg {
+            MultiKeyGenMessage::KeyGenBegin => {
+                if self.msgs.phase_two_msgs.len() == self.params.share_count {
+                    let keygen_phase_three_msg =
+                        self.msgs.phase_three_msgs.get(&self.party_index).unwrap();
+                    let sending_msg = ReceivingMessages::MultiKeyGenMessage(
+                        MultiKeyGenMessage::PhaseThreeMsg(keygen_phase_three_msg.clone()),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiKeyGenMessage::PhaseTwoMsg(msg) => {
+                self.msgs.phase_two_msgs.insert(index, msg.clone());
+                if self.msgs.phase_two_msgs.len() == self.params.share_count {
+                    let keygen_phase_three_msg =
+                        self.msgs.phase_three_msgs.get(&self.party_index).unwrap();
+                    let sending_msg = ReceivingMessages::MultiKeyGenMessage(
+                        MultiKeyGenMessage::PhaseThreeMsg(keygen_phase_three_msg.clone()),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiKeyGenMessage::PhaseThreeMsg(msg) => {
+                self.msgs.phase_three_msgs.insert(index, msg.clone());
+                if self.msgs.phase_three_msgs.len() == self.params.share_count {
+                    self.phase_three_verify_dl_com_and_generate_signing_key_msg()
+                        .unwrap();
+                    let (vss_scheme, secret_shares, _index) = self.phase_four_generate_vss();
+                    let mut sending_msg: HashMap<usize, Vec<u8>> = HashMap::new();
+                    for i in 0..self.params.share_count {
+                        let msg = KeyGenPhaseFourMsg {
+                            vss_scheme: vss_scheme.clone(),
+                            secret_share: secret_shares[i],
+                        };
+
+                        if i == self.party_index {
+                            // send to myself
+                            self.msgs.phase_four_msgs.insert(i, msg);
+                        } else {
+                            let phase_four_msg = ReceivingMessages::MultiKeyGenMessage(
+                                MultiKeyGenMessage::PhaseFourMsg(msg),
+                            );
+                            let msg_bytes = bincode::serialize(&phase_four_msg).unwrap();
+                            sending_msg.insert(i, msg_bytes);
+                        }
+                    }
+
+                    return SendingMessages::P2pMessage(sending_msg);
+                }
+            }
+            MultiKeyGenMessage::PhaseFourMsg(msg) => {
+                self.msgs.phase_four_msgs.insert(index, msg.clone());
+                if self.msgs.phase_four_msgs.len() == self.params.share_count {
+                    let dl_proof = self
+                        .phase_five_verify_vss_and_generate_pok_dlog_msg()
+                        .unwrap();
+                    let sending_msg = ReceivingMessages::MultiKeyGenMessage(
+                        MultiKeyGenMessage::PhaseFiveMsg(KeyGenPhaseFiveMsg { dl_proof }),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiKeyGenMessage::PhaseFiveMsg(msg) => {
+                self.msgs.phase_five_msgs.insert(index, msg.clone());
+                if self.msgs.phase_five_msgs.len() == self.params.share_count {
+                    self.phase_six_verify_dlog_proof_msg().unwrap();
+                    // TBD: return KeyGen Success
+                    return SendingMessages::EmptyMsg;
+                }
+            }
+        }
+
+        SendingMessages::EmptyMsg
+    }
+}
+
+impl KeyGenMsgs {
+    pub fn new() -> Self {
+        Self {
+            phase_two_msgs: HashMap::new(),
+            phase_three_msgs: HashMap::new(),
+            phase_four_msgs: HashMap::new(),
+            phase_five_msgs: HashMap::new(),
+        }
     }
 }
 
