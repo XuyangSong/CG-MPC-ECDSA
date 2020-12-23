@@ -6,4 +6,6 @@ pub enum SendingMessages {
     P2pMessage(HashMap<usize, Vec<u8>>),
     BroadcastMessage(Vec<u8>),
     EmptyMsg,
+    KeyGenSuccess,
+    SignSuccess,
 }

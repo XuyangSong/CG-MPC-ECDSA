@@ -106,7 +106,7 @@ pub enum NodeMessage<Custom: Codable> {
     CountPeers(Reply<usize>),
     ListPeers(Reply<Vec<PeerInfo>>),
     KeyGen(Custom),
-    Sign,
+    Sign(Custom),
     Exit,
 }
 
@@ -260,8 +260,8 @@ impl<Custom: Codable> NodeHandle<Custom> {
     }
 
     /// Sign begin.
-    pub async fn sign(&mut self) {
-        self.send_internal(NodeMessage::Sign).await
+    pub async fn sign(&mut self, msg: Custom) {
+        self.send_internal(NodeMessage::Sign(msg)).await
     }
 
     pub async fn list_peers(&mut self) -> Vec<PeerInfo> {
@@ -309,7 +309,7 @@ where
             NodeMessage::CountPeers(reply) => self.count_peers(reply).await,
             NodeMessage::ListPeers(reply) => self.list_peers(reply).await,
             NodeMessage::KeyGen(msg) => self.keygen(msg).await,
-            NodeMessage::Sign => self.sign().await,
+            NodeMessage::Sign(msg) => self.sign(msg).await,
             NodeMessage::Exit => {}
         }
     }
@@ -559,8 +559,13 @@ where
             .await
     }
 
-    async fn sign(&mut self) {
+    async fn sign(&mut self, msg: Custom) {
+        let index = self.index;
+        // pid no use
+        let pid = PeerID::default();
         self.notify(NodeNotification::Sign).await;
+        self.notify(NodeNotification::MessageReceived(pid, index, msg))
+            .await
     }
 
     async fn handle_peer_notification(&mut self, notif: PeerNotification<Custom>) {

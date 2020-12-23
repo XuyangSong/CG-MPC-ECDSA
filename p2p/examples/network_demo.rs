@@ -10,7 +10,8 @@ use p2p::cybershake;
 use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
 
 use class_group::primitives::cl_dl_public_setup::CLGroup;
-use curv::BigInt;
+use curv::elliptic::curves::traits::*;
+use curv::{BigInt, FE};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::party_i::MultiKeyGenMessage;
@@ -60,14 +61,18 @@ fn main() {
                     let seed: BigInt = str::parse(
                         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
                     ).unwrap();
-                    let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
+                    // TBD: use random qtilde
+                    let qtilde: BigInt = str::parse("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
+                    let group = CLGroup::new_from_qtilde(&seed, &qtilde);
+                    // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
+                    // println!("group: {:?}", group);
                     let params = Parameters {
                         threshold: 2,
                         share_count: 3,
                     };
                     // TBD: add a new func, init it latter.
-                    let mut keygen = KeyGen::phase_one_init(&group, index, params);
-                    // let mut sign: SignPhase;
+                    let mut keygen = KeyGen::phase_one_init(&group, index, params.clone());
+                    let mut sign = SignPhase::new();
 
                     while let Some(notif) = notifications_channel.recv().await {
                         match notif {
@@ -85,6 +90,9 @@ fn main() {
                                     ReceivingMessages::MultiKeyGenMessage(msg) => {
                                         sending_msg = keygen.msg_handler(index, &msg);
                                     }
+                                    ReceivingMessages::MultiSignMessage(msg) => {
+                                        sending_msg = sign.msg_handler(&group, index, &msg);
+                                    }
                                 }
 
                                 match sending_msg {
@@ -92,11 +100,17 @@ fn main() {
                                         for (index, msg) in msgs.iter() {
                                             node2.sendmsgbyindex(*index, Message(msg.to_vec())).await;
                                         }
-                                        println!("sending p2p msg");
+                                        println!("Sending p2p msg");
                                     }
                                     SendingMessages::BroadcastMessage(msg) => {
                                         node2.broadcast(Message(msg)).await;
-                                        println!("sending broadcast msg");
+                                        println!("Sending broadcast msg");
+                                    }
+                                    SendingMessages::KeyGenSuccess => {
+                                        println!("keygen Success!");
+                                    }
+                                    SendingMessages::SignSuccess => {
+                                        println!("Sign Success!");
                                     }
                                     SendingMessages::EmptyMsg => {
                                         println!("no msg to send");
@@ -105,8 +119,7 @@ fn main() {
                                 }
                                 // handle msg
                                 println!(
-                                    "\n=> Received: from {}",
-                                    // String::from_utf8_lossy(&msg).into_owned(),
+                                    "\n=> Received: from {}\n\n",
                                     index
                                 )
                             }
@@ -118,6 +131,21 @@ fn main() {
                                 println!("KeyGen...")
                             }
                             NodeNotification::Sign => {
+                                // Init Sign
+                                // TBD: put subset in config file
+                                let subset = (0..params.share_count)
+                                .map(|i| i)
+                                .collect::<Vec<_>>();
+                                // TBD: put message in config file
+                                let message_to_sign: FE = ECScalar::from(&BigInt::from(2));
+                                sign.init_msg(index, params.clone(), keygen.cl_keypair.get_secret_key().clone(), &keygen.vss_scheme_vec, &subset, &keygen.share_public_key, &keygen.share_private_key, params.share_count, keygen.public_signing_key.clone(), message_to_sign);
+
+                                let msg = sign.phase_one_generate_promise_sigma_and_com_msg(&group, &keygen.cl_keypair, &keygen.ec_keypair);
+                                let sending_msg = ReceivingMessages::MultiSignMessage(
+                                    MultiSignMessage::PhaseOneMsg(msg),
+                                );
+                                let msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                                node2.broadcast(Message(msg_bytes)).await;
                                 println!("Sign...")
                             }
                             NodeNotification::InboundConnectionFailure(err) => {
@@ -249,7 +277,11 @@ impl Console {
             }
             UserCommand::Sign => {
                 println!("=> Signature Begin...");
-                self.node.sign().await;
+                let msg = bincode::serialize(&ReceivingMessages::MultiSignMessage(
+                    MultiSignMessage::SignBegin,
+                ))
+                .unwrap();
+                self.node.sign(Message(msg)).await;
             }
         }
         Ok(())

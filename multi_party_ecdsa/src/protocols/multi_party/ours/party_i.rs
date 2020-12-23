@@ -95,7 +95,10 @@ pub struct SignPhase {
     pub party_index: usize,
     pub party_num: usize,
     pub params: Parameters,
+    pub public_signing_key: GE,
+    pub message: FE,
     pub omega: FE,
+    pub big_omega_map: HashMap<usize, GE>,
     pub big_omega_vec: Vec<GE>,
     pub k: FE,
     pub gamma: FE,
@@ -107,16 +110,47 @@ pub struct SignPhase {
     pub l: FE,
     pub beta_vec: Vec<FE>,
     pub v_vec: Vec<FE>,
+    pub beta_map: HashMap<usize, FE>,
+    pub v_map: HashMap<usize, FE>,
+    pub clsk: CLSK,
+    pub msgs: SignMsgs,
 }
 
 #[derive(Clone, Debug)]
+pub struct SignMsgs {
+    pub phase_one_msgs: HashMap<usize, SignPhaseOneMsg>,
+    pub phase_two_msgs: HashMap<usize, SignPhaseTwoMsg>,
+    pub phase_three_msgs: HashMap<usize, SignPhaseThreeMsg>,
+    pub phase_four_msgs: HashMap<usize, SignPhaseFourMsg>,
+    pub phase_five_step_one_msgs: HashMap<usize, SignPhaseFiveStepOneMsg>,
+    pub phase_five_step_two_msgs: HashMap<usize, SignPhaseFiveStepTwoMsg>,
+    pub phase_five_step_four_msgs: HashMap<usize, SignPhaseFiveStepFourMsg>,
+    pub phase_five_step_five_msgs: HashMap<usize, SignPhaseFiveStepFiveMsg>,
+    pub phase_five_step_seven_msgs: HashMap<usize, SignPhaseFiveStepSevenMsg>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum MultiSignMessage {
+    SignBegin,
+    PhaseOneMsg(SignPhaseOneMsg),
+    PhaseTwoMsg(SignPhaseTwoMsg),
+    PhaseThreeMsg(SignPhaseThreeMsg),
+    PhaseFourMsg(SignPhaseFourMsg),
+    PhaseFiveStepOneMsg(SignPhaseFiveStepOneMsg),
+    PhaseFiveStepTwoMsg(SignPhaseFiveStepTwoMsg),
+    PhaseFiveStepFourMsg(SignPhaseFiveStepFourMsg),
+    PhaseFiveStepFiveMsg(SignPhaseFiveStepFiveMsg),
+    PhaseFiveStepSevenMsg(SignPhaseFiveStepSevenMsg),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseOneMsg {
     pub commitment: BigInt,
     pub promise_state: PromiseState,
     pub proof: PromiseProof,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseTwoMsg {
     pub party_index: usize,
     pub homocipher: CLCipher,
@@ -126,22 +160,22 @@ pub struct SignPhaseTwoMsg {
     pub b: GE,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseThreeMsg {
     pub delta: FE,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseFourMsg {
     pub open: DlogCommitmentOpen,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseFiveStepOneMsg {
     commitment: BigInt,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseFiveStepTwoMsg {
     v_i: GE,
     a_i: GE,
@@ -151,19 +185,19 @@ pub struct SignPhaseFiveStepTwoMsg {
     proof: HomoELGamalProof,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseFiveStepFourMsg {
     commitment: BigInt,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseFiveStepFiveMsg {
     blind: BigInt,
     u_i: GE,
     t_i: GE,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseFiveStepSevenMsg {
     pub s_i: FE,
 }
@@ -263,7 +297,7 @@ impl KeyGen {
         // q_vec: &Vec<GE>,
         // secret_shares_vec: &Vec<FE>,
         // vss_scheme_vec: &Vec<VerifiableSS>,
-    ) -> Result<DLogProof, ProofError> {
+    ) -> Result<KeyGenPhaseFiveMsg, ProofError> {
         // assert_eq!(q_vec.len(), self.params.share_count);
         // assert_eq!(secret_shares_vec.len(), self.params.share_count);
         // assert_eq!(vss_scheme_vec.len(), self.params.share_count);
@@ -295,9 +329,9 @@ impl KeyGen {
 
         // Compute share private key(x_i)
         // self.share_private_key = secret_shares_vec.iter().fold(FE::zero(), |acc, x| acc + x);
-        let dlog_proof = DLogProof::prove(&self.share_private_key);
+        let dl_proof = DLogProof::prove(&self.share_private_key);
 
-        Ok(dlog_proof)
+        Ok(KeyGenPhaseFiveMsg { dl_proof })
     }
 
     pub fn phase_five_verify_vss_and_generate_pok_dlog(
@@ -346,7 +380,7 @@ impl KeyGen {
     }
 
     pub fn phase_six_verify_dlog_proof_msg(&mut self) -> Result<(), ProofError> {
-        // assert_eq!(self.msgs.phase_five_msgs.len(), self.params.share_count);
+        assert_eq!(self.msgs.phase_five_msgs.len(), self.params.share_count);
         for i in 0..self.params.share_count {
             let msg = self.msgs.phase_five_msgs.get(&i).unwrap();
             DLogProof::verify(&msg.dl_proof).unwrap();
@@ -415,11 +449,14 @@ impl KeyGen {
             MultiKeyGenMessage::PhaseFourMsg(msg) => {
                 self.msgs.phase_four_msgs.insert(index, msg.clone());
                 if self.msgs.phase_four_msgs.len() == self.params.share_count {
-                    let dl_proof = self
+                    let msg_five = self
                         .phase_five_verify_vss_and_generate_pok_dlog_msg()
                         .unwrap();
+                    self.msgs
+                        .phase_five_msgs
+                        .insert(self.party_index, msg_five.clone());
                     let sending_msg = ReceivingMessages::MultiKeyGenMessage(
-                        MultiKeyGenMessage::PhaseFiveMsg(KeyGenPhaseFiveMsg { dl_proof }),
+                        MultiKeyGenMessage::PhaseFiveMsg(msg_five),
                     );
                     let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
                     return SendingMessages::BroadcastMessage(sending_msg_bytes);
@@ -429,13 +466,28 @@ impl KeyGen {
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
                     self.phase_six_verify_dlog_proof_msg().unwrap();
-                    // TBD: return KeyGen Success
-                    return SendingMessages::EmptyMsg;
+                    return SendingMessages::KeyGenSuccess;
                 }
             }
         }
 
         SendingMessages::EmptyMsg
+    }
+}
+
+impl SignMsgs {
+    pub fn new() -> Self {
+        Self {
+            phase_one_msgs: HashMap::new(),
+            phase_two_msgs: HashMap::new(),
+            phase_three_msgs: HashMap::new(),
+            phase_four_msgs: HashMap::new(),
+            phase_five_step_one_msgs: HashMap::new(),
+            phase_five_step_two_msgs: HashMap::new(),
+            phase_five_step_four_msgs: HashMap::new(),
+            phase_five_step_five_msgs: HashMap::new(),
+            phase_five_step_seven_msgs: HashMap::new(),
+        }
     }
 }
 
@@ -451,14 +503,49 @@ impl KeyGenMsgs {
 }
 
 impl SignPhase {
+    pub fn new() -> Self {
+        let params = Parameters {
+            threshold: 0,
+            share_count: 0,
+        };
+
+        Self {
+            party_index: 0,
+            party_num: 0,
+            params,
+            public_signing_key: GE::generator(),
+            message: FE::zero(),
+            clsk: CLSK::from(BigInt::zero()),
+            omega: FE::zero(),
+            big_omega_map: HashMap::new(),
+            big_omega_vec: Vec::new(),
+            k: FE::zero(),            // Init k, generate later.
+            gamma: FE::zero(),        // Init gamma, generate later.
+            sigma: FE::zero(),        // Init sigma, generate later.
+            delta_sum: FE::zero(),    // Init delta_sum, compute later.
+            r_x: FE::zero(),          // Init r_x, compute later.
+            r_point: GE::generator(), // Init r_point, compute later.
+            rho: FE::zero(),          // Init rho, generate later.
+            l: FE::zero(),            // Init l, generate later.
+            beta_vec: Vec::new(),     // Init random beta, generate later.
+            v_vec: Vec::new(),        // Init random v, generate later.
+            beta_map: HashMap::new(),
+            v_map: HashMap::new(),
+            msgs: SignMsgs::new(),
+        }
+    }
+
     pub fn init(
         party_index: usize,
         params: Parameters,
+        clsk: CLSK,
         vss_scheme_vec: &Vec<VerifiableSS>,
         subset: &[usize],
         share_public_key: &Vec<GE>,
         x: &FE,
         party_num: usize,
+        public_signing_key: GE,
+        message: FE,
     ) -> Result<Self, ProofError> {
         assert!(party_num > params.threshold);
         assert_eq!(vss_scheme_vec.len(), params.share_count);
@@ -466,11 +553,15 @@ impl SignPhase {
 
         let lamda = vss_scheme_vec[party_index].map_share_to_new_params(party_index, subset);
         let omega = lamda * x;
+        let mut big_omega_map = HashMap::new();
         let big_omega_vec = subset
             .iter()
             .filter_map(|&i| {
                 if i != party_index {
-                    Some(share_public_key[i] * vss_scheme_vec[i].map_share_to_new_params(i, subset))
+                    let ret =
+                        share_public_key[i] * vss_scheme_vec[i].map_share_to_new_params(i, subset);
+                    big_omega_map.insert(i, ret.clone());
+                    Some(ret)
                 } else {
                     None
                 }
@@ -481,7 +572,11 @@ impl SignPhase {
             party_index,
             party_num,
             params,
+            public_signing_key,
+            message,
+            clsk,
             omega,
+            big_omega_map,
             big_omega_vec,
             k: FE::zero(),                               // Init k, generate later.
             gamma: FE::zero(),                           // Init gamma, generate later.
@@ -493,6 +588,9 @@ impl SignPhase {
             l: FE::zero(),                               // Init l, generate later.
             beta_vec: Vec::with_capacity(party_num - 1), // Init random beta, generate later.
             v_vec: Vec::with_capacity(party_num - 1),    // Init random v, generate later.
+            beta_map: HashMap::new(),
+            v_map: HashMap::new(),
+            msgs: SignMsgs::new(),
         })
     }
 
@@ -844,6 +942,623 @@ impl SignPhase {
 
         Signature { s, r: self.r_x }
     }
+
+    pub fn init_msg(
+        &mut self,
+        party_index: usize,
+        params: Parameters,
+        clsk: CLSK,
+        vss_scheme_vec: &Vec<VerifiableSS>,
+        subset: &[usize],
+        share_public_key: &Vec<GE>,
+        x: &FE,
+        party_num: usize,
+        public_signing_key: GE,
+        message: FE,
+    ) {
+        assert!(party_num > params.threshold);
+        assert_eq!(vss_scheme_vec.len(), params.share_count);
+        assert_eq!(share_public_key.len(), params.share_count);
+
+        let lamda = vss_scheme_vec[party_index].map_share_to_new_params(party_index, subset);
+        let omega = lamda * x;
+        let mut big_omega_map = HashMap::new();
+        let _big_omega_vec = subset
+            .iter()
+            .filter_map(|&i| {
+                if i != party_index {
+                    let ret =
+                        share_public_key[i] * vss_scheme_vec[i].map_share_to_new_params(i, subset);
+                    big_omega_map.insert(i, ret.clone());
+                    Some(ret)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        self.party_index = party_index;
+        self.party_num = party_num;
+        self.params = params;
+        self.public_signing_key = public_signing_key;
+        self.message = message;
+        self.clsk = clsk;
+        self.omega = omega;
+        self.big_omega_map = big_omega_map;
+    }
+
+    pub fn phase_one_generate_promise_sigma_and_com_msg(
+        &mut self,
+        group: &CLGroup,
+        // TBD: put keypair in signphase
+        cl_keypair: &ClKeyPair,
+        ec_keypair: &EcKeyPair,
+    ) -> SignPhaseOneMsg {
+        // Generate promise sigma
+        self.k = FE::new_random();
+
+        let cipher = PromiseCipher::encrypt(
+            group,
+            cl_keypair.get_public_key(),
+            ec_keypair.get_public_key(),
+            &self.k,
+        );
+
+        let promise_state = PromiseState {
+            cipher: cipher.0.clone(),
+            ec_pub_key: ec_keypair.public_share,
+            cl_pub_key: cl_keypair.cl_pub_key.clone(),
+        };
+        let promise_wit = PromiseWit {
+            x: self.k,
+            r1: cipher.1,
+            r2: cipher.2,
+        };
+        let proof = PromiseProof::prove(group, &promise_state, &promise_wit);
+
+        // Generate commitment
+        let gamma_pair = EcKeyPair::new();
+        self.gamma = gamma_pair.get_secret_key().clone();
+        let dl_com = DlogCommitment::new(&gamma_pair.get_public_key());
+
+        let msg_one = SignPhaseOneMsg {
+            commitment: dl_com.commitment,
+            promise_state: promise_state,
+            proof,
+        };
+        let msg_four = SignPhaseFourMsg { open: dl_com.open };
+
+        self.msgs
+            .phase_one_msgs
+            .insert(self.party_index, msg_one.clone());
+        self.msgs.phase_four_msgs.insert(self.party_index, msg_four);
+
+        msg_one
+    }
+
+    pub fn phase_two_generate_homo_cipher_msg(
+        &mut self,
+        group: &CLGroup,
+        // sign_phase_one_msg_vec: &Vec<SignPhaseOneMsg>,
+    ) -> HashMap<usize, Vec<u8>> {
+        // assert_eq!(sign_phase_one_msg_vec.len(), self.party_num);
+        // let mut msgs: Vec<SignPhaseTwoMsg> = Vec::new();
+        let mut sending_msgs: HashMap<usize, Vec<u8>> = HashMap::new();
+        let zero = FE::zero();
+        for (index, msg) in self.msgs.phase_one_msgs.iter() {
+            if *index == self.party_index {
+                continue;
+            }
+            // Verify promise proof
+            msg.proof.verify(group, &msg.promise_state).unwrap();
+
+            // Homo
+            let cipher = &msg.promise_state.cipher;
+            let homocipher;
+            let homocipher_plus;
+            let t_p;
+            let t_p_plus;
+            let b;
+
+            let beta = FE::new_random();
+            {
+                // Generate random.
+                let t = BigInt::sample_below(&(&group.stilde * BigInt::from(2).pow(40) * &FE::q()));
+                t_p = ECScalar::from(&t.mod_floor(&FE::q()));
+                let rho_plus_t = self.gamma.to_big_int() + t;
+
+                // Handle CL cipher.
+                let (r_cipher, _r_blind) =
+                    encrypt_without_r(&group, &zero.sub(&beta.get_element()));
+                let c11 = cipher.c1.exp(&rho_plus_t);
+                let c21 = cipher.c2.exp(&rho_plus_t);
+                let c1 = c11.compose(&r_cipher.c1).reduce();
+                let c2 = c21.compose(&r_cipher.c2).reduce();
+                homocipher = CLCipher { c1, c2 };
+            }
+
+            let v = FE::new_random();
+            {
+                // Generate random.
+                let t = BigInt::sample_below(&(&group.stilde * BigInt::from(2).pow(40) * &FE::q()));
+                t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
+                let omega_plus_t = self.omega.to_big_int() + t;
+
+                // Handle CL cipher.
+                let (r_cipher, _r_blind) = encrypt_without_r(&group, &zero.sub(&v.get_element()));
+                let c11 = cipher.c1.exp(&omega_plus_t);
+                let c21 = cipher.c2.exp(&omega_plus_t);
+                let c1 = c11.compose(&r_cipher.c1).reduce();
+                let c2 = c21.compose(&r_cipher.c2).reduce();
+                homocipher_plus = CLCipher { c1, c2 };
+
+                let base: GE = ECPoint::generator();
+                b = base * v;
+            }
+
+            let msg_two = SignPhaseTwoMsg {
+                party_index: self.party_index,
+                homocipher,
+                homocipher_plus,
+                t_p,
+                t_p_plus,
+                b,
+            };
+
+            // self.msgs.phase_two_msgs.insert(*index, msg_two.clone());
+            self.beta_map.insert(*index, beta);
+            self.v_map.insert(*index, v);
+
+            let sending_msg =
+                ReceivingMessages::MultiSignMessage(MultiSignMessage::PhaseTwoMsg(msg_two));
+            let msg_bytes = bincode::serialize(&sending_msg).unwrap();
+            sending_msgs.insert(*index, msg_bytes);
+        }
+
+        sending_msgs
+    }
+
+    pub fn phase_two_decrypt_and_verify_msg(
+        &mut self,
+        group: &CLGroup,
+        // sk: &CLSK,
+        // msg_vec: &Vec<SignPhaseTwoMsg>,
+    ) -> SignPhaseThreeMsg {
+        // assert_eq!(msg_vec.len(), self.party_num - 1);
+        // assert_eq!(self.big_omega_vec.len(), self.party_num - 1);
+        let mut delta = self.k * self.gamma;
+        self.sigma = self.k * self.omega;
+        for (index, msg) in self.msgs.phase_two_msgs.iter() {
+            // Compute delta
+            let k_mul_t = self.k * msg.t_p;
+            let alpha = decrypt(&group, &self.clsk, &msg.homocipher).sub(&k_mul_t.get_element());
+            let beta = self.beta_map.get(index).unwrap();
+            delta = delta + alpha + beta;
+
+            // Compute sigma
+            let k_mul_t_plus = self.k * msg.t_p_plus;
+            let miu =
+                decrypt(&group, &self.clsk, &msg.homocipher_plus).sub(&k_mul_t_plus.get_element());
+            let v = self.v_map.get(index).unwrap();
+            self.sigma = self.sigma + miu + v;
+
+            // Check kW = uP + B
+            let big_omega = self.big_omega_map.get(index).unwrap();
+            let k_omega = big_omega * &self.k;
+            let base: GE = ECPoint::generator();
+            let up_plus_b = base * miu + msg.b;
+            assert_eq!(k_omega, up_plus_b);
+        }
+
+        SignPhaseThreeMsg { delta }
+    }
+
+    pub fn phase_two_compute_delta_sum_msg(&mut self) {
+        // assert_eq!(delta_vec.len(), self.party_num);
+        self.delta_sum = self
+            .msgs
+            .phase_three_msgs
+            .iter()
+            .fold(FE::zero(), |acc, (_i, v)| acc + v.delta);
+    }
+
+    pub fn phase_four_verify_dl_com_msg(
+        &mut self,
+        // dl_com_vec: &Vec<SignPhaseOneMsg>,
+        // dl_open_vec: &Vec<SignPhaseFourMsg>,
+    ) -> Result<(), ProofError> {
+        // assert_eq!(dl_com_vec.len(), self.party_num);
+        // assert_eq!(dl_open_vec.len(), self.party_num);
+        for (index, msg) in self.msgs.phase_four_msgs.iter() {
+            let msg_one = self.msgs.phase_one_msgs.get(index).unwrap();
+            DlogCommitment::verify_dlog(&msg_one.commitment, &msg.open)?;
+        }
+        // for i in 0..dl_com_vec.len() {
+        //     DlogCommitment::verify_dlog(&dl_com_vec[i].commitment, &dl_open_vec[i].open)?;
+        // }
+
+        // let (head, tail) = dl_open_vec.split_at(1);
+        // let r = tail.iter().fold(head[0].open.public_share, |acc, x| {
+        //     acc + x.open.public_share
+        // });
+
+        let r = self
+            .msgs
+            .phase_four_msgs
+            .iter()
+            .fold(GE::generator(), |acc, (_i, v)| acc + v.open.public_share)
+            .sub_point(&GE::generator().get_element());
+
+        self.r_point = r * self.delta_sum.invert();
+        self.r_x = ECScalar::from(&self.r_point.x_coor().unwrap().mod_floor(&FE::q()));
+        Ok(())
+    }
+
+    pub fn phase_five_step_onetwo_generate_com_and_zk_msg(
+        &mut self,
+        // message: &FE,
+    ) -> SignPhaseFiveStepOneMsg {
+        let s_i = (self.message) * self.k + self.sigma * self.r_x;
+        let l_i: FE = ECScalar::new_random();
+        let rho_i: FE = ECScalar::new_random();
+        let l_i_rho_i = l_i * rho_i;
+
+        let base: GE = ECPoint::generator();
+        let v_i = self.r_point * &s_i + base * l_i;
+        let a_i = base * rho_i;
+        let b_i = base * l_i_rho_i;
+
+        // Generate com
+        let blind = BigInt::sample(SECURITY_BITS);
+        let input_hash = HSha256::create_hash_from_ge(&[&v_i, &a_i, &b_i]).to_big_int();
+        let commitment =
+            HashCommitment::create_commitment_with_user_defined_randomness(&input_hash, &blind);
+
+        // Generate zk proof
+        let witness = HomoElGamalWitness { r: l_i, x: s_i };
+        let delta = HomoElGamalStatement {
+            G: a_i,
+            H: self.r_point,
+            Y: base,
+            D: v_i,
+            E: b_i,
+        };
+        let dl_proof = DLogProof::prove(&rho_i);
+        let proof = HomoELGamalProof::prove(&witness, &delta);
+
+        let msg_step_one = SignPhaseFiveStepOneMsg { commitment };
+        let msg_step_two = SignPhaseFiveStepTwoMsg {
+            v_i,
+            a_i,
+            b_i,
+            blind,
+            dl_proof,
+            proof,
+        };
+        let msg_step_seven = SignPhaseFiveStepSevenMsg { s_i };
+
+        self.rho = rho_i;
+        self.l = l_i;
+
+        self.msgs
+            .phase_five_step_one_msgs
+            .insert(self.party_index, msg_step_one.clone());
+        self.msgs
+            .phase_five_step_two_msgs
+            .insert(self.party_index, msg_step_two);
+        self.msgs
+            .phase_five_step_seven_msgs
+            .insert(self.party_index, msg_step_seven);
+
+        msg_step_one
+    }
+
+    pub fn phase_five_step_three_verify_com_and_zk_msg(
+        &mut self,
+        // message: &FE,
+        // q: &GE, // signing public key
+        // msgs_step_one: &Vec<SignPhaseFiveStepOneMsg>,
+        // msgs_step_two: &Vec<SignPhaseFiveStepTwoMsg>,
+    ) -> Result<SignPhaseFiveStepFourMsg, ProofError> {
+        // TBD: check the size
+
+        let base: GE = ECPoint::generator();
+
+        let my_msg_two = self
+            .msgs
+            .phase_five_step_two_msgs
+            .get(&self.party_index)
+            .unwrap();
+        let mut v_sum = my_msg_two.v_i.clone();
+        let mut a_sum = my_msg_two.a_i.clone();
+
+        for (index, msg_one) in self.msgs.phase_five_step_one_msgs.iter() {
+            // Skip my own check
+            if *index == self.party_index {
+                continue;
+            }
+
+            let msg_two = self.msgs.phase_five_step_two_msgs.get(index).unwrap();
+
+            // Verify commitment
+            let input_hash =
+                HSha256::create_hash_from_ge(&[&msg_two.v_i, &msg_two.a_i, &msg_two.b_i])
+                    .to_big_int();
+
+            if HashCommitment::create_commitment_with_user_defined_randomness(
+                &input_hash,
+                &msg_two.blind,
+            ) != msg_one.commitment
+            {
+                return Err(ProofError);
+            }
+
+            // Verify zk proof
+            let delta = HomoElGamalStatement {
+                G: msg_two.a_i,
+                H: self.r_point,
+                Y: base,
+                D: msg_two.v_i,
+                E: msg_two.b_i,
+            };
+
+            msg_two.proof.verify(&delta).unwrap();
+            DLogProof::verify(&msg_two.dl_proof).unwrap();
+
+            v_sum = v_sum + msg_two.v_i;
+            a_sum = a_sum + msg_two.a_i;
+        }
+
+        // Compute V = -mP -rQ + sum (vi)
+        // let (head, tail) = msgs_step_two.split_at(1);
+        // let v_sum = tail.iter().fold(head[0].v_i, |acc, x| acc + x.v_i);
+        // let a_sum = tail.iter().fold(head[0].a_i, |acc, x| acc + x.a_i);
+        let mp = base * self.message;
+        let rq = self.public_signing_key * &self.r_x;
+        let v_big = v_sum
+            .sub_point(&mp.get_element())
+            .sub_point(&rq.get_element());
+
+        let u_i = v_big * self.rho;
+        let t_i = a_sum * self.l;
+        let input_hash = HSha256::create_hash_from_ge(&[&u_i, &t_i]).to_big_int();
+        let blind = BigInt::sample(SECURITY_BITS);
+        let commitment =
+            HashCommitment::create_commitment_with_user_defined_randomness(&input_hash, &blind);
+
+        let msg_step_four = SignPhaseFiveStepFourMsg { commitment };
+        let msg_step_five = SignPhaseFiveStepFiveMsg { blind, u_i, t_i };
+
+        self.msgs
+            .phase_five_step_four_msgs
+            .insert(self.party_index, msg_step_four.clone());
+        self.msgs
+            .phase_five_step_five_msgs
+            .insert(self.party_index, msg_step_five);
+
+        Ok(msg_step_four)
+    }
+
+    pub fn phase_five_step_six_verify_com_and_check_sum_a_t_msg(
+        &self,
+        // msgs_step_four: &Vec<SignPhaseFiveStepFourMsg>,
+        // msgs_step_five: &Vec<SignPhaseFiveStepFiveMsg>,
+    ) -> Result<(), ProofError> {
+        // assert_eq!(msgs_step_four.len(), msgs_step_five.len());
+        // assert_eq!(msgs_step_four.len(), msgs_step_five.len());
+        for (index, msg_four) in self.msgs.phase_five_step_four_msgs.iter() {
+            let msg_five = self.msgs.phase_five_step_five_msgs.get(index).unwrap();
+            let input_hash =
+                HSha256::create_hash_from_ge(&[&msg_five.u_i, &msg_five.t_i]).to_big_int();
+            if HashCommitment::create_commitment_with_user_defined_randomness(
+                &input_hash,
+                &msg_five.blind,
+            ) != msg_four.commitment
+            {
+                return Err(ProofError);
+            }
+        }
+
+        // let test_com = (0..msgs_step_four.len())
+        //     .map(|i| {
+        //         let input_hash =
+        //             HSha256::create_hash_from_ge(&[&msgs_step_five[i].u_i, &msgs_step_five[i].t_i])
+        //                 .to_big_int();
+        //         HashCommitment::create_commitment_with_user_defined_randomness(
+        //             &input_hash,
+        //             &msgs_step_five[i].blind,
+        //         ) == msgs_step_four[i].commitment
+        //     })
+        //     .all(|x| x);
+
+        // let t_vec = (0..msgs_step_four.len())
+        //     .map(|i| msgs_step_five[i].t_i)
+        //     .collect::<Vec<GE>>();
+        // let u_vec = (0..msgs_step_four.len())
+        //     .map(|i| msgs_step_five[i].u_i)
+        //     .collect::<Vec<GE>>();
+
+        let base: GE = ECPoint::generator();
+        let biased_sum_ti = self
+            .msgs
+            .phase_five_step_five_msgs
+            .iter()
+            .fold(base, |acc, (_i, x)| acc + x.t_i);
+        let biased_sum_ti_minus_ui = self
+            .msgs
+            .phase_five_step_five_msgs
+            .iter()
+            .fold(biased_sum_ti, |acc, (_i, x)| {
+                acc.sub_point(&x.u_i.get_element())
+            });
+
+        if base != biased_sum_ti_minus_ui {
+            return Err(ProofError);
+        }
+
+        Ok(())
+    }
+
+    pub fn phase_five_step_eight_generate_signature_msg(
+        &self,
+        // msgs_step_seven: &Vec<SignPhaseFiveStepSevenMsg>,
+    ) -> Signature {
+        let mut s = self
+            .msgs
+            .phase_five_step_seven_msgs
+            .iter()
+            .fold(FE::zero(), |acc, (_i, x)| acc + x.s_i);
+        let s_bn = s.to_big_int();
+        let s_tag_bn = FE::q() - &s_bn;
+        if s_bn > s_tag_bn {
+            s = ECScalar::from(&s_tag_bn);
+        }
+
+        Signature { s, r: self.r_x }
+    }
+
+    pub fn msg_handler(
+        &mut self,
+        group: &CLGroup,
+        index: usize,
+        msg_received: &MultiSignMessage,
+    ) -> SendingMessages {
+        // Handle msg
+        println!("handle receiving msg: {:?}", msg_received);
+
+        match msg_received {
+            MultiSignMessage::SignBegin => {
+                if self.msgs.phase_one_msgs.len() == self.party_num {
+                    let sending_msg = self.phase_two_generate_homo_cipher_msg(group);
+                    return SendingMessages::P2pMessage(sending_msg);
+                }
+            }
+            MultiSignMessage::PhaseOneMsg(msg) => {
+                self.msgs.phase_one_msgs.insert(index, msg.clone());
+                if self.msgs.phase_one_msgs.len() == self.party_num {
+                    let sending_msg = self.phase_two_generate_homo_cipher_msg(group);
+                    return SendingMessages::P2pMessage(sending_msg);
+                }
+            }
+            MultiSignMessage::PhaseTwoMsg(msg) => {
+                self.msgs.phase_two_msgs.insert(index, msg.clone());
+                if self.msgs.phase_two_msgs.len() == (self.party_num - 1) {
+                    let msg_three = self.phase_two_decrypt_and_verify_msg(group);
+                    // FIXME: send to myself
+                    self.msgs
+                        .phase_three_msgs
+                        .insert(self.party_index, msg_three.clone());
+                    let sending_msg = ReceivingMessages::MultiSignMessage(
+                        MultiSignMessage::PhaseThreeMsg(msg_three),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiSignMessage::PhaseThreeMsg(msg) => {
+                self.msgs.phase_three_msgs.insert(index, msg.clone());
+                if self.msgs.phase_three_msgs.len() == self.party_num {
+                    self.phase_two_compute_delta_sum_msg();
+                    let msg_four = self.msgs.phase_four_msgs.get(&self.party_index).unwrap();
+                    let sending_msg = ReceivingMessages::MultiSignMessage(
+                        MultiSignMessage::PhaseFourMsg(msg_four.clone()),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiSignMessage::PhaseFourMsg(msg) => {
+                self.msgs.phase_four_msgs.insert(index, msg.clone());
+                if self.msgs.phase_four_msgs.len() == self.party_num {
+                    self.phase_four_verify_dl_com_msg().unwrap();
+                    let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
+                    let sending_msg = ReceivingMessages::MultiSignMessage(
+                        MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiSignMessage::PhaseFiveStepOneMsg(msg) => {
+                self.msgs
+                    .phase_five_step_one_msgs
+                    .insert(index, msg.clone());
+                if self.msgs.phase_five_step_one_msgs.len() == self.party_num {
+                    let msg_five_two = self
+                        .msgs
+                        .phase_five_step_two_msgs
+                        .get(&self.party_index)
+                        .unwrap();
+                    let sending_msg = ReceivingMessages::MultiSignMessage(
+                        MultiSignMessage::PhaseFiveStepTwoMsg(msg_five_two.clone()),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiSignMessage::PhaseFiveStepTwoMsg(msg) => {
+                self.msgs
+                    .phase_five_step_two_msgs
+                    .insert(index, msg.clone());
+                if self.msgs.phase_five_step_two_msgs.len() == self.party_num {
+                    let msg_five_four = self.phase_five_step_three_verify_com_and_zk_msg().unwrap();
+                    let sending_msg = ReceivingMessages::MultiSignMessage(
+                        MultiSignMessage::PhaseFiveStepFourMsg(msg_five_four.clone()),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiSignMessage::PhaseFiveStepFourMsg(msg) => {
+                self.msgs
+                    .phase_five_step_four_msgs
+                    .insert(index, msg.clone());
+                if self.msgs.phase_five_step_four_msgs.len() == self.party_num {
+                    let msg_five_five = self
+                        .msgs
+                        .phase_five_step_five_msgs
+                        .get(&self.party_index)
+                        .unwrap();
+                    let sending_msg = ReceivingMessages::MultiSignMessage(
+                        MultiSignMessage::PhaseFiveStepFiveMsg(msg_five_five.clone()),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiSignMessage::PhaseFiveStepFiveMsg(msg) => {
+                self.msgs
+                    .phase_five_step_five_msgs
+                    .insert(index, msg.clone());
+                if self.msgs.phase_five_step_five_msgs.len() == self.party_num {
+                    self.phase_five_step_six_verify_com_and_check_sum_a_t_msg()
+                        .unwrap();
+                    let msg_seven = self
+                        .msgs
+                        .phase_five_step_seven_msgs
+                        .get(&self.party_index)
+                        .unwrap();
+                    let sending_msg = ReceivingMessages::MultiSignMessage(
+                        MultiSignMessage::PhaseFiveStepSevenMsg(msg_seven.clone()),
+                    );
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
+                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                }
+            }
+            MultiSignMessage::PhaseFiveStepSevenMsg(msg) => {
+                self.msgs
+                    .phase_five_step_seven_msgs
+                    .insert(index, msg.clone());
+                if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
+                    let signature = self.phase_five_step_eight_generate_signature_msg();
+                    println!("Signature: {:?}", signature);
+                    return SendingMessages::SignSuccess;
+                }
+            }
+        }
+
+        SendingMessages::EmptyMsg
+    }
 }
 
 #[cfg(test)]
@@ -952,16 +1667,20 @@ mod tests {
             .map(|i| key_gen_vec[i].party_index)
             .collect::<Vec<_>>();
 
+        let clsk = CLSK::from(BigInt::zero());
         let mut sign_vec = (0..party_num)
             .map(|i| {
                 SignPhase::init(
                     key_gen_vec[i].party_index,
                     params.clone(),
+                    clsk.clone(),
                     &key_gen_vec[i].vss_scheme_vec,
                     &subset,
                     &key_gen_vec[i].share_public_key,
                     &key_gen_vec[i].share_private_key,
                     party_num,
+                    GE::generator(),
+                    FE::zero(),
                 )
                 .unwrap()
             })
