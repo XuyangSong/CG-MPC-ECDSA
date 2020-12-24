@@ -1031,6 +1031,9 @@ impl SignPhase {
             if *index == self.party_index {
                 continue;
             }
+
+            // TBD: check ec cl pk
+
             // Verify promise proof
             msg.proof.verify(group, &msg.promise_state).unwrap();
 

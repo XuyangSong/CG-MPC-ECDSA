@@ -15,5 +15,7 @@
             "index": 2,
             "address": "127.0.0.1:64379"
         }
-    ]
+    ],
+    "message": "xxxxxxxxxxxx",
+    "subset": [0, 1, 2]
 }
