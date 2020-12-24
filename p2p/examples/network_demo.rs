@@ -21,7 +21,7 @@ use multi_party_ecdsa::protocols::multi_party::ours::party_i::*;
 use multi_party_ecdsa::utilities::clkeypair::ClKeyPair;
 use multi_party_ecdsa::utilities::eckeypair::EcKeyPair;
 use serde::Deserialize;
-use std::fs;
+use std::{env,fs};
 use std::path::Path;
 
 #[derive(Debug, Deserialize)]
@@ -48,6 +48,11 @@ pub struct PeerInfo {
 }
 
 fn main() {
+    if env::args().nth(1).is_none() {
+        panic!("Need Config File")
+    }
+    let path_str = env::args().nth(1).unwrap();
+
     // Create the runtime.
     let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
     let local = task::LocalSet::new();
@@ -57,7 +62,7 @@ fn main() {
             let host_privkey = cybershake::PrivateKey::from(Scalar::random(&mut thread_rng()));
 
             // Read config info from file
-            let file_path = Path::new("./config.json");
+            let file_path = Path::new(&path_str);
             let json_str = fs::read_to_string(file_path).unwrap();
             let json_config: JsonConfig = serde_json::from_str(&json_str).expect("JSON was not well-formatted");
 
