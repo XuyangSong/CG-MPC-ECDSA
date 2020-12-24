@@ -71,11 +71,6 @@ pub struct KeyGenPhaseFourMsg {
     pub secret_share: FE,
 }
 
-// #[derive(Clone, Debug, Serialize, Deserialize)]
-// pub struct KeyGenPhaseFourMsgTwo {
-//     pub secret_share: FE,
-// }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyGenPhaseFiveMsg {
     pub dl_proof: DLogProof,
@@ -152,7 +147,6 @@ pub struct SignPhaseOneMsg {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseTwoMsg {
-    pub party_index: usize,
     pub homocipher: CLCipher,
     pub homocipher_plus: CLCipher,
     pub t_p: FE,
@@ -294,13 +288,9 @@ impl KeyGen {
 
     pub fn phase_five_verify_vss_and_generate_pok_dlog_msg(
         &mut self,
-        // q_vec: &Vec<GE>,
-        // secret_shares_vec: &Vec<FE>,
-        // vss_scheme_vec: &Vec<VerifiableSS>,
     ) -> Result<KeyGenPhaseFiveMsg, ProofError> {
-        // assert_eq!(q_vec.len(), self.params.share_count);
-        // assert_eq!(secret_shares_vec.len(), self.params.share_count);
-        // assert_eq!(vss_scheme_vec.len(), self.params.share_count);
+        assert_eq!(self.msgs.phase_three_msgs.len(), self.params.share_count);
+        assert_eq!(self.msgs.phase_four_msgs.len(), self.params.share_count);
 
         // Check VSS
         for i in 0..(self.params.share_count) {
@@ -318,17 +308,14 @@ impl KeyGen {
                 .is_ok()
                 && vss.vss_scheme.commitments[0] == q)
             {
-                // TBD: use new error type
                 return Err(ProofError);
             }
 
             self.share_private_key = self.share_private_key + vss.secret_share;
-            // Assign vss_scheme_vec
             self.vss_scheme_vec.push(vss.vss_scheme.clone());
         }
 
         // Compute share private key(x_i)
-        // self.share_private_key = secret_shares_vec.iter().fold(FE::zero(), |acc, x| acc + x);
         let dl_proof = DLogProof::prove(&self.share_private_key);
 
         Ok(KeyGenPhaseFiveMsg { dl_proof })
@@ -356,7 +343,6 @@ impl KeyGen {
             }
         }
 
-        // Assign vss_scheme_vec
         self.vss_scheme_vec = vss_scheme_vec.clone();
 
         // Compute share private key(x_i)
@@ -391,7 +377,6 @@ impl KeyGen {
     }
 
     pub fn msg_handler(&mut self, index: usize, msg: &MultiKeyGenMessage) -> SendingMessages {
-        // Handle msg
         println!("handle receiving msg: {:?}", msg);
 
         match msg {
@@ -694,7 +679,6 @@ impl SignPhase {
             }
 
             let msg = SignPhaseTwoMsg {
-                party_index: self.party_index,
                 homocipher,
                 homocipher_plus,
                 t_p,
@@ -894,7 +878,6 @@ impl SignPhase {
         msgs_step_five: &Vec<SignPhaseFiveStepFiveMsg>,
     ) -> Result<(), ProofError> {
         assert_eq!(msgs_step_four.len(), msgs_step_five.len());
-        assert_eq!(msgs_step_four.len(), msgs_step_five.len());
         let test_com = (0..msgs_step_four.len())
             .map(|i| {
                 let input_hash =
@@ -1039,10 +1022,9 @@ impl SignPhase {
     pub fn phase_two_generate_homo_cipher_msg(
         &mut self,
         group: &CLGroup,
-        // sign_phase_one_msg_vec: &Vec<SignPhaseOneMsg>,
     ) -> HashMap<usize, Vec<u8>> {
-        // assert_eq!(sign_phase_one_msg_vec.len(), self.party_num);
-        // let mut msgs: Vec<SignPhaseTwoMsg> = Vec::new();
+        assert_eq!(self.msgs.phase_one_msgs.len(), self.party_num);
+
         let mut sending_msgs: HashMap<usize, Vec<u8>> = HashMap::new();
         let zero = FE::zero();
         for (index, msg) in self.msgs.phase_one_msgs.iter() {
@@ -1097,7 +1079,6 @@ impl SignPhase {
             }
 
             let msg_two = SignPhaseTwoMsg {
-                party_index: self.party_index,
                 homocipher,
                 homocipher_plus,
                 t_p,
@@ -1105,7 +1086,6 @@ impl SignPhase {
                 b,
             };
 
-            // self.msgs.phase_two_msgs.insert(*index, msg_two.clone());
             self.beta_map.insert(*index, beta);
             self.v_map.insert(*index, v);
 
@@ -1118,14 +1098,10 @@ impl SignPhase {
         sending_msgs
     }
 
-    pub fn phase_two_decrypt_and_verify_msg(
-        &mut self,
-        group: &CLGroup,
-        // sk: &CLSK,
-        // msg_vec: &Vec<SignPhaseTwoMsg>,
-    ) -> SignPhaseThreeMsg {
-        // assert_eq!(msg_vec.len(), self.party_num - 1);
-        // assert_eq!(self.big_omega_vec.len(), self.party_num - 1);
+    pub fn phase_two_decrypt_and_verify_msg(&mut self, group: &CLGroup) -> SignPhaseThreeMsg {
+        assert_eq!(self.msgs.phase_two_msgs.len(), self.party_num - 1);
+        assert_eq!(self.big_omega_map.len(), self.party_num - 1);
+
         let mut delta = self.k * self.gamma;
         self.sigma = self.k * self.omega;
         for (index, msg) in self.msgs.phase_two_msgs.iter() {
@@ -1154,7 +1130,8 @@ impl SignPhase {
     }
 
     pub fn phase_two_compute_delta_sum_msg(&mut self) {
-        // assert_eq!(delta_vec.len(), self.party_num);
+        assert_eq!(self.msgs.phase_three_msgs.len(), self.party_num);
+
         self.delta_sum = self
             .msgs
             .phase_three_msgs
@@ -1162,25 +1139,14 @@ impl SignPhase {
             .fold(FE::zero(), |acc, (_i, v)| acc + v.delta);
     }
 
-    pub fn phase_four_verify_dl_com_msg(
-        &mut self,
-        // dl_com_vec: &Vec<SignPhaseOneMsg>,
-        // dl_open_vec: &Vec<SignPhaseFourMsg>,
-    ) -> Result<(), ProofError> {
-        // assert_eq!(dl_com_vec.len(), self.party_num);
-        // assert_eq!(dl_open_vec.len(), self.party_num);
+    pub fn phase_four_verify_dl_com_msg(&mut self) -> Result<(), ProofError> {
+        assert_eq!(self.msgs.phase_one_msgs.len(), self.party_num);
+        assert_eq!(self.msgs.phase_four_msgs.len(), self.party_num);
+
         for (index, msg) in self.msgs.phase_four_msgs.iter() {
             let msg_one = self.msgs.phase_one_msgs.get(index).unwrap();
             DlogCommitment::verify_dlog(&msg_one.commitment, &msg.open)?;
         }
-        // for i in 0..dl_com_vec.len() {
-        //     DlogCommitment::verify_dlog(&dl_com_vec[i].commitment, &dl_open_vec[i].open)?;
-        // }
-
-        // let (head, tail) = dl_open_vec.split_at(1);
-        // let r = tail.iter().fold(head[0].open.public_share, |acc, x| {
-        //     acc + x.open.public_share
-        // });
 
         let r = self
             .msgs
@@ -1194,10 +1160,7 @@ impl SignPhase {
         Ok(())
     }
 
-    pub fn phase_five_step_onetwo_generate_com_and_zk_msg(
-        &mut self,
-        // message: &FE,
-    ) -> SignPhaseFiveStepOneMsg {
+    pub fn phase_five_step_onetwo_generate_com_and_zk_msg(&mut self) -> SignPhaseFiveStepOneMsg {
         let s_i = (self.message) * self.k + self.sigma * self.r_x;
         let l_i: FE = ECScalar::new_random();
         let rho_i: FE = ECScalar::new_random();
@@ -1255,12 +1218,9 @@ impl SignPhase {
 
     pub fn phase_five_step_three_verify_com_and_zk_msg(
         &mut self,
-        // message: &FE,
-        // q: &GE, // signing public key
-        // msgs_step_one: &Vec<SignPhaseFiveStepOneMsg>,
-        // msgs_step_two: &Vec<SignPhaseFiveStepTwoMsg>,
     ) -> Result<SignPhaseFiveStepFourMsg, ProofError> {
-        // TBD: check the size
+        assert_eq!(self.msgs.phase_five_step_one_msgs.len(), self.party_num);
+        assert_eq!(self.msgs.phase_five_step_two_msgs.len(), self.party_num);
 
         let base: GE = ECPoint::generator();
 
@@ -1310,9 +1270,6 @@ impl SignPhase {
         }
 
         // Compute V = -mP -rQ + sum (vi)
-        // let (head, tail) = msgs_step_two.split_at(1);
-        // let v_sum = tail.iter().fold(head[0].v_i, |acc, x| acc + x.v_i);
-        // let a_sum = tail.iter().fold(head[0].a_i, |acc, x| acc + x.a_i);
         let mp = base * self.message;
         let rq = self.public_signing_key * &self.r_x;
         let v_big = v_sum
@@ -1339,13 +1296,9 @@ impl SignPhase {
         Ok(msg_step_four)
     }
 
-    pub fn phase_five_step_six_verify_com_and_check_sum_a_t_msg(
-        &self,
-        // msgs_step_four: &Vec<SignPhaseFiveStepFourMsg>,
-        // msgs_step_five: &Vec<SignPhaseFiveStepFiveMsg>,
-    ) -> Result<(), ProofError> {
-        // assert_eq!(msgs_step_four.len(), msgs_step_five.len());
-        // assert_eq!(msgs_step_four.len(), msgs_step_five.len());
+    pub fn phase_five_step_six_verify_com_and_check_sum_a_t_msg(&self) -> Result<(), ProofError> {
+        assert_eq!(self.msgs.phase_five_step_four_msgs.len(), self.party_num);
+        assert_eq!(self.msgs.phase_five_step_five_msgs.len(), self.party_num);
         for (index, msg_four) in self.msgs.phase_five_step_four_msgs.iter() {
             let msg_five = self.msgs.phase_five_step_five_msgs.get(index).unwrap();
             let input_hash =
@@ -1358,25 +1311,6 @@ impl SignPhase {
                 return Err(ProofError);
             }
         }
-
-        // let test_com = (0..msgs_step_four.len())
-        //     .map(|i| {
-        //         let input_hash =
-        //             HSha256::create_hash_from_ge(&[&msgs_step_five[i].u_i, &msgs_step_five[i].t_i])
-        //                 .to_big_int();
-        //         HashCommitment::create_commitment_with_user_defined_randomness(
-        //             &input_hash,
-        //             &msgs_step_five[i].blind,
-        //         ) == msgs_step_four[i].commitment
-        //     })
-        //     .all(|x| x);
-
-        // let t_vec = (0..msgs_step_four.len())
-        //     .map(|i| msgs_step_five[i].t_i)
-        //     .collect::<Vec<GE>>();
-        // let u_vec = (0..msgs_step_four.len())
-        //     .map(|i| msgs_step_five[i].u_i)
-        //     .collect::<Vec<GE>>();
 
         let base: GE = ECPoint::generator();
         let biased_sum_ti = self
@@ -1399,10 +1333,9 @@ impl SignPhase {
         Ok(())
     }
 
-    pub fn phase_five_step_eight_generate_signature_msg(
-        &self,
-        // msgs_step_seven: &Vec<SignPhaseFiveStepSevenMsg>,
-    ) -> Signature {
+    pub fn phase_five_step_eight_generate_signature_msg(&self) -> Signature {
+        assert_eq!(self.msgs.phase_five_step_seven_msgs.len(), self.party_num);
+
         let mut s = self
             .msgs
             .phase_five_step_seven_msgs
@@ -1423,7 +1356,6 @@ impl SignPhase {
         index: usize,
         msg_received: &MultiSignMessage,
     ) -> SendingMessages {
-        // Handle msg
         println!("handle receiving msg: {:?}", msg_received);
 
         match msg_received {

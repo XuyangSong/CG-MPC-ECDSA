@@ -1,6 +1,6 @@
 use curve25519_dalek::scalar::Scalar;
 use rand::thread_rng;
-use std::net::{IpAddr, Ipv4Addr};
+// use std::net::{IpAddr, Ipv4Addr};
 
 use tokio::io;
 use tokio::prelude::*;
@@ -16,6 +16,30 @@ use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::party_i::MultiKeyGenMessage;
 use multi_party_ecdsa::protocols::multi_party::ours::party_i::*;
+use serde::Deserialize;
+use std::fs;
+use std::path::Path;
+
+#[derive(Debug, Deserialize)]
+struct JsonConfig {
+    pub share_count: usize,
+    pub threshold: usize,
+    pub my_info: MyInfo,
+    pub peers_info: Vec<PeerInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MyInfo {
+    pub index: usize,
+    pub ip: String,
+    pub port: u16,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PeerInfo {
+    pub index: usize,
+    pub address: String,
+}
 
 fn main() {
     // Create the runtime.
@@ -26,18 +50,20 @@ fn main() {
             // Creating a random private key instead of reading from a file.
             let host_privkey = cybershake::PrivateKey::from(Scalar::random(&mut thread_rng()));
 
+            let file_path = Path::new("./config.json");
+            let json_str = fs::read_to_string(file_path).unwrap();
+            let json_config: JsonConfig = serde_json::from_str(&json_str).expect("JSON was not well-formatted");
             // TBD: Read config file. Including ip, port, index and (t, n).
 
+            let index = json_config.my_info.index;
             let config = NodeConfig {
-                index: 2,
-                listen_ip: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                listen_port: 0,
+                index: index,
+                listen_ip: json_config.my_info.ip.parse().unwrap(),
+                listen_port: json_config.my_info.port,
                 inbound_limit: 100,
                 outbound_limit: 100,
                 heartbeat_interval_sec: 3600,
             };
-
-            let index = config.index;
 
             let (node, mut notifications_channel) = Node::<Message>::spawn(host_privkey, config)
                 .await
@@ -53,7 +79,7 @@ fn main() {
             let mut node2 = node.clone();
 
             // Begin the UI.
-            let interactive_loop = Console::spawn(node, index);
+            let interactive_loop = Console::spawn(node, json_config.peers_info);
 
             // Spawn the notifications loop
             let notifications_loop = {
@@ -65,7 +91,6 @@ fn main() {
                     let qtilde: BigInt = str::parse("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
                     let group = CLGroup::new_from_qtilde(&seed, &qtilde);
                     // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
-                    // println!("group: {:?}", group);
                     let params = Parameters {
                         threshold: 2,
                         share_count: 3,
@@ -82,18 +107,20 @@ fn main() {
                             NodeNotification::PeerDisconnected(pid) => {
                                 println!("\n=> Peer disconnected: {}", pid)
                             }
-                            NodeNotification::MessageReceived(pid, index, msg) => {
+                            NodeNotification::MessageReceived(index, msg) => {
+                                println!("\n=> Receiving message from {}", index);
+
                                 // Decode msg
                                 let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
-                                let sending_msg;
-                                match received_msg {
+
+                                let sending_msg = match received_msg {
                                     ReceivingMessages::MultiKeyGenMessage(msg) => {
-                                        sending_msg = keygen.msg_handler(index, &msg);
+                                        keygen.msg_handler(index, &msg)
                                     }
                                     ReceivingMessages::MultiSignMessage(msg) => {
-                                        sending_msg = sign.msg_handler(&group, index, &msg);
+                                        sign.msg_handler(&group, index, &msg)
                                     }
-                                }
+                                };
 
                                 match sending_msg {
                                     SendingMessages::P2pMessage(msgs) => {
@@ -115,17 +142,11 @@ fn main() {
                                     SendingMessages::EmptyMsg => {
                                         println!("no msg to send");
                                     }
-
                                 }
-                                // handle msg
-                                println!(
-                                    "\n=> Received: from {}\n\n",
-                                    index
-                                )
+                                println!("\n\n\n")
                             }
-                            NodeNotification::KeyGen(index) => {
+                            NodeNotification::KeyGen => {
                                 let msg = keygen.phase_two_generate_dl_com_msg();
-                                // // Broadcast first msg
                                 let msg_bytes = bincode::serialize(&msg).unwrap();
                                 node2.broadcast(Message(msg_bytes)).await;
                                 println!("KeyGen...")
@@ -172,7 +193,7 @@ fn main() {
 
 enum UserCommand {
     Nop,
-    Connect(Vec<String>),
+    Connect,
     KeyGen,
     Sign,
     Broadcast(String),
@@ -184,14 +205,17 @@ enum UserCommand {
 
 pub struct Console {
     node: NodeHandle<Message>,
-    index: usize,
+    peers_info: Vec<PeerInfo>,
 }
 
 impl Console {
-    pub fn spawn(node: NodeHandle<Message>, index: usize) -> task::JoinHandle<Result<(), String>> {
+    pub fn spawn(
+        node: NodeHandle<Message>,
+        peers_info: Vec<PeerInfo>,
+    ) -> task::JoinHandle<Result<(), String>> {
         task::spawn_local(async move {
             let mut stdin = io::BufReader::new(io::stdin());
-            let mut console = Console { node, index };
+            let mut console = Console { node, peers_info };
             loop {
                 let mut line = String::new();
                 io::stderr().write_all(">> ".as_ref()).await.unwrap();
@@ -209,7 +233,6 @@ impl Console {
                 }
                 .await;
 
-                // println!("log: {:?}", result);
                 match result {
                     Err(e) => {
                         if e == "Command::Exit" {
@@ -235,16 +258,14 @@ impl Console {
                 self.node.exit().await;
                 return Err("Command::Exit".into());
             }
-            UserCommand::Connect(addrs) => {
-                for (i, addr) in addrs.iter().enumerate() {
-                    // skip connect myself
-                    if i != self.index {
-                        // println!("\n=>    Peer i: {}, index: {}", i, self.index);
-                        self.node
-                            .connect_to_peer(&addr, None, i)
-                            .await
-                            .map_err(|e| format!("Handshake error with {}. {:?}", addr, e))?;
-                    }
+            UserCommand::Connect => {
+                for peer_info in self.peers_info.iter() {
+                    self.node
+                        .connect_to_peer(&peer_info.address, None, peer_info.index)
+                        .await
+                        .map_err(|e| {
+                            format!("Handshake error with {}. {:?}", peer_info.address, e)
+                        })?;
                 }
             }
             UserCommand::Disconnect(peer_id) => {
@@ -302,17 +323,7 @@ impl Console {
         let rest = head_tail.next();
 
         if command == "connect" {
-            let addrs = rest
-                .unwrap_or("")
-                .to_string()
-                .trim()
-                .split_whitespace()
-                .map(|a| a.to_string())
-                .collect::<Vec<_>>();
-            if addrs.len() == 0 {
-                return Err("Address is not specified. Use `connect <addr:port>`. Multiple addresses are allowed.".into());
-            }
-            Ok(UserCommand::Connect(addrs))
+            Ok(UserCommand::Connect)
         } else if command == "broadcast" {
             Ok(UserCommand::Broadcast(rest.unwrap_or("").into()))
         } else if command == "sendmsg" {
@@ -339,7 +350,6 @@ impl Console {
         } else if command == "sign" {
             Ok(UserCommand::Sign)
         } else if command == "exit" || command == "quit" || command == "q" {
-            // println!("log: {:?}", command);
             Ok(UserCommand::Exit)
         } else {
             Err(format!("Unknown command `{}`", command))

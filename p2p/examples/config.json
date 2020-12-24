@@ -1,0 +1,19 @@
+{
+    "share_count": 3,
+    "threshold": 2,
+    "my_info": {
+        "index": 0,
+        "ip": "127.0.0.1",
+        "port": 64377
+    },
+    "peers_info": [
+        {
+            "index": 1,
+            "address": "127.0.0.1:64378"
+        },
+        {
+            "index": 2,
+            "address": "127.0.0.1:64379"
+        }
+    ]
+}

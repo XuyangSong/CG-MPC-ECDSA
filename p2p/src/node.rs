@@ -77,12 +77,11 @@ struct PeerState<T: Codable> {
 pub enum NodeNotification<Custom: Codable> {
     PeerAdded(PeerID, usize),
     PeerDisconnected(PeerID),
-    MessageReceived(PeerID, usize, Custom),
+    MessageReceived(usize, Custom),
     InboundConnectionFailure(io::Error),
     OutboundConnectionFailure(io::Error),
-    KeyGen(usize),
+    KeyGen,
     Sign,
-    /// Node has finished running.
     Shutdown,
 }
 
@@ -552,19 +551,15 @@ where
 
     async fn keygen(&mut self, msg: Custom) {
         let index = self.index;
-        // pid no use
-        let pid = PeerID::default();
-        self.notify(NodeNotification::KeyGen(index)).await;
-        self.notify(NodeNotification::MessageReceived(pid, index, msg))
+        self.notify(NodeNotification::KeyGen).await;
+        self.notify(NodeNotification::MessageReceived(index, msg))
             .await
     }
 
     async fn sign(&mut self, msg: Custom) {
         let index = self.index;
-        // pid no use
-        let pid = PeerID::default();
         self.notify(NodeNotification::Sign).await;
-        self.notify(NodeNotification::MessageReceived(pid, index, msg))
+        self.notify(NodeNotification::MessageReceived(index, msg))
             .await
     }
 
@@ -591,7 +586,7 @@ where
                 // TBD: handle msg here
                 if let Some(peer) = self.peers.get_mut(&id) {
                     let index = peer.index;
-                    self.notify(NodeNotification::MessageReceived(id, index, msg))
+                    self.notify(NodeNotification::MessageReceived(index, msg))
                         .await
                 }
             }
