@@ -23,7 +23,7 @@ pub struct HSMCL {
     pub encrypted_share: PromiseCipher,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HSMCLPublic {
     pub cl_pub_key: PK,
     pub ec_pub_base: GE,

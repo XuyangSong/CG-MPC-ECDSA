@@ -1,34 +1,66 @@
-# Compile demo
-```
-$ cargo build --example network_demo
+# Compile multi party demo
+
+```shell
+$ cargo build --example multi_party_demo
 ```
 
-# KeyGen connect
+# Run multi party demo
+
+## Multi party keygen
+
+CONFIGFILE is the config json file. You can found the default file here: "p2p/examples/config.json".
+```
+$ cargo run --example multi_party_demo CONFIGFILE
+```
+
+*Please start all nodes before connect.
+
+### KeyGen connect
+
+Connect all keygen peers.
 ```
 >> multikeygenconnect
 ```
 
-# KeyGen
+### KeyGen
+
+KeyGen Begin
 ```
 >> keygen
 ```
 
-# Quit
+### KeyGen Quit
+
+Disconnect peers.
 ```
 >> q
 ```
 
-# Sign connect
+## Multi party sgin
+
+CONFIGFILE is the config json file. You can found the default file here: "p2p/examples/config.json".
+```
+$ cargo run --example multi_party_demo CONFIGPATH
+```
+
+*Please start all nodes before connect.
+
+### Sign connect
+
+Connect the subset peers.
 ```
 >> multisignconnect
 ```
 
-# Sign
+### Sign Begin
+
 ```
 >> sign
 ```
 
-# Quit
+### Sign Quit
+
+Disconnect peers.
 ```
 >> q
 ```

@@ -192,7 +192,6 @@ fn main() {
                                     ) = serde_json::from_str(&data).unwrap();
 
                                 // Init Sign
-                                // TBD: put message in config file
                                 let message_hash = HSha256::create_hash_from_slice(message.as_bytes());
                                 let message_to_sign: FE = ECScalar::from(&message_hash);
                                 sign.init_msg(index, params.clone(), cl_keypair.get_secret_key().clone(), &vss_scheme_vec, &subset, &share_public_key, &share_private_key, subset.len(), public_signing_key.clone(), message_to_sign);

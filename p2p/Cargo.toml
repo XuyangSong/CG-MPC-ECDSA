@@ -33,4 +33,7 @@ git = "https://github.com/XuyangSong/class"
 tag = "v1.4.18"
 
 [[example]]
-name = "network_demo"
+name = "multi_party_demo"
+
+[[example]]
+name = "two_party_demo"
