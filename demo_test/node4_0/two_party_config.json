@@ -1,12 +1,12 @@
 {
     "my_info": {
         "index": 0,
-        "ip": "127.0.0.1",
+        "ip": "39.98.180.35",
         "port": 64377
     },
     "peer_info": {
         "index": 1,
-        "address": "127.0.0.1:64378"
+        "address": "101.132.173.232:64378"
     },
     "message": "xxxxxxxxxxxx"
 }
