@@ -1,0 +1,41 @@
+{
+    "share_count": 8,
+    "threshold": 4,
+    "my_info": {
+        "index": 1,
+        "ip": "127.0.0.1",
+        "port": 64378
+    },
+    "peers_info": [
+        {
+            "index": 0,
+            "address": "127.0.0.1:64377"
+        },
+        {
+            "index": 2,
+            "address": "127.0.0.1:64379"
+        },
+        {
+            "index": 3,
+            "address": "127.0.0.1:64380"
+        },
+        {
+            "index": 4,
+            "address": "127.0.0.1:64381"
+        },
+        {
+            "index": 5,
+            "address": "127.0.0.1:64382"
+        },
+        {
+            "index": 6,
+            "address": "127.0.0.1:64383"
+        },
+        {
+            "index": 7,
+            "address": "127.0.0.1:64384"
+        }
+    ],
+    "message": "xxxxxxxxxxxx",
+    "subset": [0, 1, 2, 3, 4]
+}

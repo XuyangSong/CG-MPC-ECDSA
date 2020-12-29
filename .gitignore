@@ -9,4 +9,7 @@ class
 .DS_Store
 .vscode
 
-demo_test
+# demo_test
+two_party_demo
+keygen_result.json
+multi_party_demo

@@ -1,0 +1,25 @@
+{
+    "share_count": 4,
+    "threshold": 2,
+    "my_info": {
+        "index": 1,
+        "ip": "127.0.0.1",
+        "port": 64378
+    },
+    "peers_info": [
+        {
+            "index": 0,
+            "address": "127.0.0.1:64377"
+        },
+        {
+            "index": 2,
+            "address": "127.0.0.1:64379"
+        },
+        {
+            "index": 3,
+            "address": "127.0.0.1:64380"
+        }
+    ],
+    "message": "xxxxxxxxxxxx",
+    "subset": [0, 1, 2]
+}
