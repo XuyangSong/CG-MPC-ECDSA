@@ -64,3 +64,28 @@ Disconnect peers.
 ```
 >> q
 ```
+
+
+
+
+
+
+
+# Performance
+
+## Two party local performance
+
+KeyGen | Sign
+-------| -----
+877 ms | 368ms
+
+
+## Multi party local performance
+(t, n) | KeyGen | Sign
+------ | ------ | ----
+(2, 4) | 118ms | 3617ms
+(4, 8) | 167ms | 7336ms
+(6, 12) | ms | ms
+(8, 16) | ms | ms
+(12, 24) | ms | ms
+(16, 32) | ms | ms

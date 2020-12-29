@@ -376,11 +376,16 @@ impl KeyGen {
         Ok(())
     }
 
-    pub fn msg_handler(&mut self, index: usize, msg: &MultiKeyGenMessage) -> SendingMessages {
-        println!("handle receiving msg: {:?}", msg);
+    pub fn msg_handler(&mut self, group: &CLGroup, index: usize, msg: &MultiKeyGenMessage) -> SendingMessages {
+        // println!("handle receiving msg: {:?}", msg);
 
         match msg {
             MultiKeyGenMessage::KeyGenBegin => {
+                // Simulate CL check
+                let q = FE::q();
+                group.gq.exp(&q);
+                group.gq.exp(&q);
+
                 if self.msgs.phase_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg =
                         self.msgs.phase_three_msgs.get(&self.party_index).unwrap();
@@ -392,6 +397,10 @@ impl KeyGen {
                 }
             }
             MultiKeyGenMessage::PhaseTwoMsg(msg) => {
+                // Simulate CL check
+                let q = FE::q();
+                group.gq.exp(&q);
+                
                 self.msgs.phase_two_msgs.insert(index, msg.clone());
                 if self.msgs.phase_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg =
@@ -1359,7 +1368,7 @@ impl SignPhase {
         index: usize,
         msg_received: &MultiSignMessage,
     ) -> SendingMessages {
-        println!("handle receiving msg: {:?}", msg_received);
+        // println!("handle receiving msg: {:?}", msg_received);
 
         match msg_received {
             MultiSignMessage::SignBegin => {

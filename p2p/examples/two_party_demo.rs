@@ -106,6 +106,8 @@ fn main() {
                     let mut party_one_sign = party_one::SignPhase::new();
                     let mut party_two_sign = party_two::SignPhase::new();
 
+                    let mut time = time::now();
+
                     while let Some(notif) = notifications_channel.recv().await {
                         match notif {
                             NodeNotification::PeerAdded(_pid, index) => {
@@ -121,6 +123,8 @@ fn main() {
                                 match received_msg {
                                     TwoPartyMsg::KegGenBegin => {
                                         if index == 0 {
+                                            // Party one time begin
+                                            time = time::now();
                                             let msg_send = TwoPartyMsg::KeyGenPartyOneRoundOneMsg(party_one_keygen.round_one_msg.clone());
                                             let msg_bytes = bincode::serialize(&msg_send).unwrap();
                                             node2.broadcast(Message(msg_bytes)).await;
@@ -130,6 +134,8 @@ fn main() {
                                     }
                                     TwoPartyMsg::KeyGenPartyOneRoundOneMsg(dlcom) => {
                                         println!("\n=>    KeyGen: Receiving RoundOneMsg from index 0");
+                                        // Party two time begin
+                                        time = time::now();
 
                                         party_two_keygen.set_dl_com(dlcom);
                                         let msg_send = TwoPartyMsg::KenGenPartyTwoRoundOneMsg(party_two_keygen.msg.clone());
@@ -138,6 +144,11 @@ fn main() {
                                     }
                                     TwoPartyMsg::KenGenPartyTwoRoundOneMsg(msg) => {
                                         println!("\n=>    KeyGen: Receiving RoundOneMsg from index 1");
+
+                                        // TBD: Party one, Simulate CL check
+                                        let q = FE::q();
+                                        group.gq.exp(&q);
+                                        group.gq.exp(&q);
 
                                         let witness = party_one_keygen.verify_and_get_next_msg(&msg).unwrap();
                                         party_one_keygen.compute_public_key(&msg.pk);
@@ -149,6 +160,9 @@ fn main() {
                                         let msg_send = TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(witness, hsmcl_public);
                                         let msg_bytes = bincode::serialize(&msg_send).unwrap();
                                         node2.broadcast(Message(msg_bytes)).await;
+
+                                        // Party one time end
+                                        println!("keygen party one time: {:?}", time::now() - time);
 
                                         // Party one save keygen to file
                                         let keygen_path = Path::new("./keygen_result.json");
@@ -164,6 +178,11 @@ fn main() {
                                     TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(witness, hsmcl_public) => {
                                         println!("\n=>    KeyGen: Receiving RoundTwoMsg from index 0");
 
+                                        // TBD: Party one, Simulate CL check
+                                        let q = FE::q();
+                                        group.gq.exp(&q);
+                                        group.gq.exp(&q);
+
                                         party_two::KeyGenInit::verify_received_dl_com_zk(
                                             &party_two_keygen.received_msg,
                                             &witness,
@@ -178,6 +197,9 @@ fn main() {
                                         .unwrap();
                                         party_two_keygen.compute_public_key(witness.get_public_key());
 
+                                        // Party two time end
+                                        println!("keygen party two time: {:?}", time::now() - time);
+
                                         // Party two save keygen to file
                                         let keygen_path = Path::new("./keygen_result.json");
                                         let keygen_json = serde_json::to_string(&(
@@ -191,6 +213,7 @@ fn main() {
                                     }
                                     TwoPartyMsg::SignBegin => {
                                         if index == 0 {
+                                            time = time::now();
                                             let msg_send = TwoPartyMsg::SignPartyOneRoundOneMsg(party_one_sign.round_one_msg.clone());
                                             let msg_bytes = bincode::serialize(&msg_send).unwrap();
                                             node2.broadcast(Message(msg_bytes)).await;
@@ -201,6 +224,7 @@ fn main() {
                                     }
                                     TwoPartyMsg::SignPartyOneRoundOneMsg(dlcom) => {
                                         println!("\n=>    Sign: Receiving RoundOneMsg from index 0");
+                                        time = time::now();
 
                                         party_two_sign.set_dl_com(dlcom);
                                         let msg_send = TwoPartyMsg::SignPartyTwoRoundOneMsg(party_two_sign.msg.clone());
@@ -250,6 +274,8 @@ fn main() {
                                         let msg_bytes = bincode::serialize(&msg_send).unwrap();
                                         node2.broadcast(Message(msg_bytes)).await;
 
+                                        // Party two time end
+                                        println!("Sign party two time: {:?}", time::now() - time);
                                         println!("##    Sign Finish!");
                                     }
                                     TwoPartyMsg::SignPartyTwoRoundTwoMsg(cipher, t_p) => {
@@ -273,6 +299,9 @@ fn main() {
                                             &secret_key,
                                             &t_p,
                                         );
+
+                                        // Party one time end
+                                        println!("Sign party one time: {:?}", time::now() - time);
                                         println!("##    Sign finish! \n signature: {:?}", signature);
                                     }
                                 }

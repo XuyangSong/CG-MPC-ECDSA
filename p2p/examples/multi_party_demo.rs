@@ -113,6 +113,8 @@ fn main() {
                     let mut keygen = KeyGen::phase_one_init(&group, index, params.clone());
                     let mut sign = SignPhase::new();
 
+                    let mut time = time::now();
+
                     while let Some(notif) = notifications_channel.recv().await {
                         match notif {
                             NodeNotification::PeerAdded(_pid, index) => {
@@ -129,7 +131,7 @@ fn main() {
 
                                 let sending_msg = match received_msg {
                                     ReceivingMessages::MultiKeyGenMessage(msg) => {
-                                        keygen.msg_handler(index, &msg)
+                                        keygen.msg_handler(&group, index, &msg)
                                     }
                                     ReceivingMessages::MultiSignMessage(msg) => {
                                         sign.msg_handler(&group, index, &msg)
@@ -161,18 +163,21 @@ fn main() {
                                         .unwrap();
                                         fs::write(keygen_path, keygen_json).expect("Unable to save !");
 
+                                        println!("KeyGen time: {:?}", time::now() - time);
                                         println!("keygen Success!");
                                     }
                                     SendingMessages::SignSuccess => {
+                                        println!("Sign time: {:?}", time::now() - time);
                                         println!("Sign Success!");
                                     }
                                     SendingMessages::EmptyMsg => {
                                         println!("no msg to send");
                                     }
                                 }
-                                println!("\n\n\n")
+                                println!("\n")
                             }
                             NodeNotification::KeyGen => {
+                                time = time::now();
                                 let msg = keygen.phase_two_generate_dl_com_msg();
                                 let msg_bytes = bincode::serialize(&msg).unwrap();
                                 node2.broadcast(Message(msg_bytes)).await;
@@ -191,6 +196,7 @@ fn main() {
                                     Vec<VerifiableSS>,
                                     ) = serde_json::from_str(&data).unwrap();
 
+                                time = time::now();
                                 // Init Sign
                                 let message_hash = HSha256::create_hash_from_slice(message.as_bytes());
                                 let message_to_sign: FE = ECScalar::from(&message_hash);
