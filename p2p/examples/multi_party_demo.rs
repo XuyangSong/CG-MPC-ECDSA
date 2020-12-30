@@ -184,6 +184,12 @@ fn main() {
                             }
                             NodeNotification::KeyGen => {
                                 time = time::now();
+                                // Simulate CL check
+                                let q = FE::q();
+                                for _i in 0..(keygen.params.share_count+1) {
+                                    group.gq.exp(&q);
+                                }
+
                                 let msg = keygen.phase_two_generate_dl_com_msg();
                                 let msg_bytes = bincode::serialize(&msg).unwrap();
                                 node2.broadcast(Message(msg_bytes)).await;

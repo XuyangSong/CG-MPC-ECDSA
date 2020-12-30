@@ -381,11 +381,6 @@ impl KeyGen {
 
         match msg {
             MultiKeyGenMessage::KeyGenBegin => {
-                // Simulate CL check
-                let q = FE::q();
-                group.gq.exp(&q);
-                group.gq.exp(&q);
-
                 if self.msgs.phase_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg =
                         self.msgs.phase_three_msgs.get(&self.party_index).unwrap();
@@ -397,11 +392,6 @@ impl KeyGen {
                 }
             }
             MultiKeyGenMessage::PhaseTwoMsg(msg) => {
-                // Simulate CL check
-                let q = FE::q();
-                group.gq.exp(&q);
-                
-                self.msgs.phase_two_msgs.insert(index, msg.clone());
                 if self.msgs.phase_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg =
                         self.msgs.phase_three_msgs.get(&self.party_index).unwrap();
