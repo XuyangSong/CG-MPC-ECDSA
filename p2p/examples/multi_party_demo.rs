@@ -137,7 +137,7 @@ fn main() {
 
                                 let sending_msg = match received_msg {
                                     ReceivingMessages::MultiKeyGenMessage(msg) => {
-                                        keygen.msg_handler(&group, index, &msg)
+                                        keygen.msg_handler(index, &msg)
                                     }
                                     ReceivingMessages::MultiSignMessage(msg) => {
                                         sign.msg_handler(&group, index, &msg)

@@ -376,7 +376,7 @@ impl KeyGen {
         Ok(())
     }
 
-    pub fn msg_handler(&mut self, group: &CLGroup, index: usize, msg: &MultiKeyGenMessage) -> SendingMessages {
+    pub fn msg_handler(&mut self, index: usize, msg: &MultiKeyGenMessage) -> SendingMessages {
         // println!("handle receiving msg: {:?}", msg);
 
         match msg {
@@ -392,6 +392,7 @@ impl KeyGen {
                 }
             }
             MultiKeyGenMessage::PhaseTwoMsg(msg) => {
+                self.msgs.phase_two_msgs.insert(index, msg.clone());
                 if self.msgs.phase_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg =
                         self.msgs.phase_three_msgs.get(&self.party_index).unwrap();
