@@ -3,21 +3,21 @@
     "threshold": 2,
     "my_info": {
         "index": 3,
-        "ip": "127.0.0.1",
-        "port": 64380
+        "ip": "192.168.0.204",
+        "port": 64373
     },
     "peers_info": [
         {
             "index": 1,
-            "address": "127.0.0.1:64378"
+            "address": "101.132.173.232:64371"
         },
         {
             "index": 0,
-            "address": "127.0.0.1:64377"
+            "address": "39.98.180.35:64370"
         },
         {
             "index": 2,
-            "address": "127.0.0.1:64379"
+            "address": "8.134.11.90:64372"
         }
     ],
     "message": "xxxxxxxxxxxx",
