@@ -9,20 +9,24 @@ use p2p::cybershake;
 use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
 
 use class_group::primitives::cl_dl_public_setup::CLGroup;
-use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
+use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE, GE};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
-use multi_party_ecdsa::protocols::multi_party::ours::party_i::MultiKeyGenMessage;
-use multi_party_ecdsa::protocols::multi_party::ours::party_i::*;
+use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
+use multi_party_ecdsa::protocols::multi_party::ours::message::{
+    MultiKeyGenMessage, MultiSignMessage,
+};
+use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use multi_party_ecdsa::utilities::clkeypair::ClKeyPair;
 use multi_party_ecdsa::utilities::eckeypair::EcKeyPair;
 use serde::Deserialize;
-use std::{env,fs};
+use std::collections::HashMap;
 use std::path::Path;
+use std::{env, fs};
 
 #[derive(Debug, Deserialize)]
 struct JsonConfig {
@@ -31,7 +35,7 @@ struct JsonConfig {
     pub my_info: MyInfo,
     pub peers_info: Vec<PeerInfo>,
     pub message: String,    // message to sign
-    pub subset: Vec<usize>,  // sign parties
+    pub subset: Vec<usize>, // sign parties
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,7 +141,7 @@ fn main() {
 
                                 let sending_msg = match received_msg {
                                     ReceivingMessages::MultiKeyGenMessage(msg) => {
-                                        keygen.msg_handler(index, &msg)
+                                        keygen.msg_handler(&group, index, &msg)
                                     }
                                     ReceivingMessages::MultiSignMessage(msg) => {
                                         sign.msg_handler(&group, index, &msg)
@@ -164,7 +168,7 @@ fn main() {
                                             keygen.public_signing_key.clone(),
                                             keygen.share_private_key.clone(),
                                             keygen.share_public_key.clone(),
-                                            keygen.vss_scheme_vec.clone(),
+                                            keygen.vss_scheme_map.clone(),
                                         ))
                                         .unwrap();
                                         fs::write(keygen_path, keygen_json).expect("Unable to save !");
@@ -199,20 +203,20 @@ fn main() {
                                 // read key file
                                 let data = fs::read_to_string("./keygen_result.json")
                                     .expect("Unable to load keys, did you run keygen first? ");
-                                let (ec_keypair, cl_keypair, public_signing_key, share_private_key, share_public_key, vss_scheme_vec): (
+                                let (ec_keypair, cl_keypair, public_signing_key, share_private_key, share_public_key, vss_scheme_map): (
                                     EcKeyPair,
                                     ClKeyPair,
                                     GE,
                                     FE,
-                                    Vec<GE>,
-                                    Vec<VerifiableSS>,
+                                    HashMap<usize, GE>,
+                                    HashMap<usize, VerifiableSS>,
                                     ) = serde_json::from_str(&data).unwrap();
 
                                 time = time::now();
                                 // Init Sign
                                 let message_hash = HSha256::create_hash_from_slice(message.as_bytes());
                                 let message_to_sign: FE = ECScalar::from(&message_hash);
-                                sign.init_msg(index, params.clone(), cl_keypair.get_secret_key().clone(), &vss_scheme_vec, &subset, &share_public_key, &share_private_key, subset.len(), public_signing_key.clone(), message_to_sign);
+                                sign.init_msg(index, params.clone(), cl_keypair.get_secret_key().clone(), &vss_scheme_map, &subset, &share_public_key, &share_private_key, subset.len(), public_signing_key.clone(), message_to_sign);
 
                                 let msg = sign.phase_one_generate_promise_sigma_and_com_msg(&group, &cl_keypair, &ec_keypair);
                                 let sending_msg = ReceivingMessages::MultiSignMessage(
@@ -271,7 +275,11 @@ impl Console {
     ) -> task::JoinHandle<Result<(), String>> {
         task::spawn_local(async move {
             let mut stdin = io::BufReader::new(io::stdin());
-            let mut console = Console { node, peers_info, subset };
+            let mut console = Console {
+                node,
+                peers_info,
+                subset,
+            };
             loop {
                 let mut line = String::new();
                 io::stderr().write_all(">> ".as_ref()).await.unwrap();
@@ -334,7 +342,6 @@ impl Console {
                                 format!("Handshake error with {}. {:?}", peer_info.address, e)
                             })?;
                     }
-
                 }
             }
             UserCommand::Disconnect(peer_id) => {
@@ -393,7 +400,7 @@ impl Console {
 
         if command == "multikeygenconnect" {
             Ok(UserCommand::MultiKeyGenConnect)
-        } else if  command == "multisignconnect" {
+        } else if command == "multisignconnect" {
             Ok(UserCommand::MultiSignConnect)
         } else if command == "broadcast" {
             Ok(UserCommand::Broadcast(rest.unwrap_or("").into()))

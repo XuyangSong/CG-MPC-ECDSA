@@ -13,19 +13,19 @@ use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE};
+use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
 use multi_party_ecdsa::protocols::two_party::party_two;
-use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
-use multi_party_ecdsa::utilities::hsmcl::{HSMCL, HSMCLPublic};
+use multi_party_ecdsa::utilities::hsmcl::{HSMCLPublic, HSMCL};
 use serde::Deserialize;
-use std::{env,fs};
 use std::path::Path;
+use std::{env, fs};
 
 #[derive(Debug, Deserialize)]
 struct JsonConfig {
     pub my_info: MyInfo,
     pub peer_info: PeerInfo,
-    pub message: String,    // message to sign
+    pub message: String, // message to sign
 }
 
 #[derive(Debug, Deserialize)]
