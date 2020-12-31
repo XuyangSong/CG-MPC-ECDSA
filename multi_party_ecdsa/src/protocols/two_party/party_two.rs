@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 pub struct KeyGenInit {
     pub keypair: EcKeyPair,
     pub msg: DLogProof,
+    pub received_msg: DLCommitments,
+    pub public_signing_key: GE,
 }
 
 impl KeyGenInit {
@@ -25,8 +27,10 @@ impl KeyGenInit {
         let keypair = EcKeyPair::new();
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
         Self {
+            public_signing_key: ECPoint::generator(), // Compute later
             keypair,
             msg: d_log_proof,
+            received_msg: DLCommitments::default(),
         }
     }
 
@@ -63,12 +67,21 @@ impl KeyGenInit {
 
         Ok(())
     }
+
+    pub fn set_dl_com(&mut self, msg: DLCommitments) {
+        self.received_msg = msg;
+    }
+
+    pub fn compute_public_key(&mut self, received_r_1: &GE) {
+        self.public_signing_key = received_r_1 * self.keypair.get_secret_key();
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhase {
     pub keypair: EcKeyPair,
     pub msg: DLogProof,
+    pub received_round_one_msg: DLCommitments,
 }
 
 impl SignPhase {
@@ -78,7 +91,12 @@ impl SignPhase {
         Self {
             keypair,
             msg: d_log_proof,
+            received_round_one_msg: DLCommitments::default(),
         }
+    }
+
+    pub fn set_dl_com(&mut self, msg: DLCommitments) {
+        self.received_round_one_msg = msg;
     }
 
     pub fn verify_received_dl_com_zk(

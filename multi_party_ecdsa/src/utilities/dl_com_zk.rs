@@ -193,6 +193,15 @@ impl CommWitness {
     }
 }
 
+impl Default for DLCommitments {
+    fn default() -> DLCommitments {
+        DLCommitments {
+            pk_commitment: BigInt::zero(),
+            zk_pok_commitment: BigInt::zero(),
+        }
+    }
+}
+
 #[test]
 fn dl_com_zk_test() {
     let keypair = EcKeyPair::new();

@@ -24,7 +24,7 @@ fn two_party_test() {
     let keygen_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
-    let party_one_key_gen_init = party_one::KeyGenInit::new();
+    let mut party_one_key_gen_init = party_one::KeyGenInit::new();
     let party_one_init_round_one_msg = party_one_key_gen_init.round_one_msg.clone();
 
     // Party two round 1: send party_two_key_gen_init.msg
@@ -41,7 +41,7 @@ fn two_party_test() {
     // Party two round 2: verify received msg
     party_two::KeyGenInit::verify_received_dl_com_zk(
         &party_one_init_round_one_msg,
-        party_one_init_round_two_msg,
+        &party_one_init_round_two_msg,
     )
     .unwrap();
     // let party_two_share_key =
@@ -84,7 +84,7 @@ fn two_party_test() {
     // Party two round 2: verify received msg
     party_two::SignPhase::verify_received_dl_com_zk(
         &party_one_sign_round_one_msg,
-        party_one_sign_round_two_msg,
+        &party_one_sign_round_two_msg,
     )
     .unwrap();
 
@@ -92,7 +92,7 @@ fn two_party_test() {
     // Party two: compute partial signature
     let ephemeral_public_share_2 =
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
-    let (last_msg, t_p) = party_two_sign_new.sign(
+    let (cipher, t_p) = party_two_sign_new.sign(
         &cl_group,
         &hsmcl_public,
         &ephemeral_public_share_2,
@@ -106,7 +106,7 @@ fn two_party_test() {
     let signature = party_one_sign_new.sign(
         &cl_group,
         &hsmcl_private,
-        &last_msg,
+        &cipher,
         &ephemeral_public_share_1,
         party_one_key_gen_init.keypair.get_secret_key(),
         &t_p,

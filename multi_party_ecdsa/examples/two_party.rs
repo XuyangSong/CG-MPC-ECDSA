@@ -25,7 +25,7 @@ fn main() {
     let keygen_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
-    let party_one_key_gen_init = party_one::KeyGenInit::new();
+    let mut party_one_key_gen_init = party_one::KeyGenInit::new();
     let party_one_init_round_one_msg = party_one_key_gen_init.round_one_msg.clone();
 
     // Party two round 1: send party_two_key_gen_init.msg
@@ -42,16 +42,25 @@ fn main() {
     // Party two round 2: verify received msg
     party_two::KeyGenInit::verify_received_dl_com_zk(
         &party_one_init_round_one_msg,
-        party_one_init_round_two_msg,
+        &party_one_init_round_two_msg,
     )
     .unwrap();
     // let party_two_share_key =
+
+    // TBD: Party one, Simulate CL check
+    let q = FE::q();
+    cl_group.gq.exp(&q);
+    cl_group.gq.exp(&q);
 
     // Party one: Generate HSMCL
     let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
         &party_one_key_gen_init.keypair,
         &cl_group,
     );
+
+    // TBD: Party one, Simulate CL check
+    cl_group.gq.exp(&q);
+    cl_group.gq.exp(&q);
 
     // Party two: verify HSMCL
     party_two::KeyGenInit::verify_setup_and_zkcldl_proof(
@@ -83,7 +92,7 @@ fn main() {
     // Party two round 2: verify received msg
     party_two::SignPhase::verify_received_dl_com_zk(
         &party_one_sign_round_one_msg,
-        party_one_sign_round_two_msg,
+        &party_one_sign_round_two_msg,
     )
     .unwrap();
 

@@ -1,0 +1,41 @@
+{
+    "share_count": 8,
+    "threshold": 4,
+    "my_info": {
+        "index": 4,
+        "ip": "192.168.0.122",
+        "port": 64374
+    },
+    "peers_info": [
+        {
+            "index": 0,
+            "address": "39.98.180.35:64370"
+        },
+        {
+            "index": 1,
+            "address": "101.132.173.232:64371"
+        },
+        {
+            "index": 2,
+            "address": "8.134.11.90:64372"
+        },
+        {
+            "index": 3,
+            "address": "39.98.180.35:64373"
+        },
+        {
+            "index": 5,
+            "address": "8.134.11.90:64375"
+        },
+        {
+            "index": 6,
+            "address": "39.98.180.35:64376"
+        },
+        {
+            "index": 7,
+            "address": "101.132.173.232:64377"
+        }
+    ],
+    "message": "xxxxxxxxxxxx",
+    "subset": [0, 1, 2, 3, 4]
+}

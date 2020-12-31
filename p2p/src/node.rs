@@ -77,10 +77,11 @@ struct PeerState<T: Codable> {
 pub enum NodeNotification<Custom: Codable> {
     PeerAdded(PeerID, usize),
     PeerDisconnected(PeerID),
-    MessageReceived(PeerID, Custom),
+    MessageReceived(usize, Custom),
     InboundConnectionFailure(io::Error),
     OutboundConnectionFailure(io::Error),
-    /// Node has finished running.
+    KeyGen,
+    Sign,
     Shutdown,
 }
 
@@ -95,13 +96,17 @@ pub struct PeerInfo {
 }
 
 /// Internal representation of messages sent by `NodeHandle` to `Node`.
-enum NodeMessage<Custom: Codable> {
+pub enum NodeMessage<Custom: Codable> {
     ConnectPeer(net::TcpStream, Option<PeerID>, usize),
     RemovePeer(PeerID),
     Broadcast(Custom),
     SendMsg(PeerID, Custom),
+    SendMsgByIndex(usize, Custom),
     CountPeers(Reply<usize>),
     ListPeers(Reply<Vec<PeerInfo>>),
+    KeyGen(Custom),
+    Sign(Custom),
+    Exit,
 }
 
 impl NodeConfig {
@@ -164,7 +169,10 @@ where
                 select! {
                     maybe_cmd = cmd_receiver.next().fuse() => {
                         if let Some(cmd) = maybe_cmd {
-                            node.handle_command(cmd).await;
+                            match cmd {
+                                NodeMessage::Exit => break,
+                                _ => node.handle_command(cmd).await,
+                            }
                         } else {
                             // node handle was dropped, shut down the node.
                             break;
@@ -210,6 +218,10 @@ impl<Custom: Codable> NodeHandle<Custom> {
         Ok(())
     }
 
+    pub async fn exit(&mut self) {
+        self.send_internal(NodeMessage::Exit).await
+    }
+
     /// Disconnects from a peer with a given ID.
     pub async fn remove_peer(&mut self, peer_id: PeerID) {
         self.send_internal(NodeMessage::RemovePeer(peer_id)).await
@@ -233,6 +245,22 @@ impl<Custom: Codable> NodeHandle<Custom> {
     /// Send a message to a peer.
     pub async fn sendmsg(&mut self, peer_id: PeerID, msg: Custom) {
         self.send_internal(NodeMessage::SendMsg(peer_id, msg)).await
+    }
+
+    /// Send a message to a peer.
+    pub async fn sendmsgbyindex(&mut self, index: usize, msg: Custom) {
+        self.send_internal(NodeMessage::SendMsgByIndex(index, msg))
+            .await
+    }
+
+    /// KeyGen begin.
+    pub async fn keygen(&mut self, msg: Custom) {
+        self.send_internal(NodeMessage::KeyGen(msg)).await
+    }
+
+    /// Sign begin.
+    pub async fn sign(&mut self, msg: Custom) {
+        self.send_internal(NodeMessage::Sign(msg)).await
     }
 
     pub async fn list_peers(&mut self) -> Vec<PeerInfo> {
@@ -273,8 +301,15 @@ where
             NodeMessage::RemovePeer(peer_id) => self.remove_peer(&peer_id).await,
             NodeMessage::Broadcast(msg) => self.broadcast(msg).await,
             NodeMessage::SendMsg(pid, msg) => self.send_to_peer(&pid, PeerMessage::Data(msg)).await,
+            NodeMessage::SendMsgByIndex(index, msg) => {
+                self.send_to_peer_by_index(index, PeerMessage::Data(msg))
+                    .await
+            }
             NodeMessage::CountPeers(reply) => self.count_peers(reply).await,
             NodeMessage::ListPeers(reply) => self.list_peers(reply).await,
+            NodeMessage::KeyGen(msg) => self.keygen(msg).await,
+            NodeMessage::Sign(msg) => self.sign(msg).await,
+            NodeMessage::Exit => {}
         }
     }
 
@@ -285,13 +320,13 @@ where
         // but instead sending a shared read-only buffer.
         // We can do this by changing how the Peer works from being its own task, to a Stream,
         // and then polling `select_all` of them.
-        let listed_peers = self.sorted_peers();
-        for (_pid, peerstate) in self.peers.iter_mut() {
-            peerstate
-                .link
-                .send(PeerMessage::Peers(listed_peers.clone()))
-                .await
-        }
+        // let listed_peers = self.sorted_peers();
+        // for (_pid, peerstate) in self.peers.iter_mut() {
+        //     peerstate
+        //         .link
+        //         .send(PeerMessage::Peers(listed_peers.clone()))
+        //         .await
+        // }
     }
 
     async fn try_accept(&mut self) {
@@ -506,6 +541,28 @@ where
         }
     }
 
+    async fn send_to_peer_by_index(&mut self, index: usize, msg: PeerMessage<Custom>) {
+        for (_id, peer_link) in self.peers.iter_mut() {
+            if index == peer_link.index {
+                peer_link.link.send(msg.clone()).await;
+            }
+        }
+    }
+
+    async fn keygen(&mut self, msg: Custom) {
+        let index = self.index;
+        self.notify(NodeNotification::KeyGen).await;
+        self.notify(NodeNotification::MessageReceived(index, msg))
+            .await
+    }
+
+    async fn sign(&mut self, msg: Custom) {
+        let index = self.index;
+        self.notify(NodeNotification::Sign).await;
+        self.notify(NodeNotification::MessageReceived(index, msg))
+            .await
+    }
+
     async fn handle_peer_notification(&mut self, notif: PeerNotification<Custom>) {
         let (id, peermsg) = match notif {
             PeerNotification::Received(id, peermsg) => (id, peermsg),
@@ -527,9 +584,11 @@ where
             }
             PeerMessage::Data(msg) => {
                 // TBD: handle msg here
-
-                self.notify(NodeNotification::MessageReceived(id, msg))
-                    .await
+                if let Some(peer) = self.peers.get_mut(&id) {
+                    let index = peer.index;
+                    self.notify(NodeNotification::MessageReceived(index, msg))
+                        .await
+                }
             }
             PeerMessage::Peers(mut list) => {
                 list.truncate(self.peer_list_limit());
@@ -645,32 +704,32 @@ where
         let _ = self.notifications_channel.send(notif).await.unwrap_or(());
     }
 
-    fn sorted_peers(&self) -> Vec<PeerAddr> {
-        let mut list = self
-            .peers
-            .iter()
-            .filter_map(|(pid, peer)| {
-                peer.listening_addr.map(|addr| PeerAddr {
-                    id: *pid,
-                    addr: addr,
-                })
-            })
-            .map(|pa| {
-                let priority = self.peer_priorities.get(&pa.id).unwrap_or(LOW_PRIORITY);
-                (pa, priority)
-            })
-            .collect::<Vec<_>>();
+    // fn sorted_peers(&self) -> Vec<PeerAddr> {
+    //     let mut list = self
+    //         .peers
+    //         .iter()
+    //         .filter_map(|(pid, peer)| {
+    //             peer.listening_addr.map(|addr| PeerAddr {
+    //                 id: *pid,
+    //                 addr: addr,
+    //             })
+    //         })
+    //         .map(|pa| {
+    //             let priority = self.peer_priorities.get(&pa.id).unwrap_or(LOW_PRIORITY);
+    //             (pa, priority)
+    //         })
+    //         .collect::<Vec<_>>();
 
-        if list.len() == 0 {
-            return Vec::new();
-        }
+    //     if list.len() == 0 {
+    //         return Vec::new();
+    //     }
 
-        list.sort_by_key(|&(_, priority)| priority);
-        list.into_iter()
-            .take(self.peer_list_limit())
-            .map(|(peer_addr, _priority)| peer_addr)
-            .collect::<Vec<_>>()
-    }
+    //     list.sort_by_key(|&(_, priority)| priority);
+    //     list.into_iter()
+    //         .take(self.peer_list_limit())
+    //         .map(|(peer_addr, _priority)| peer_addr)
+    //         .collect::<Vec<_>>()
+    // }
 
     /// Inspectable list of peers for debugging.
     fn peer_infos(&self) -> Vec<PeerInfo> {

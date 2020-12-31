@@ -18,6 +18,7 @@ pub struct KeyGenInit {
     pub keypair: EcKeyPair,
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
+    pub public_signing_key: GE,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -25,6 +26,7 @@ pub struct SignPhase {
     pub keypair: EcKeyPair,
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
+    pub received_msg: DLogProof,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,24 +40,28 @@ impl KeyGenInit {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
         Self {
+            public_signing_key: ECPoint::generator(), // Compute later
             keypair,
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
         }
     }
 
+    // TBD: remove return value
     pub fn verify_and_get_next_msg(
         &self,
         dl_proof: &DLogProof,
-    ) -> Result<&CommWitness, ProofError> {
+    ) -> Result<CommWitness, ProofError> {
         // TBD: handle the error
         DLogProof::verify(dl_proof).unwrap();
 
-        Ok(&self.round_two_msg)
+        Ok(self.round_two_msg.clone())
     }
 
-    pub fn compute_public_key(&self, received_r_2: &GE) -> GE {
-        received_r_2 * self.keypair.get_secret_key()
+    // TBD: remove return value
+    pub fn compute_public_key(&mut self, received_r_2: &GE) -> GE {
+        self.public_signing_key = received_r_2 * self.keypair.get_secret_key();
+        self.public_signing_key
     }
 }
 
@@ -63,21 +69,31 @@ impl SignPhase {
     pub fn new() -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
+        let received_msg = DLogProof{
+            pk: GE::generator(),
+            pk_t_rand_commitment: GE::generator(),
+            challenge_response: FE::zero(),
+        };
+
         Self {
             keypair,
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
+            received_msg,
         }
+    }
+
+    pub fn set_received_msg(&mut self, msg: DLogProof) {
+        self.received_msg = msg;
     }
 
     pub fn verify_and_get_next_msg(
         &self,
         dl_proof: &DLogProof,
-    ) -> Result<&CommWitness, ProofError> {
+    ) -> Result<CommWitness, ProofError> {
         // TBD: handle the error
         DLogProof::verify(dl_proof).unwrap();
-
-        Ok(&self.round_two_msg)
+        Ok(self.round_two_msg.clone())
     }
 
     pub fn compute_public_share_key(&self, received_r_2: &GE) -> GE {

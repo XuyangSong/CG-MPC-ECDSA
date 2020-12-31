@@ -203,3 +203,9 @@ impl Hash for PeerID {
         self.0.as_bytes().hash(state);
     }
 }
+
+impl Default for PeerID {
+    fn default() -> PeerID {
+        PeerID::from(cybershake::PublicKey::from(CompressedRistretto::default()))
+    }
+}

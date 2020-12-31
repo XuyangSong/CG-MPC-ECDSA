@@ -145,16 +145,20 @@ fn sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>) {
         .collect::<Vec<_>>();
 
     let sign_phase_init_start = time::now();
+    let message_to_sign: FE = ECScalar::from(&BigInt::from(2)); // no use
     let mut sign_vec = (0..party_num)
         .map(|i| {
             SignPhase::init(
                 key_gen_vec[i].party_index,
                 params.clone(),
+                key_gen_vec[i].cl_keypair.get_secret_key().clone(),
                 &key_gen_vec[i].vss_scheme_vec,
                 &subset,
                 &key_gen_vec[i].share_public_key,
                 &key_gen_vec[i].share_private_key,
                 party_num,
+                key_gen_vec[i].public_signing_key.clone(), // no use
+                message_to_sign,                           // no use
             )
             .unwrap()
         })
