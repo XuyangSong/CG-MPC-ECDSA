@@ -48,10 +48,7 @@ impl KeyGenInit {
     }
 
     // TBD: remove return value
-    pub fn verify_and_get_next_msg(
-        &self,
-        dl_proof: &DLogProof,
-    ) -> Result<CommWitness, ProofError> {
+    pub fn verify_and_get_next_msg(&self, dl_proof: &DLogProof) -> Result<CommWitness, ProofError> {
         // TBD: handle the error
         DLogProof::verify(dl_proof).unwrap();
 
@@ -69,7 +66,7 @@ impl SignPhase {
     pub fn new() -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
-        let received_msg = DLogProof{
+        let received_msg = DLogProof {
             pk: GE::generator(),
             pk_t_rand_commitment: GE::generator(),
             challenge_response: FE::zero(),
@@ -87,10 +84,7 @@ impl SignPhase {
         self.received_msg = msg;
     }
 
-    pub fn verify_and_get_next_msg(
-        &self,
-        dl_proof: &DLogProof,
-    ) -> Result<CommWitness, ProofError> {
+    pub fn verify_and_get_next_msg(&self, dl_proof: &DLogProof) -> Result<CommWitness, ProofError> {
         // TBD: handle the error
         DLogProof::verify(dl_proof).unwrap();
         Ok(self.round_two_msg.clone())

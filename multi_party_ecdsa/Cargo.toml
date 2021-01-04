@@ -63,7 +63,4 @@ libsecp256k1 = "0.3.2"
 name = "two_party"
 
 [[example]]
-name = "multi_party"
-
-[[example]]
 name = "pkc20"
