@@ -92,6 +92,15 @@ fn main() {
 
             let mut node2 = node.clone();
 
+             // Connect, just for performance test
+            //  for peer_info in json_config.peers_info.iter() {
+            //     if peer_info.index > party_index && subset.contains(&peer_info.index) {
+            //         node2
+            //             .connect_to_peer(&peer_info.address, None, peer_info.index)
+            //             .await;
+            //     }
+            // }
+
             // Begin the UI.
             let interactive_loop = Console::spawn(node, json_config.peers_info, subset.clone());
 
@@ -111,8 +120,7 @@ fn main() {
                     // let group = CLGroup::new_from_qtilde(&seed, &qtilde);
                     // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
-                    // TBD: add a new func, init it latter.
-                    let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone());
+                    // let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone());
                     let mut sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message);
                     sign.init();
 
@@ -132,14 +140,20 @@ fn main() {
                                 // Decode msg
                                 let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
 
-                                let sending_msg = match received_msg {
-                                    ReceivingMessages::MultiKeyGenMessage(msg) => {
-                                        keygen.msg_handler(index, &msg)
-                                    }
-                                    ReceivingMessages::MultiSignMessage(msg) => {
-                                        sign.msg_handler(index, &msg)
-                                    }
-                                };
+                                let mut sending_msg = SendingMessages::EmptyMsg;
+                                if let ReceivingMessages::MultiSignMessage(msg) = received_msg {
+                                    sending_msg = sign.msg_handler(index, &msg);
+                                } else {
+                                    // return some error
+                                }
+                                // let sending_msg = match received_msg {
+                                //     ReceivingMessages::MultiKeyGenMessage(msg) => {
+                                //         keygen.msg_handler(index, &msg)
+                                //     }
+                                //     ReceivingMessages::MultiSignMessage(msg) => {
+                                //         sign.msg_handler(index, &msg)
+                                //     }
+                                // };
 
                                 match sending_msg {
                                     SendingMessages::NormalMessage(index, msg) => {
@@ -290,14 +304,14 @@ impl Console {
                 return Err("Command::Exit".into());
             }
             UserCommand::MultiKeyGenConnect => {
-                for peer_info in self.peers_info.iter() {
-                    self.node
-                        .connect_to_peer(&peer_info.address, None, peer_info.index)
-                        .await
-                        .map_err(|e| {
-                            format!("Handshake error with {}. {:?}", peer_info.address, e)
-                        })?;
-                }
+                // for peer_info in self.peers_info.iter() {
+                //     self.node
+                //         .connect_to_peer(&peer_info.address, None, peer_info.index)
+                //         .await
+                //         .map_err(|e| {
+                //             format!("Handshake error with {}. {:?}", peer_info.address, e)
+                //         })?;
+                // }
             }
             UserCommand::MultiSignConnect => {
                 for peer_info in self.peers_info.iter() {
@@ -332,12 +346,12 @@ impl Console {
                 }
             }
             UserCommand::KeyGen => {
-                println!("=> KeyGen Begin...");
-                let msg = bincode::serialize(&ReceivingMessages::MultiKeyGenMessage(
-                    MultiKeyGenMessage::KeyGenBegin,
-                ))
-                .unwrap();
-                self.node.keygen(Message(msg)).await;
+                // println!("=> KeyGen Begin...");
+                // let msg = bincode::serialize(&ReceivingMessages::MultiKeyGenMessage(
+                //     MultiKeyGenMessage::KeyGenBegin,
+                // ))
+                // .unwrap();
+                // self.node.keygen(Message(msg)).await;
             }
             UserCommand::Sign => {
                 println!("=> Signature Begin...");

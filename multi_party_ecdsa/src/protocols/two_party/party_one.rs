@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
-use crate::utilities::hsmcl::HSMCL;
+use crate::utilities::hsmcl::{HSMCL, HSMCLPublic};
 use class_group::primitives::cl_dl_public_setup::{decrypt, CLGroup, Ciphertext as CLCiphertext};
 
 //****************** Begin: Party One structs ******************//
@@ -19,6 +19,8 @@ pub struct KeyGenInit {
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
     pub public_signing_key: GE,
+    pub hsmcl_private: HSMCL,
+    pub hsmcl_public: HSMCLPublic,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -36,14 +38,27 @@ pub struct Signature {
 }
 
 impl KeyGenInit {
-    pub fn new() -> Self {
+    pub fn new(group: &CLGroup) -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
+        // Precomputation
+        let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
+            &keypair,
+            group,
+        );
+
+        // TBD: Party one, Simulate CL check
+        let q = FE::q();
+        group.gq.exp(&q);
+        group.gq.exp(&q);
+
         Self {
             public_signing_key: ECPoint::generator(), // Compute later
             keypair,
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
+            hsmcl_private,
+            hsmcl_public,
         }
     }
 

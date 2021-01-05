@@ -15,7 +15,7 @@ use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use multi_party_ecdsa::protocols::multi_party::ours::message::{
     MultiKeyGenMessage, MultiSignMessage,
 };
-use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
+// use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use serde::Deserialize;
 use std::path::Path;
 use std::{env, fs};
@@ -67,8 +67,8 @@ fn main() {
                 threshold: json_config.threshold,
                 share_count: json_config.share_count,
             };
-            let subset = json_config.subset;
-            let message = json_config.message;
+            // let subset = json_config.subset;
+            // let message = json_config.message;
 
             let config = NodeConfig {
                 index: party_index,
@@ -92,8 +92,17 @@ fn main() {
 
             let mut node2 = node.clone();
 
+            // Connect, just for performance test
+            // for peer_info in json_config.peers_info.iter() {
+            //     if peer_info.index > party_index {
+            //         node2
+            //         .connect_to_peer(&peer_info.address, None, peer_info.index)
+            //         .await;
+            //     }
+            // }
+
             // Begin the UI.
-            let interactive_loop = Console::spawn(node, json_config.peers_info, subset.clone());
+            let interactive_loop = Console::spawn(node, json_config.peers_info);
 
             // Spawn the notifications loop
             let notifications_loop = {
@@ -113,8 +122,8 @@ fn main() {
 
                     // TBD: add a new func, init it latter.
                     let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone());
-                    let mut sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message);
-                    sign.init();
+                    // let mut sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message);
+                    // sign.init();
 
                     let mut time = time::now();
 
@@ -132,14 +141,18 @@ fn main() {
                                 // Decode msg
                                 let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
 
-                                let sending_msg = match received_msg {
-                                    ReceivingMessages::MultiKeyGenMessage(msg) => {
-                                        keygen.msg_handler(index, &msg)
-                                    }
-                                    ReceivingMessages::MultiSignMessage(msg) => {
-                                        sign.msg_handler(index, &msg)
-                                    }
-                                };
+                                let mut sending_msg = SendingMessages::EmptyMsg;
+                                if let ReceivingMessages::MultiKeyGenMessage(msg) = received_msg {
+                                    sending_msg = keygen.msg_handler(index, &msg);
+                                }
+                                // let sending_msg = match received_msg {
+                                //     ReceivingMessages::MultiKeyGenMessage(msg) => {
+                                //         keygen.msg_handler(index, &msg)
+                                //     }
+                                //     ReceivingMessages::MultiSignMessage(msg) => {
+                                //         // sign.msg_handler(index, &msg)
+                                //     }
+                                // };
 
                                 match sending_msg {
                                     SendingMessages::NormalMessage(index, msg) => {
@@ -231,21 +244,21 @@ enum UserCommand {
 pub struct Console {
     node: NodeHandle<Message>,
     peers_info: Vec<PeerInfo>,
-    subset: Vec<usize>,
+    // subset: Vec<usize>,
 }
 
 impl Console {
     pub fn spawn(
         node: NodeHandle<Message>,
         peers_info: Vec<PeerInfo>,
-        subset: Vec<usize>,
+        // subset: Vec<usize>,
     ) -> task::JoinHandle<Result<(), String>> {
         task::spawn_local(async move {
             let mut stdin = io::BufReader::new(io::stdin());
             let mut console = Console {
                 node,
                 peers_info,
-                subset,
+                // subset,
             };
             loop {
                 let mut line = String::new();
@@ -300,16 +313,16 @@ impl Console {
                 }
             }
             UserCommand::MultiSignConnect => {
-                for peer_info in self.peers_info.iter() {
-                    if self.subset.contains(&peer_info.index) {
-                        self.node
-                            .connect_to_peer(&peer_info.address, None, peer_info.index)
-                            .await
-                            .map_err(|e| {
-                                format!("Handshake error with {}. {:?}", peer_info.address, e)
-                            })?;
-                    }
-                }
+                // for peer_info in self.peers_info.iter() {
+                //     if self.subset.contains(&peer_info.index) {
+                //         self.node
+                //             .connect_to_peer(&peer_info.address, None, peer_info.index)
+                //             .await
+                //             .map_err(|e| {
+                //                 format!("Handshake error with {}. {:?}", peer_info.address, e)
+                //             })?;
+                //     }
+                // }
             }
             UserCommand::Disconnect(peer_id) => {
                 self.node.remove_peer(peer_id).await;
@@ -340,12 +353,12 @@ impl Console {
                 self.node.keygen(Message(msg)).await;
             }
             UserCommand::Sign => {
-                println!("=> Signature Begin...");
-                let msg = bincode::serialize(&ReceivingMessages::MultiSignMessage(
-                    MultiSignMessage::SignBegin,
-                ))
-                .unwrap();
-                self.node.sign(Message(msg)).await;
+                // println!("=> Signature Begin...");
+                // let msg = bincode::serialize(&ReceivingMessages::MultiSignMessage(
+                //     MultiSignMessage::SignBegin,
+                // ))
+                // .unwrap();
+                // self.node.sign(Message(msg)).await;
             }
         }
         Ok(())
