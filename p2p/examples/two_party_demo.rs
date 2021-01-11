@@ -100,11 +100,11 @@ fn main() {
                     let group = CLGroup::new_from_qtilde(&seed, &qtilde);
                     // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
-                    let mut party_one_keygen = party_one::KeyGenInit::new();
+                    let mut party_one_keygen = party_one::KeyGenInit::new(&group);
                     let mut party_two_keygen = party_two::KeyGenInit::new();
 
                     let mut party_one_sign = party_one::SignPhase::new();
-                    let mut party_two_sign = party_two::SignPhase::new();
+                    let mut party_two_sign = party_two::SignPhase::new(&group, &message_to_sign);
 
                     let mut time = time::now();
 
@@ -145,19 +145,14 @@ fn main() {
                                     TwoPartyMsg::KenGenPartyTwoRoundOneMsg(msg) => {
                                         println!("\n=>    KeyGen: Receiving RoundOneMsg from index 1");
 
-                                        // TBD: Party one, Simulate CL check
-                                        let q = FE::q();
-                                        group.gq.exp(&q);
-                                        group.gq.exp(&q);
-
                                         let witness = party_one_keygen.verify_and_get_next_msg(&msg).unwrap();
                                         party_one_keygen.compute_public_key(&msg.pk);
 
-                                        let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
-                                            &party_one_keygen.keypair,
-                                            &group,
-                                        );
-                                        let msg_send = TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(witness, hsmcl_public);
+                                        // let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
+                                        //     &party_one_keygen.keypair,
+                                        //     &group,
+                                        // );
+                                        let msg_send = TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(witness, party_one_keygen.hsmcl_public.clone());
                                         let msg_bytes = bincode::serialize(&msg_send).unwrap();
                                         node2.broadcast(Message(msg_bytes)).await;
 
@@ -167,7 +162,7 @@ fn main() {
                                         // Party one save keygen to file
                                         let keygen_path = Path::new("./keygen_result.json");
                                         let keygen_json = serde_json::to_string(&(
-                                            hsmcl_private,
+                                            party_one_keygen.hsmcl_private.clone(),
                                             party_one_keygen.keypair.get_secret_key().clone(),
                                         ))
                                         .unwrap();
@@ -178,9 +173,8 @@ fn main() {
                                     TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(witness, hsmcl_public) => {
                                         println!("\n=>    KeyGen: Receiving RoundTwoMsg from index 0");
 
-                                        // TBD: Party one, Simulate CL check
+                                        // TBD: Party two, Simulate CL check
                                         let q = FE::q();
-                                        group.gq.exp(&q);
                                         group.gq.exp(&q);
 
                                         party_two::KeyGenInit::verify_received_dl_com_zk(
@@ -267,7 +261,7 @@ fn main() {
                                             &hsmcl_public,
                                             &ephemeral_public_share,
                                             &secret_key,
-                                            &message_to_sign,
+                                            // &message_to_sign,
                                         );
 
                                         let msg_send = TwoPartyMsg::SignPartyTwoRoundTwoMsg(cipher, t_p);

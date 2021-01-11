@@ -14,7 +14,7 @@ use class_group::primitives::cl_dl_public_setup::{encrypt, CLGroup, PK, SK};
 use class_group::BinaryQF;
 use curv::arithmetic::traits::*;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HSMCL {
     pub public: PK,
     pub secret: SK,
