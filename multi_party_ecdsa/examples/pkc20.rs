@@ -9,7 +9,7 @@ fn main() {
         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
     ).unwrap();
 
-    let discriminant = 1348; // discriminant 1348
+    let discriminant = 1827; // discriminant 1827
     let group = CLGroup::new_from_setup(&discriminant, &seed);
 
     let params = Parameters {
