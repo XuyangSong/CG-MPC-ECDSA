@@ -8,11 +8,13 @@ use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE, GE};
 use std::collections::HashMap;
 
+use crate::utilities::class::update_class_group_by_p;
 use crate::utilities::promise_sigma::*;
 use crate::utilities::SECURITY_BITS;
 use class_group::primitives::cl_dl_public_setup::{
-    decrypt, encrypt_without_r, CLGroup, Ciphertext as CLCipher, SK as CLSK,
+    decrypt, encrypt_without_r, CLGroup, Ciphertext as CLCipher, PK as CLPK, SK as CLSK,
 };
+use class_group::BinaryQF;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -30,9 +32,11 @@ pub struct Parameters {
 
 #[derive(Clone, Debug)]
 pub struct KeyGenTest {
+    pub cl_group: CLGroup,
     pub party_index: usize,
     pub params: Parameters,
     pub cl_keypair: ClKeyPair,
+    pub h_caret: CLPK,
     pub private_signing_key: EcKeyPair,       // (u_i, u_iP)
     pub public_signing_key: GE,               // Q
     pub share_private_key: FE,                // x_i
@@ -42,6 +46,7 @@ pub struct KeyGenTest {
 
 #[derive(Clone, Debug)]
 pub struct SignPhaseTest {
+    pub cl_group: CLGroup,
     pub party_index: usize,
     pub party_num: usize,
     pub params: Parameters,
@@ -64,23 +69,49 @@ pub struct SignPhaseTest {
 
 impl KeyGenTest {
     pub fn phase_one_init(group: &CLGroup, party_index: usize, params: Parameters) -> Self {
-        // Simulate CL computation
-        let q = FE::q();
-        group.gq.exp(&q);
-        group.gq.exp(&q);
+        // Generate cl keypair
+        let mut cl_keypair = ClKeyPair::new(&group);
+        let h_caret = cl_keypair.get_public_key().clone();
+        cl_keypair.update_pk_exp_p();
+
+        // Update gp
+        let new_class_group = update_class_group_by_p(group);
 
         let private_signing_key = EcKeyPair::new(); // Generate private key pair.
         let public_signing_key = private_signing_key.get_public_key().clone(); // Init public key, compute later.
         Self {
+            cl_group: new_class_group,
             party_index,
             params,
-            cl_keypair: ClKeyPair::new(group),
+            cl_keypair,
+            h_caret,
             private_signing_key,
             public_signing_key,
             share_private_key: ECScalar::zero(), // Init share private key, compute later.
             share_public_key: HashMap::new(),
             vss_scheme_map: HashMap::new(),
         }
+    }
+
+    pub fn get_class_group_pk(&self) -> (CLPK, CLPK, BinaryQF) {
+        (
+            self.h_caret.clone(),
+            self.cl_keypair.get_public_key().clone(),
+            self.cl_group.gq.clone(),
+        )
+    }
+
+    pub fn verify_class_group_pk(
+        &self,
+        pk_vec: &Vec<(CLPK, CLPK, BinaryQF)>,
+    ) -> Result<(), ProofError> {
+        for element in pk_vec.iter() {
+            let h_ret = element.0 .0.exp(&FE::q());
+            if h_ret != element.1 .0 && element.2 != self.cl_group.gq {
+                return Err(ProofError);
+            }
+        }
+        Ok(())
     }
 
     pub fn phase_two_generate_dl_com(&self) -> DlogCommitment {
@@ -162,6 +193,7 @@ impl KeyGenTest {
 
 impl SignPhaseTest {
     pub fn init(
+        cl_group: CLGroup,
         party_index: usize,
         params: Parameters,
         vss_scheme_map: &HashMap<usize, VerifiableSS>,
@@ -196,6 +228,7 @@ impl SignPhaseTest {
             .collect::<Vec<_>>();
 
         Ok(Self {
+            cl_group,
             party_index,
             party_num,
             params,
@@ -219,13 +252,12 @@ impl SignPhaseTest {
 
     pub fn phase_one_generate_promise_sigma_and_com(
         &mut self,
-        group: &CLGroup,
         cl_keypair: &ClKeyPair,
     ) -> (SignPhaseOneMsg, SignPhaseFourMsg) {
         // Generate promise sigma
         self.k = FE::new_random();
 
-        let cipher = PromiseCipher::encrypt(group, cl_keypair.get_public_key(), &self.k);
+        let cipher = PromiseCipher::encrypt(&self.cl_group, cl_keypair.get_public_key(), &self.k);
 
         let promise_state = PromiseState {
             cipher: cipher.0.clone(),
@@ -235,7 +267,7 @@ impl SignPhaseTest {
             m: self.k,
             r: cipher.1,
         };
-        let proof = PromiseProof::prove(group, &promise_state, &promise_wit);
+        let proof = PromiseProof::prove(&self.cl_group, &promise_state, &promise_wit);
 
         // Generate commitment
         let gamma_pair = EcKeyPair::new();
@@ -254,7 +286,6 @@ impl SignPhaseTest {
 
     pub fn phase_two_generate_homo_cipher(
         &mut self,
-        group: &CLGroup,
         sign_phase_one_msg_vec: &Vec<SignPhaseOneMsg>,
     ) -> Vec<SignPhaseTwoMsg> {
         assert_eq!(sign_phase_one_msg_vec.len(), self.party_num);
@@ -262,7 +293,9 @@ impl SignPhaseTest {
         let zero = FE::zero();
         for (i, msg) in sign_phase_one_msg_vec.iter().enumerate() {
             // Verify promise proof
-            msg.proof.verify(group, &msg.promise_state).unwrap();
+            msg.proof
+                .verify(&self.cl_group, &msg.promise_state)
+                .unwrap();
 
             // Homo
             let cipher = &msg.promise_state.cipher;
@@ -275,13 +308,15 @@ impl SignPhaseTest {
             let beta = FE::new_random();
             {
                 // Generate random.
-                let t = BigInt::sample_below(&(&group.stilde * BigInt::from(2).pow(40) * &FE::q()));
+                let t = BigInt::sample_below(
+                    &(&self.cl_group.stilde * BigInt::from(2).pow(40) * &FE::q()),
+                );
                 t_p = ECScalar::from(&t.mod_floor(&FE::q()));
                 let rho_plus_t = self.gamma.to_big_int() + t;
 
                 // Handle CL cipher.
                 let (r_cipher, _r_blind) =
-                    encrypt_without_r(&group, &zero.sub(&beta.get_element()));
+                    encrypt_without_r(&self.cl_group, &zero.sub(&beta.get_element()));
                 let c11 = cipher.cl_cipher.c1.exp(&rho_plus_t);
                 let c21 = cipher.cl_cipher.c2.exp(&rho_plus_t);
                 let c1 = c11.compose(&r_cipher.c1).reduce();
@@ -292,12 +327,15 @@ impl SignPhaseTest {
             let v = FE::new_random();
             {
                 // Generate random.
-                let t = BigInt::sample_below(&(&group.stilde * BigInt::from(2).pow(40) * &FE::q()));
+                let t = BigInt::sample_below(
+                    &(&self.cl_group.stilde * BigInt::from(2).pow(40) * &FE::q()),
+                );
                 t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
                 let omega_plus_t = self.omega.to_big_int() + t;
 
                 // Handle CL cipher.
-                let (r_cipher, _r_blind) = encrypt_without_r(&group, &zero.sub(&v.get_element()));
+                let (r_cipher, _r_blind) =
+                    encrypt_without_r(&self.cl_group, &zero.sub(&v.get_element()));
                 let c11 = cipher.cl_cipher.c1.exp(&omega_plus_t);
                 let c21 = cipher.cl_cipher.c2.exp(&omega_plus_t);
                 let c1 = c11.compose(&r_cipher.c1).reduce();
@@ -329,7 +367,6 @@ impl SignPhaseTest {
 
     pub fn phase_two_decrypt_and_verify(
         &mut self,
-        group: &CLGroup,
         sk: &CLSK,
         msg_vec: &Vec<SignPhaseTwoMsg>,
     ) -> SignPhaseThreeMsg {
@@ -340,13 +377,14 @@ impl SignPhaseTest {
         for i in 0..msg_vec.len() {
             // Compute delta
             let k_mul_t = self.k * msg_vec[i].t_p;
-            let alpha = decrypt(&group, &sk, &msg_vec[i].homocipher).sub(&k_mul_t.get_element());
+            let alpha =
+                decrypt(&self.cl_group, &sk, &msg_vec[i].homocipher).sub(&k_mul_t.get_element());
             delta = delta + alpha + self.beta_vec[i];
 
             // Compute sigma
             let k_mul_t_plus = self.k * msg_vec[i].t_p_plus;
-            let miu =
-                decrypt(&group, &sk, &msg_vec[i].homocipher_plus).sub(&k_mul_t_plus.get_element());
+            let miu = decrypt(&self.cl_group, &sk, &msg_vec[i].homocipher_plus)
+                .sub(&k_mul_t_plus.get_element());
             self.sigma = self.sigma + miu + self.v_vec[i];
 
             // Check kW = uP + B
@@ -580,6 +618,19 @@ fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> Vec<KeyGenTest> {
     let key_gen_phase_two_time = (time::now() - key_gen_phase_two_start) / n_i32;
     println!("key_gen_phase_two_time: {:?}", key_gen_phase_two_time);
 
+    // Verify class group pk and pk'
+    let key_gen_phase_check_pk_start = time::now();
+    let pk_vec = key_gen_vec
+        .iter()
+        .map(|key_gen| key_gen.get_class_group_pk())
+        .collect::<Vec<_>>();
+    key_gen_vec[0].verify_class_group_pk(&pk_vec).unwrap();
+    let key_gen_phase_check_pk_time = (time::now() - key_gen_phase_check_pk_start) / n_i32;
+    println!(
+        "key_gen_phase_check_pk_time: {:?}",
+        key_gen_phase_check_pk_time
+    );
+
     let q_vec = dl_com_vec
         .iter()
         .map(|k| k.get_public_share())
@@ -672,7 +723,10 @@ fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> Vec<KeyGenTest> {
 
     assert_eq!(x, sum_u_i);
 
-    let time_t = key_gen_phase_three_time + key_gen_phase_five_time + key_gen_phase_six_time;
+    let time_t = key_gen_phase_check_pk_time
+        + key_gen_phase_three_time
+        + key_gen_phase_five_time
+        + key_gen_phase_six_time;
     let time_constant = key_gen_phase_one_time + key_gen_phase_two_time + key_gen_phase_four_time;
     println!(
         "key gen total time: {:?} * (n-1) + {:?}\n\n",
@@ -682,7 +736,7 @@ fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> Vec<KeyGenTest> {
     key_gen_vec
 }
 
-fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGenTest>) {
+fn test_sign(params: &Parameters, key_gen_vec: Vec<KeyGenTest>) {
     // Sign Init
     let party_num = key_gen_vec.len();
     let t_i32 = party_num as i32;
@@ -694,6 +748,7 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGenTest>
     let mut sign_vec = (0..party_num)
         .map(|i| {
             SignPhaseTest::init(
+                key_gen_vec[i].cl_group.clone(),
                 key_gen_vec[i].party_index,
                 params.clone(),
                 &key_gen_vec[i].vss_scheme_map,
@@ -713,9 +768,7 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGenTest>
     // Sign phase 1
     let sign_phase_one_start = time::now();
     let phase_one_result_vec = (0..party_num)
-        .map(|i| {
-            sign_vec[i].phase_one_generate_promise_sigma_and_com(group, &key_gen_vec[i].cl_keypair)
-        })
+        .map(|i| sign_vec[i].phase_one_generate_promise_sigma_and_com(&key_gen_vec[i].cl_keypair))
         .collect::<Vec<_>>();
     let sign_phase_one_time = (time::now() - sign_phase_one_start) / t_i32;
     println!("sign_phase_one_time: {:?}", sign_phase_one_time);
@@ -727,7 +780,7 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGenTest>
     // Sign phase 2
     let sign_phase_two_homo_start = time::now();
     let phase_two_result_vec = (0..party_num)
-        .map(|i| sign_vec[i].phase_two_generate_homo_cipher(group, &phase_one_msg_vec))
+        .map(|i| sign_vec[i].phase_two_generate_homo_cipher(&phase_one_msg_vec))
         .collect::<Vec<_>>();
     let sign_phase_two_homo_time = (time::now() - sign_phase_two_homo_start) / (t_i32 * t_i32);
     println!("sign_phase_two_homo_time: {:?}", sign_phase_two_homo_time);
@@ -748,7 +801,6 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGenTest>
             .collect::<Vec<_>>();
 
         let msg = sign_vec[index].phase_two_decrypt_and_verify(
-            group,
             key_gen_vec[index].cl_keypair.get_secret_key(),
             &phase_two_msg_vec,
         );
@@ -871,5 +923,5 @@ fn test_multi_party() {
 
     let key_gen_vec = keygen_t_n_parties(&group, &params);
 
-    test_sign(&group, &params, &key_gen_vec);
+    test_sign(&params, key_gen_vec);
 }
