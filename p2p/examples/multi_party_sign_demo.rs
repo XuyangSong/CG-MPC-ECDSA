@@ -131,8 +131,8 @@ fn main() {
                             NodeNotification::PeerAdded(_pid, index) => {
                                 println!("\n=>    Peer connected to index: {}", index)
                             }
-                            NodeNotification::PeerDisconnected(pid) => {
-                                println!("\n=> Peer disconnected: {}", pid)
+                            NodeNotification::PeerDisconnected(pid, index) => {
+                                println!("\n=> Peer disconnected pid: {} index: {}", pid, index)
                             }
                             NodeNotification::MessageReceived(index, msg) => {
                                 println!("\n=> Receiving message from {}", index);
@@ -142,6 +142,8 @@ fn main() {
 
                                 let mut sending_msg = SendingMessages::EmptyMsg;
                                 if let ReceivingMessages::MultiSignMessage(msg) = received_msg {
+                                    sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message);
+                                    sign.init();
                                     sending_msg = sign.msg_handler(index, &msg);
                                 } else {
                                     // return some error
@@ -186,6 +188,19 @@ fn main() {
                                     SendingMessages::EmptyMsg => {
                                         println!("no msg to send");
                                     }
+                                    SendingMessages::KeyGenSuccessWithResult(res) => {
+                                        if party_index == 0 {
+                                            println!("KeyGen time: {:?}", time::now() - time);
+                                        }
+                                        println!("keygen Success! {}", res);
+                                    }
+                                    SendingMessages::SignSuccessWithResult(res) => {
+                                        if party_index == 0 {
+                                            println!("Sign time: {:?}", time::now() - time);
+                                        }
+
+                                        println!("Sign Success! {}", res);
+                                    }
                                 }
                                 println!("\n")
                             }
@@ -216,6 +231,9 @@ fn main() {
                             NodeNotification::Shutdown => {
                                 println!("\n=> Node did shutdown.");
                                 break;
+                            }
+                            _=>{
+                                println!("Unsupported parse NodeNotification")
                             }
                         }
                     }

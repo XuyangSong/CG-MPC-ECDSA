@@ -25,6 +25,7 @@ use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE, GE};
 use std::collections::HashMap;
 use std::fs;
+use std::path::Path;
 
 #[derive(Clone, Debug)]
 pub struct SignMsgs {
@@ -160,6 +161,39 @@ impl SignPhase {
             message,
             omega,
             big_omega_map,
+            k: FE::zero(),            // Init k, generate later.
+            gamma: FE::zero(),        // Init gamma, generate later.
+            delta: FE::zero(),        // Init delta, generate later.
+            sigma: FE::zero(),        // Init sigma, generate later.
+            delta_sum: FE::zero(),    // Init delta_sum, compute later.
+            r_x: FE::zero(),          // Init r_x, compute later.
+            r_point: GE::generator(), // Init r_point, compute later.
+            rho: FE::zero(),          // Init rho, generate later.
+            l: FE::zero(),            // Init l, generate later.
+            beta_vec: Vec::new(),     // Init random beta, generate later.
+            v_vec: Vec::new(),        // Init random v, generate later.
+            beta_map: HashMap::new(),
+            v_map: HashMap::new(),
+            precomputation: HashMap::new(),
+            msgs: SignMsgs::new(),
+        }
+    }
+
+    pub fn new_default(seed: &BigInt, qtilde: &BigInt, params: Parameters) -> Self {
+        let group = CLGroup::new_from_qtilde(seed, qtilde);
+        let cl_keypair = ClKeyPair::new(&group);
+        Self {
+            group,
+            party_index: 0,
+            party_num: 0,
+            params,
+            subset: Vec::new(),
+            ec_keypair: EcKeyPair::new(),
+            cl_keypair,
+            public_signing_key: GE::generator(),
+            message: FE::zero(),
+            omega: FE::zero(),
+            big_omega_map: HashMap::new(),
             k: FE::zero(),            // Init k, generate later.
             gamma: FE::zero(),        // Init gamma, generate later.
             delta: FE::zero(),        // Init delta, generate later.
@@ -744,7 +778,14 @@ impl SignPhase {
                 if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
                     let signature = self.phase_five_step_eight_generate_signature_msg();
                     println!("Signature: {:?}", signature);
-                    return SendingMessages::SignSuccess;
+                    
+                    // Save signature to file
+                    let signature_path = Path::new("./sign_result.json");
+                    let signature_json = serde_json::to_string(&(signature,)).unwrap();
+                    fs::write(signature_path, signature_json.clone())
+                        .expect("Unable to save !");
+                    return SendingMessages::SignSuccessWithResult(signature_json);
+                    // return SendingMessages::SignSuccess;
                 }
             }
         }

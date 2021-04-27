@@ -14,3 +14,5 @@ two_party_demo
 keygen_result.json
 multi_party_demo
 *.log
+.exclude_tar_file
+.test

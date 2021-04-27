@@ -1,0 +1,24 @@
+{
+    "share_count": 3,
+    "threshold": 2,
+    "infos": [
+        {
+            "index": 0,
+            "address": "127.0.0.1:64000"
+        },
+        {
+            "index": 1,
+            "address": "127.0.0.1:64001"
+        },
+        {
+            "index": 2,
+            "address": "127.0.0.1:64002"
+        }
+    ],
+    "message": "xxxxxxxxxxxx",
+    "subset": [
+        0,
+        1,
+        2
+    ]
+}
