@@ -1,5 +1,4 @@
 use crate::utilities::dl_com_zk::*;
-use crate::utilities::hsmcl::HSMCLPublic;
 use class_group::primitives::cl_dl_public_setup::Ciphertext as CLCiphertext;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::FE;

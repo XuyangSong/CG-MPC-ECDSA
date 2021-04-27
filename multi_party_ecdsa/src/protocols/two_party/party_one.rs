@@ -7,20 +7,23 @@ use curv::FE;
 use curv::GE;
 use serde::{Deserialize, Serialize};
 
+use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
-use crate::utilities::hsmcl::{HSMCL, HSMCLPublic};
+use crate::utilities::promise_sigma::*;
+use class_group::primitives::cl_dl_public_setup::SK;
 use class_group::primitives::cl_dl_public_setup::{decrypt, CLGroup, Ciphertext as CLCiphertext};
 
 //****************** Begin: Party One structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyGenInit {
     pub keypair: EcKeyPair,
+    pub cl_keypair: ClKeyPair,
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
     pub public_signing_key: GE,
-    pub hsmcl_private: HSMCL,
-    pub hsmcl_public: HSMCLPublic,
+    pub promise_state: PromiseState,
+    pub promise_proof: PromiseProof,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,24 +44,36 @@ impl KeyGenInit {
     pub fn new(group: &CLGroup) -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
-        // Precomputation
-        let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
-            &keypair,
-            group,
-        );
 
         // TBD: Party one, Simulate CL check
         let q = FE::q();
         group.gq.exp(&q);
         group.gq.exp(&q);
 
+        let cl_keypair = ClKeyPair::new(&group);
+
+        // Precomputation: promise proof
+        let cipher =
+            PromiseCipher::encrypt(group, cl_keypair.get_public_key(), keypair.get_secret_key());
+
+        let promise_state = PromiseState {
+            cipher: cipher.0,
+            cl_pub_key: cl_keypair.cl_pub_key.clone(),
+        };
+        let promise_wit = PromiseWit {
+            m: keypair.get_secret_key().clone(),
+            r: cipher.1,
+        };
+        let promise_proof = PromiseProof::prove(group, &promise_state, &promise_wit);
+
         Self {
             public_signing_key: ECPoint::generator(), // Compute later
             keypair,
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
-            hsmcl_private,
-            hsmcl_public,
+            cl_keypair,
+            promise_state,
+            promise_proof,
         }
     }
 
@@ -74,6 +89,10 @@ impl KeyGenInit {
     pub fn compute_public_key(&mut self, received_r_2: &GE) -> GE {
         self.public_signing_key = received_r_2 * self.keypair.get_secret_key();
         self.public_signing_key
+    }
+
+    pub fn get_promise_proof(&self) -> (PromiseState, PromiseProof) {
+        (self.promise_state.clone(), self.promise_proof.clone())
     }
 }
 
@@ -112,7 +131,7 @@ impl SignPhase {
     pub fn sign(
         &self,
         cl_group: &CLGroup,
-        hsmcl: &HSMCL,
+        cl_sk: &SK,
         partial_sig_c3: &CLCiphertext,
         ephemeral_public_share: &GE,
         secret_key: &FE,
@@ -122,7 +141,7 @@ impl SignPhase {
         let r_x: FE = ECScalar::from(&ephemeral_public_share.x_coor().unwrap().mod_floor(&q));
         let k1_inv = self.keypair.get_secret_key().invert();
         let x1_mul_tp = *secret_key * t_p;
-        let s_tag = decrypt(cl_group, &hsmcl.secret, &partial_sig_c3).sub(&x1_mul_tp.get_element());
+        let s_tag = decrypt(cl_group, cl_sk, &partial_sig_c3).sub(&x1_mul_tp.get_element());
         let s_tag_tag = k1_inv * s_tag;
         let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());
         Signature {

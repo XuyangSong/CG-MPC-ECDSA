@@ -226,27 +226,19 @@ impl SignPhaseTest {
         &mut self,
         group: &CLGroup,
         cl_keypair: &ClKeyPair,
-        ec_keypair: &EcKeyPair,
     ) -> (SignPhaseOneMsg, SignPhaseFourMsg) {
         // Generate promise sigma
         self.k = FE::new_random();
 
-        let cipher = PromiseCipher::encrypt(
-            group,
-            cl_keypair.get_public_key(),
-            ec_keypair.get_public_key(),
-            &self.k,
-        );
+        let cipher = PromiseCipher::encrypt(group, cl_keypair.get_public_key(), &self.k);
 
         let promise_state = PromiseState {
             cipher: cipher.0.clone(),
-            ec_pub_key: ec_keypair.public_share,
             cl_pub_key: cl_keypair.cl_pub_key.clone(),
         };
         let promise_wit = PromiseWit {
-            x: self.k,
-            r1: cipher.1,
-            r2: cipher.2,
+            m: self.k,
+            r: cipher.1,
         };
         let proof = PromiseProof::prove(group, &promise_state, &promise_wit);
 
@@ -295,8 +287,8 @@ impl SignPhaseTest {
                 // Handle CL cipher.
                 let (r_cipher, _r_blind) =
                     encrypt_without_r(&group, &zero.sub(&beta.get_element()));
-                let c11 = cipher.c1.exp(&rho_plus_t);
-                let c21 = cipher.c2.exp(&rho_plus_t);
+                let c11 = cipher.cl_cipher.c1.exp(&rho_plus_t);
+                let c21 = cipher.cl_cipher.c2.exp(&rho_plus_t);
                 let c1 = c11.compose(&r_cipher.c1).reduce();
                 let c2 = c21.compose(&r_cipher.c2).reduce();
                 homocipher = CLCipher { c1, c2 };
@@ -311,8 +303,8 @@ impl SignPhaseTest {
 
                 // Handle CL cipher.
                 let (r_cipher, _r_blind) = encrypt_without_r(&group, &zero.sub(&v.get_element()));
-                let c11 = cipher.c1.exp(&omega_plus_t);
-                let c21 = cipher.c2.exp(&omega_plus_t);
+                let c11 = cipher.cl_cipher.c1.exp(&omega_plus_t);
+                let c21 = cipher.cl_cipher.c2.exp(&omega_plus_t);
                 let c1 = c11.compose(&r_cipher.c1).reduce();
                 let c2 = c21.compose(&r_cipher.c2).reduce();
                 homocipher_plus = CLCipher { c1, c2 };
@@ -697,11 +689,7 @@ fn test_sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGenTest>
     // Sign phase 1
     let phase_one_result_vec = (0..party_num)
         .map(|i| {
-            sign_vec[i].phase_one_generate_promise_sigma_and_com(
-                group,
-                &key_gen_vec[i].cl_keypair,
-                &key_gen_vec[i].ec_keypair,
-            )
+            sign_vec[i].phase_one_generate_promise_sigma_and_com(group, &key_gen_vec[i].cl_keypair)
         })
         .collect::<Vec<_>>();
     let phase_one_msg_vec = (0..party_num)

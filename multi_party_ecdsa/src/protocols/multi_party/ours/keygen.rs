@@ -122,7 +122,8 @@ impl KeyGen {
 
     fn get_phase_two_msg(&self) -> Vec<u8> {
         let msg = self.msgs.phase_two_msgs.get(&self.party_index).unwrap();
-        let msg_send = ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseTwoMsg(msg.clone()));
+        let msg_send =
+            ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseTwoMsg(msg.clone()));
         bincode::serialize(&msg_send).unwrap()
     }
 

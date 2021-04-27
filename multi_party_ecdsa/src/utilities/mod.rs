@@ -7,6 +7,5 @@ pub mod dl_com_zk;
 pub mod eckeypair;
 pub mod elgamal;
 pub mod error;
-pub mod hsmcl;
 pub mod promise_sigma;
 pub mod signature;

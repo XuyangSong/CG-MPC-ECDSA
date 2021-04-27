@@ -4,10 +4,8 @@ use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use curv::{FE, GE};
 use multi_party_ecdsa::protocols::two_party::*;
-use multi_party_ecdsa::utilities::hsmcl::HSMCL;
 
 fn main() {
-    // init class group, cl keypair and elegamal keypair:
     let setup_start = time::now();
     let seed: BigInt = str::parse(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
@@ -47,28 +45,13 @@ fn main() {
     .unwrap();
     // let party_two_share_key =
 
-    // TBD: Party one, Simulate CL check
-    let q = FE::q();
-    cl_group.gq.exp(&q);
-    cl_group.gq.exp(&q);
+    // TBD: Add gp test.
 
-    // Party one: Generate HSMCL
-    let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
-        &party_one_key_gen_init.keypair,
-        &cl_group,
-    );
+    // Party one: Generate promise proof
+    let (state, proof) = party_one_key_gen_init.get_promise_proof();
 
-    // TBD: Party one, Simulate CL check
-    cl_group.gq.exp(&q);
-    cl_group.gq.exp(&q);
-
-    // Party two: verify HSMCL
-    party_two::KeyGenInit::verify_setup_and_zkcldl_proof(
-        &cl_group,
-        &hsmcl_public,
-        party_one_init_round_two_msg.get_public_key(),
-    )
-    .unwrap();
+    // Party two: verify promise protocol
+    party_two::KeyGenInit::verify_promise_proof(&cl_group, &state, &proof).unwrap();
 
     let keygen_end = time::now();
 
@@ -97,15 +80,14 @@ fn main() {
     )
     .unwrap();
 
-
     // Party two: compute partial signature
     let ephemeral_public_share_2 =
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
-    let (last_msg, t_p) = party_two_sign_new.sign(
+    let (cipher, t_p) = party_two_sign_new.sign(
         &cl_group,
-        &hsmcl_public,
         &ephemeral_public_share_2,
         party_two_key_gen_init.keypair.get_secret_key(),
+        &state.cipher,
         // &sign_message,
     );
 
@@ -114,8 +96,8 @@ fn main() {
         party_one_sign_new.compute_public_share_key(&party_two_sign_round_one_msg.pk);
     let signature = party_one_sign_new.sign(
         &cl_group,
-        &hsmcl_private,
-        &last_msg,
+        party_one_key_gen_init.cl_keypair.get_secret_key(),
+        &cipher,
         &ephemeral_public_share_1,
         party_one_key_gen_init.keypair.get_secret_key(),
         &t_p,

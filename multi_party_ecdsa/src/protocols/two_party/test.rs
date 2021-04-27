@@ -1,5 +1,4 @@
 use super::*;
-use crate::utilities::hsmcl::HSMCL;
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
@@ -48,19 +47,11 @@ fn two_party_test() {
 
     // TBD: Add gp test.
 
-    // Party one: Generate HSMCL
-    let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
-        &party_one_key_gen_init.keypair,
-        &cl_group,
-    );
+    // Party one: Generate promise proof
+    let (state, proof) = party_one_key_gen_init.get_promise_proof();
 
-    // Party two: verify HSMCL
-    party_two::KeyGenInit::verify_setup_and_zkcldl_proof(
-        &cl_group,
-        &hsmcl_public,
-        party_one_init_round_two_msg.get_public_key(),
-    )
-    .unwrap();
+    // Party two: verify promise protocol
+    party_two::KeyGenInit::verify_promise_proof(&cl_group, &state, &proof).unwrap();
 
     let keygen_end = time::now();
 
@@ -94,9 +85,9 @@ fn two_party_test() {
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
     let (cipher, t_p) = party_two_sign_new.sign(
         &cl_group,
-        &hsmcl_public,
         &ephemeral_public_share_2,
         party_two_key_gen_init.keypair.get_secret_key(),
+        &state.cipher,
         // &sign_message,
     );
 
@@ -105,7 +96,7 @@ fn two_party_test() {
         party_one_sign_new.compute_public_share_key(&party_two_sign_round_one_msg.pk);
     let signature = party_one_sign_new.sign(
         &cl_group,
-        &hsmcl_private,
+        party_one_key_gen_init.cl_keypair.get_secret_key(),
         &cipher,
         &ephemeral_public_share_1,
         party_one_key_gen_init.keypair.get_secret_key(),

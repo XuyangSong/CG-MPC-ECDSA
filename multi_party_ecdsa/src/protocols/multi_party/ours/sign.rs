@@ -221,22 +221,15 @@ impl SignPhase {
         // Generate promise sigma
         self.k = FE::new_random();
 
-        let cipher = PromiseCipher::encrypt(
-            &self.group,
-            self.cl_keypair.get_public_key(),
-            self.ec_keypair.get_public_key(),
-            &self.k,
-        );
+        let cipher = PromiseCipher::encrypt(&self.group, self.cl_keypair.get_public_key(), &self.k);
 
         let promise_state = PromiseState {
             cipher: cipher.0.clone(),
-            ec_pub_key: self.ec_keypair.public_share,
             cl_pub_key: self.cl_keypair.cl_pub_key.clone(),
         };
         let promise_wit = PromiseWit {
-            x: self.k,
-            r1: cipher.1,
-            r2: cipher.2,
+            m: self.k,
+            r: cipher.1,
         };
         let proof = PromiseProof::prove(&self.group, &promise_state, &promise_wit);
 
@@ -313,8 +306,8 @@ impl SignPhase {
             let rho_plus_t = self.gamma.to_big_int() + t;
 
             // Handle CL cipher.
-            let c11 = cipher.c1.exp(&rho_plus_t);
-            let c21 = cipher.c2.exp(&rho_plus_t);
+            let c11 = cipher.cl_cipher.c1.exp(&rho_plus_t);
+            let c21 = cipher.cl_cipher.c2.exp(&rho_plus_t);
             let c1 = c11.compose(&pre_cipher_1.c1).reduce();
             let c2 = c21.compose(&pre_cipher_1.c2).reduce();
             homocipher = CLCipher { c1, c2 };
@@ -328,8 +321,8 @@ impl SignPhase {
             let omega_plus_t = self.omega.to_big_int() + t;
 
             // Handle CL cipher.
-            let c11 = cipher.c1.exp(&omega_plus_t);
-            let c21 = cipher.c2.exp(&omega_plus_t);
+            let c11 = cipher.cl_cipher.c1.exp(&omega_plus_t);
+            let c21 = cipher.cl_cipher.c2.exp(&omega_plus_t);
             let c1 = c11.compose(&pre_cipher_2.c1).reduce();
             let c2 = c21.compose(&pre_cipher_2.c2).reduce();
             homocipher_plus = CLCipher { c1, c2 };
