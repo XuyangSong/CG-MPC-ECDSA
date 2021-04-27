@@ -1,4 +1,6 @@
 use class_group::primitives::cl_dl_public_setup::{CLGroup, PK, SK};
+use curv::elliptic::curves::traits::*;
+use curv::FE;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -14,6 +16,11 @@ impl ClKeyPair {
             cl_pub_key,
             cl_priv_key,
         }
+    }
+
+    pub fn update_pk_exp_p(&mut self) {
+        let new_pk = self.cl_pub_key.0.exp(&FE::q());
+        self.cl_pub_key = PK(new_pk);
     }
 
     pub fn get_public_key(&self) -> &PK {

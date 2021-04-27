@@ -48,13 +48,7 @@ impl PromiseCipher {
         let base: GE = ECPoint::generator();
         let q = base * m;
 
-        (
-            Self {
-                cl_cipher,
-                q,
-            },
-            r,
-        )
+        (Self { cl_cipher, q }, r)
     }
 
     pub fn decrypt(&self, group: &CLGroup, sk: &SK) -> FE {
