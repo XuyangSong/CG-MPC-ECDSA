@@ -7,10 +7,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TwoPartyMsg {
+    KeyGenInitSync(usize),
     KegGenBegin,
     KeyGenPartyOneRoundOneMsg(DLCommitments),
     KenGenPartyTwoRoundOneMsg(DLogProof),
     KeyGenPartyOneRoundTwoMsg(CommWitness, HSMCLPublic),
+    SignInitSync(usize),
     SignBegin,
     SignPartyOneRoundOneMsg(DLCommitments),
     SignPartyTwoRoundOneMsg(DLogProof),

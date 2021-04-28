@@ -321,9 +321,9 @@ impl KeyGen {
                         self.vss_scheme_map.clone(),
                     ))
                     .unwrap();
-                    fs::write(keygen_path, keygen_json).expect("Unable to save !");
-
-                    return SendingMessages::KeyGenSuccess;
+                    fs::write(keygen_path, keygen_json.clone()).expect("Unable to save !");
+                    return SendingMessages::KeyGenSuccessWithResult(keygen_json);
+                    //return SendingMessages::KeyGenSuccess;
                 }
             }
         }

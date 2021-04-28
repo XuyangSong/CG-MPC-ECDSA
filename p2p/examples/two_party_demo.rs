@@ -113,8 +113,8 @@ fn main() {
                             NodeNotification::PeerAdded(_pid, index) => {
                                 println!("\n=> Peer connected to index: {}\n", index)
                             }
-                            NodeNotification::PeerDisconnected(pid) => {
-                                println!("\n=> Peer disconnected: {}", pid)
+                            NodeNotification::PeerDisconnected(pid, index) => {
+                                println!("\n=> Peer disconnected pid: {} index: {}", pid, index)
                             }
                             NodeNotification::MessageReceived(index, msg) => {
                                 // Decode msg
@@ -298,6 +298,9 @@ fn main() {
                                         println!("Sign party one time: {:?}", time::now() - time);
                                         println!("##    Sign finish! \n signature: {:?}", signature);
                                     }
+                                    _ => {
+                                        println!("Unsupported parse Received MessageType")
+                                    }
                                 }
 
                                 // println!("\n")
@@ -315,6 +318,9 @@ fn main() {
                             NodeNotification::Shutdown => {
                                 println!("\n=> Node did shutdown.");
                                 break;
+                            }
+                            _=>{
+                                println!("Unsupported parse NodeNotification")
                             }
                         }
                     }

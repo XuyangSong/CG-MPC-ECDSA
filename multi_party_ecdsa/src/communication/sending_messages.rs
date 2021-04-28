@@ -9,4 +9,6 @@ pub enum SendingMessages {
     EmptyMsg,
     KeyGenSuccess,
     SignSuccess,
+    KeyGenSuccessWithResult(String),
+    SignSuccessWithResult(String),
 }

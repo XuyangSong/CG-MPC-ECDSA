@@ -76,13 +76,15 @@ struct PeerState<T: Codable> {
 #[derive(Debug)]
 pub enum NodeNotification<Custom: Codable> {
     PeerAdded(PeerID, usize),
-    PeerDisconnected(PeerID),
+    PeerDisconnected(PeerID, usize),
     MessageReceived(usize, Custom),
     InboundConnectionFailure(io::Error),
     OutboundConnectionFailure(io::Error),
     KeyGen,
     Sign,
     Shutdown,
+    KeyGenInit,
+    SignInit,
 }
 
 #[derive(Debug)]
@@ -106,6 +108,8 @@ pub enum NodeMessage<Custom: Codable> {
     ListPeers(Reply<Vec<PeerInfo>>),
     KeyGen(Custom),
     Sign(Custom),
+    KeyGenInit,
+    SignInit,
     Exit,
 }
 
@@ -253,6 +257,13 @@ impl<Custom: Codable> NodeHandle<Custom> {
             .await
     }
 
+    pub async fn keygen_init(&mut self) {
+        self.send_internal(NodeMessage::KeyGenInit).await
+    }
+    pub async fn sign_init(&mut self) {
+        self.send_internal(NodeMessage::SignInit).await
+    }
+
     /// KeyGen begin.
     pub async fn keygen(&mut self, msg: Custom) {
         self.send_internal(NodeMessage::KeyGen(msg)).await
@@ -309,6 +320,8 @@ where
             NodeMessage::ListPeers(reply) => self.list_peers(reply).await,
             NodeMessage::KeyGen(msg) => self.keygen(msg).await,
             NodeMessage::Sign(msg) => self.sign(msg).await,
+            NodeMessage::KeyGenInit => self.keygen_init().await,
+            NodeMessage::SignInit => self.sign_init().await,
             NodeMessage::Exit => {}
         }
     }
@@ -507,8 +520,11 @@ where
                 // if that was an inbound peer, restore the permit it consumed.
                 self.inbound_semaphore.add_permits(1);
             }
-            self.notify(NodeNotification::PeerDisconnected(*peer.link.id()))
-                .await;
+            self.notify(NodeNotification::PeerDisconnected(
+                *peer.link.id(),
+                peer.index,
+            ))
+            .await;
         }
 
         // self.connect_to_more_peers_if_needed().await;
@@ -549,6 +565,13 @@ where
         }
     }
 
+    async fn keygen_init(&mut self) {
+        self.notify(NodeNotification::KeyGenInit).await;
+    }
+    async fn sign_init(&mut self) {
+        self.notify(NodeNotification::SignInit).await;
+    }
+
     async fn keygen(&mut self, msg: Custom) {
         let index = self.index;
         self.notify(NodeNotification::KeyGen).await;
@@ -580,6 +603,7 @@ where
                     peer.listening_addr = Some(addr);
                     peer.index = index;
                     println!("\n=>    Peer connected from: index: {}", index);
+                    self.notify(NodeNotification::PeerAdded(id, index)).await;
                 }
             }
             PeerMessage::Data(msg) => {

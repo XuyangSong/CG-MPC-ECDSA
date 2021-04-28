@@ -132,8 +132,8 @@ fn main() {
                             NodeNotification::PeerAdded(_pid, index) => {
                                 println!("\n=>    Peer connected to index: {}", index)
                             }
-                            NodeNotification::PeerDisconnected(pid) => {
-                                println!("\n=> Peer disconnected: {}", pid)
+                            NodeNotification::PeerDisconnected(pid, index) => {
+                                println!("\n=> Peer disconnected pid: {} index: {}", pid, index)
                             }
                             NodeNotification::MessageReceived(index, msg) => {
                                 println!("\n=> Receiving message from {}", index);
@@ -185,6 +185,19 @@ fn main() {
                                     SendingMessages::EmptyMsg => {
                                         println!("no msg to send");
                                     }
+                                    SendingMessages::KeyGenSuccessWithResult(res) => {
+                                        if party_index == 0 {
+                                            println!("KeyGen time: {:?}", time::now() - time);
+                                        }
+                                        println!("keygen Success! {}", res);
+                                    }
+                                    SendingMessages::SignSuccessWithResult(res) => {
+                                        if party_index == 0 {
+                                            println!("Sign time: {:?}", time::now() - time);
+                                        }
+
+                                        println!("Sign Success! {}", res);
+                                    }
                                 }
                                 println!("\n")
                             }
@@ -215,6 +228,9 @@ fn main() {
                             NodeNotification::Shutdown => {
                                 println!("\n=> Node did shutdown.");
                                 break;
+                            }
+                            _=>{
+                                println!("Unsupported parse NodeNotification")
                             }
                         }
                     }
