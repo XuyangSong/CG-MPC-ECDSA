@@ -2,8 +2,8 @@
 
 members = [
     "multi_party_ecdsa",
-    # "readerwriter",
-    # "p2p",
+    "readerwriter",
+    "p2p",
 ]
 
 [patch.crates-io]
