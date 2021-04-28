@@ -7,6 +7,8 @@ use class_group::primitives::cl_dl_public_setup::{CLGroup, PK};
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::message::*;
+use crate::utilities::class::update_class_group_by_p;
+use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof, ProveDLog};
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::traits::*;
@@ -14,8 +16,6 @@ use curv::{BigInt, FE, GE};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use crate::utilities::class::update_class_group_by_p;
-use class_group::BinaryQF;
 
 #[derive(Clone, Debug)]
 pub struct Parameters {
@@ -79,7 +79,6 @@ impl KeyGen {
         let public_signing_key = private_signing_key.get_public_key().clone();
 
         let mut msgs = KeyGenMsgs::new();
-
 
         // Generate dl com
         let dlog_com = DlogCommitment::new(&public_signing_key);
@@ -257,7 +256,8 @@ impl KeyGen {
                 return SendingMessages::BroadcastMessage(sending_msg_bytes);
             }
             MultiKeyGenMessage::PhaseOneTwoMsg(msg) => {
-                self.verify_phase_one_msg(&msg.h_caret, &msg.h, &msg.gp).unwrap();
+                self.verify_phase_one_msg(&msg.h_caret, &msg.h, &msg.gp)
+                    .unwrap();
                 self.msgs.phase_one_two_msgs.insert(index, msg.clone());
                 if self.msgs.phase_one_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg =

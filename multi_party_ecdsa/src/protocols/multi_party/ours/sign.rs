@@ -13,6 +13,7 @@ use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::keygen::Parameters;
 use crate::protocols::multi_party::ours::message::*;
+use crate::utilities::class::update_class_group_by_p;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -26,7 +27,6 @@ use curv::{BigInt, FE, GE};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use crate::utilities::class::update_class_group_by_p;
 
 #[derive(Clone, Debug)]
 pub struct SignMsgs {
@@ -768,12 +768,11 @@ impl SignPhase {
                 if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
                     let signature = self.phase_five_step_eight_generate_signature_msg();
                     println!("Signature: {:?}", signature);
-                    
+
                     // Save signature to file
                     let signature_path = Path::new("./sign_result.json");
                     let signature_json = serde_json::to_string(&(signature,)).unwrap();
-                    fs::write(signature_path, signature_json.clone())
-                        .expect("Unable to save !");
+                    fs::write(signature_path, signature_json.clone()).expect("Unable to save !");
                     return SendingMessages::SignSuccessWithResult(signature_json);
                     // return SendingMessages::SignSuccess;
                 }

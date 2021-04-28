@@ -16,11 +16,11 @@ use curv::{BigInt, FE};
 use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
 use multi_party_ecdsa::protocols::two_party::party_two;
+use multi_party_ecdsa::utilities::class::update_class_group_by_p;
+use multi_party_ecdsa::utilities::promise_sigma::PromiseState;
 use serde::Deserialize;
 use std::path::Path;
 use std::{env, fs};
-use multi_party_ecdsa::utilities::class::update_class_group_by_p;
-use multi_party_ecdsa::utilities::promise_sigma::PromiseState;
 
 #[derive(Debug, Deserialize)]
 struct JsonConfig {

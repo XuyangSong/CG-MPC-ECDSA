@@ -1,11 +1,10 @@
 use crate::utilities::dl_com_zk::*;
+use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
 use class_group::primitives::cl_dl_public_setup::{Ciphertext as CLCiphertext, PK};
+use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::FE;
 use serde::{Deserialize, Serialize};
-use crate::utilities::promise_sigma::{PromiseState, PromiseProof};
-use class_group::BinaryQF;
-
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TwoPartyMsg {

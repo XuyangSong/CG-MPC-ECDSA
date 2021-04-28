@@ -1,13 +1,13 @@
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
 use class_group::primitives::cl_dl_public_setup::{Ciphertext as CLCipher, PK};
+use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::HomoELGamalProof;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::{BigInt, FE, GE};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use class_group::BinaryQF;
 
 #[derive(Clone, Debug)]
 pub struct KeyGenMsgs {
