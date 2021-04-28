@@ -45,17 +45,17 @@ pretty_env_logger = "0.4"
 url = "2.2"
 # ##################################
 
-# [[example]]
-# name = "multi_party_demo"
+[[example]]
+name = "multi_party_demo"
 
 [[example]]
 name = "two_party_demo"
 
-# [[example]]
-# name = "multi_party_keygen_demo"
+[[example]]
+name = "multi_party_keygen_demo"
 
-# [[example]]
-# name = "multi_party_sign_demo"
+[[example]]
+name = "multi_party_sign_demo"
 
 # [[example]]
 # name = "mpc_ecdsa_web"

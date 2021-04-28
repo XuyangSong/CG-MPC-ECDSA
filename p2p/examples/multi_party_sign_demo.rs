@@ -142,8 +142,6 @@ fn main() {
 
                                 let mut sending_msg = SendingMessages::EmptyMsg;
                                 if let ReceivingMessages::MultiSignMessage(msg) = received_msg {
-                                    sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message);
-                                    sign.init();
                                     sending_msg = sign.msg_handler(index, &msg);
                                 } else {
                                     // return some error

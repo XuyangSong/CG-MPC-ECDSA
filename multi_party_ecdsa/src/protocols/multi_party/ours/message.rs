@@ -1,25 +1,27 @@
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
-use class_group::primitives::cl_dl_public_setup::Ciphertext as CLCipher;
+use class_group::primitives::cl_dl_public_setup::{Ciphertext as CLCipher, PK};
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::HomoELGamalProof;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::{BigInt, FE, GE};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use class_group::BinaryQF;
 
 #[derive(Clone, Debug)]
 pub struct KeyGenMsgs {
-    pub phase_two_msgs: HashMap<usize, KeyGenPhaseTwoMsg>,
+    pub phase_one_two_msgs: HashMap<usize, KeyGenPhaseOneTwoMsg>,
     pub phase_three_msgs: HashMap<usize, KeyGenPhaseThreeMsg>,
     pub phase_four_msgs: HashMap<usize, KeyGenPhaseFourMsg>,
     pub phase_five_msgs: HashMap<usize, KeyGenPhaseFiveMsg>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyGenPhaseTwoMsg {
-    // pub ec_pk: GE,
-    // pub cl_pk: CLPK,
+pub struct KeyGenPhaseOneTwoMsg {
+    pub h_caret: PK,
+    pub h: PK,
+    pub gp: BinaryQF,
     pub commitment: BigInt,
 }
 
@@ -42,7 +44,7 @@ pub struct KeyGenPhaseFiveMsg {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MultiKeyGenMessage {
     KeyGenBegin,
-    PhaseTwoMsg(KeyGenPhaseTwoMsg),
+    PhaseOneTwoMsg(KeyGenPhaseOneTwoMsg),
     PhaseThreeMsg(KeyGenPhaseThreeMsg),
     PhaseFourMsg(KeyGenPhaseFourMsg),
     PhaseFiveMsg(KeyGenPhaseFiveMsg),
