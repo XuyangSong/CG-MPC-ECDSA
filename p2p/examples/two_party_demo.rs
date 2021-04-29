@@ -8,7 +8,7 @@ use tokio::task;
 use p2p::cybershake;
 use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
 
-use class_group::primitives::cl_dl_public_setup::CLGroup;
+use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::traits::*;
@@ -16,7 +16,8 @@ use curv::{BigInt, FE};
 use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
 use multi_party_ecdsa::protocols::two_party::party_two;
-use multi_party_ecdsa::utilities::hsmcl::{HSMCLPublic, HSMCL};
+use multi_party_ecdsa::utilities::class::update_class_group_by_p;
+use multi_party_ecdsa::utilities::promise_sigma::PromiseState;
 use serde::Deserialize;
 use std::path::Path;
 use std::{env, fs};
@@ -101,10 +102,11 @@ fn main() {
                     // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
                     let mut party_one_keygen = party_one::KeyGenInit::new(&group);
-                    let mut party_two_keygen = party_two::KeyGenInit::new();
+                    let mut party_two_keygen = party_two::KeyGenInit::new(&group);
 
-                    let mut party_one_sign = party_one::SignPhase::new();
-                    let mut party_two_sign = party_two::SignPhase::new(&group, &message_to_sign);
+                    let new_class_group = update_class_group_by_p(&group);
+                    let mut party_one_sign = party_one::SignPhase::new(new_class_group.clone());
+                    let mut party_two_sign = party_two::SignPhase::new(new_class_group, &message_to_sign);
 
                     let mut time = time::now();
 
@@ -145,14 +147,13 @@ fn main() {
                                     TwoPartyMsg::KenGenPartyTwoRoundOneMsg(msg) => {
                                         println!("\n=>    KeyGen: Receiving RoundOneMsg from index 1");
 
-                                        let witness = party_one_keygen.verify_and_get_next_msg(&msg).unwrap();
+                                        let com_open = party_one_keygen.verify_and_get_next_msg(&msg).unwrap();
                                         party_one_keygen.compute_public_key(&msg.pk);
 
-                                        // let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
-                                        //     &party_one_keygen.keypair,
-                                        //     &group,
-                                        // );
-                                        let msg_send = TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(witness, party_one_keygen.hsmcl_public.clone());
+                                        // Get pk and pk'
+                                        let (h_caret, h, gp) = party_one_keygen.get_class_group_pk();
+
+                                        let msg_send = TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(com_open, h_caret, h, gp, party_one_keygen.promise_state.clone(), party_one_keygen.promise_proof.clone());
                                         let msg_bytes = bincode::serialize(&msg_send).unwrap();
                                         node2.broadcast(Message(msg_bytes)).await;
 
@@ -162,7 +163,7 @@ fn main() {
                                         // Party one save keygen to file
                                         let keygen_path = Path::new("./keygen_result.json");
                                         let keygen_json = serde_json::to_string(&(
-                                            party_one_keygen.hsmcl_private.clone(),
+                                            party_one_keygen.cl_keypair.get_secret_key().clone(),
                                             party_one_keygen.keypair.get_secret_key().clone(),
                                         ))
                                         .unwrap();
@@ -170,26 +171,21 @@ fn main() {
                                         println!("##    KeyGen finish!");
 
                                     }
-                                    TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(witness, hsmcl_public) => {
+                                    TwoPartyMsg::KeyGenPartyOneRoundTwoMsg(com_open, h_caret, h, gp, promise_state, promise_proof) => {
                                         println!("\n=>    KeyGen: Receiving RoundTwoMsg from index 0");
-
-                                        // TBD: Party two, Simulate CL check
-                                        let q = FE::q();
-                                        group.gq.exp(&q);
-
+                                        // Verify commitment
                                         party_two::KeyGenInit::verify_received_dl_com_zk(
                                             &party_two_keygen.received_msg,
-                                            &witness,
+                                            &com_open,
                                         )
                                         .unwrap();
 
-                                        party_two::KeyGenInit::verify_setup_and_zkcldl_proof(
-                                            &group,
-                                            &hsmcl_public,
-                                            witness.get_public_key(),
-                                        )
-                                        .unwrap();
-                                        party_two_keygen.compute_public_key(witness.get_public_key());
+                                        // Verify pk and pk's
+                                        party_two_keygen.verify_class_group_pk(&h_caret, &h, &gp).unwrap();
+
+                                        // Verify promise proof
+                                        party_two_keygen.verify_promise_proof(&promise_state, &promise_proof).unwrap();
+                                        party_two_keygen.compute_public_key(com_open.get_public_key());
 
                                         // Party two time end
                                         println!("keygen party two time: {:?}", time::now() - time);
@@ -197,7 +193,7 @@ fn main() {
                                         // Party two save keygen to file
                                         let keygen_path = Path::new("./keygen_result.json");
                                         let keygen_json = serde_json::to_string(&(
-                                            hsmcl_public,
+                                            promise_state,
                                             party_two_keygen.keypair.get_secret_key().clone(),
                                         ))
                                         .unwrap();
@@ -249,18 +245,17 @@ fn main() {
                                         // read key file
                                         let data = fs::read_to_string("./keygen_result.json")
                                             .expect("Unable to load keys, did you run keygen first? ");
-                                        let (hsmcl_public, secret_key): (
-                                            HSMCLPublic,
+                                        let (promise_state, secret_key): (
+                                            PromiseState,
                                             FE,
                                             ) = serde_json::from_str(&data).unwrap();
 
                                         let ephemeral_public_share =
                                             party_two_sign.compute_public_share_key(witness.get_public_key());
                                         let (cipher, t_p) = party_two_sign.sign(
-                                            &group,
-                                            &hsmcl_public,
                                             &ephemeral_public_share,
                                             &secret_key,
+                                            &promise_state.cipher,
                                             // &message_to_sign,
                                         );
 
@@ -278,16 +273,15 @@ fn main() {
                                         // read key file
                                         let data = fs::read_to_string("./keygen_result.json")
                                             .expect("Unable to load keys, did you run keygen first? ");
-                                        let (hsmcl_private, secret_key): (
-                                            HSMCL,
+                                        let (cl_sk, secret_key): (
+                                            SK,
                                             FE,
                                             ) = serde_json::from_str(&data).unwrap();
 
                                         let ephemeral_public_share =
                                             party_one_sign.compute_public_share_key(&party_one_sign.received_msg.pk);
                                         let signature = party_one_sign.sign(
-                                            &group,
-                                            &hsmcl_private,
+                                            &cl_sk,
                                             &cipher,
                                             &ephemeral_public_share,
                                             &secret_key,

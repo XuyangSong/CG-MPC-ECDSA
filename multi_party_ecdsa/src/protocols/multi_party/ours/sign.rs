@@ -13,6 +13,7 @@ use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::keygen::Parameters;
 use crate::protocols::multi_party::ours::message::*;
+use crate::utilities::class::update_class_group_by_p;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -47,7 +48,6 @@ pub struct SignPhase {
     pub party_num: usize,
     pub params: Parameters,
     pub subset: Vec<usize>,
-    pub ec_keypair: EcKeyPair,
     pub cl_keypair: ClKeyPair,
     pub public_signing_key: GE,
     pub message: FE,
@@ -96,21 +96,20 @@ impl SignPhase {
         subset: &[usize],
         message_str: &String,
     ) -> Self {
-        // Init CL group
+        // Init CL group and update
         let group = CLGroup::new_from_qtilde(seed, qtilde);
+        let new_class_group = update_class_group_by_p(&group);
 
         // Read key file
         let data = fs::read_to_string("./keygen_result.json")
             .expect("Unable to load keys, did you run keygen first? ");
         let (
-            ec_keypair,
             cl_keypair,
             public_signing_key,
             share_private_key,
             share_public_key_map,
             vss_scheme_map,
         ): (
-            EcKeyPair,
             ClKeyPair,
             GE,
             FE,
@@ -150,12 +149,11 @@ impl SignPhase {
             .collect::<Vec<_>>();
 
         Self {
-            group,
+            group: new_class_group,
             party_index,
             party_num,
             params,
             subset: subset.to_vec(),
-            ec_keypair,
             cl_keypair,
             public_signing_key,
             message,
@@ -188,7 +186,6 @@ impl SignPhase {
             party_num: 0,
             params,
             subset: Vec::new(),
-            ec_keypair: EcKeyPair::new(),
             cl_keypair,
             public_signing_key: GE::generator(),
             message: FE::zero(),
@@ -221,22 +218,15 @@ impl SignPhase {
         // Generate promise sigma
         self.k = FE::new_random();
 
-        let cipher = PromiseCipher::encrypt(
-            &self.group,
-            self.cl_keypair.get_public_key(),
-            self.ec_keypair.get_public_key(),
-            &self.k,
-        );
+        let cipher = PromiseCipher::encrypt(&self.group, self.cl_keypair.get_public_key(), &self.k);
 
         let promise_state = PromiseState {
             cipher: cipher.0.clone(),
-            ec_pub_key: self.ec_keypair.public_share,
             cl_pub_key: self.cl_keypair.cl_pub_key.clone(),
         };
         let promise_wit = PromiseWit {
-            x: self.k,
-            r1: cipher.1,
-            r2: cipher.2,
+            m: self.k,
+            r: cipher.1,
         };
         let proof = PromiseProof::prove(&self.group, &promise_state, &promise_wit);
 
@@ -313,8 +303,8 @@ impl SignPhase {
             let rho_plus_t = self.gamma.to_big_int() + t;
 
             // Handle CL cipher.
-            let c11 = cipher.c1.exp(&rho_plus_t);
-            let c21 = cipher.c2.exp(&rho_plus_t);
+            let c11 = cipher.cl_cipher.c1.exp(&rho_plus_t);
+            let c21 = cipher.cl_cipher.c2.exp(&rho_plus_t);
             let c1 = c11.compose(&pre_cipher_1.c1).reduce();
             let c2 = c21.compose(&pre_cipher_1.c2).reduce();
             homocipher = CLCipher { c1, c2 };
@@ -328,8 +318,8 @@ impl SignPhase {
             let omega_plus_t = self.omega.to_big_int() + t;
 
             // Handle CL cipher.
-            let c11 = cipher.c1.exp(&omega_plus_t);
-            let c21 = cipher.c2.exp(&omega_plus_t);
+            let c11 = cipher.cl_cipher.c1.exp(&omega_plus_t);
+            let c21 = cipher.cl_cipher.c2.exp(&omega_plus_t);
             let c1 = c11.compose(&pre_cipher_2.c1).reduce();
             let c2 = c21.compose(&pre_cipher_2.c2).reduce();
             homocipher_plus = CLCipher { c1, c2 };
@@ -778,12 +768,11 @@ impl SignPhase {
                 if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
                     let signature = self.phase_five_step_eight_generate_signature_msg();
                     println!("Signature: {:?}", signature);
-                    
+
                     // Save signature to file
                     let signature_path = Path::new("./sign_result.json");
                     let signature_json = serde_json::to_string(&(signature,)).unwrap();
-                    fs::write(signature_path, signature_json.clone())
-                        .expect("Unable to save !");
+                    fs::write(signature_path, signature_json.clone()).expect("Unable to save !");
                     return SendingMessages::SignSuccessWithResult(signature_json);
                     // return SendingMessages::SignSuccess;
                 }

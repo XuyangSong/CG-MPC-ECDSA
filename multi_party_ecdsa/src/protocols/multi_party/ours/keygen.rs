@@ -2,11 +2,13 @@ use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::ProofError;
-use class_group::primitives::cl_dl_public_setup::CLGroup;
+use class_group::primitives::cl_dl_public_setup::{CLGroup, PK};
 
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::message::*;
+use crate::utilities::class::update_class_group_by_p;
+use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof, ProveDLog};
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::traits::*;
@@ -23,7 +25,7 @@ pub struct Parameters {
 
 #[derive(Clone, Debug)]
 pub struct KeyGenMsgs {
-    pub phase_two_msgs: HashMap<usize, KeyGenPhaseTwoMsg>,
+    pub phase_one_two_msgs: HashMap<usize, KeyGenPhaseOneTwoMsg>,
     pub phase_three_msgs: HashMap<usize, KeyGenPhaseThreeMsg>,
     pub phase_four_vss_sending_msgs: HashMap<usize, Vec<u8>>,
     pub phase_four_msgs: HashMap<usize, KeyGenPhaseFourMsg>,
@@ -35,8 +37,8 @@ pub struct KeyGen {
     group: CLGroup,
     pub party_index: usize,
     pub params: Parameters,
-    pub ec_keypair: EcKeyPair,
     pub cl_keypair: ClKeyPair,
+    pub h_caret: PK,
     pub private_signing_key: EcKeyPair,       // (u_i, u_iP)
     pub public_signing_key: GE,               // Q
     pub share_private_key: FE,                // x_i
@@ -48,7 +50,7 @@ pub struct KeyGen {
 impl KeyGenMsgs {
     pub fn new() -> Self {
         Self {
-            phase_two_msgs: HashMap::new(),
+            phase_one_two_msgs: HashMap::new(),
             phase_three_msgs: HashMap::new(),
             phase_four_vss_sending_msgs: HashMap::new(),
             phase_four_msgs: HashMap::new(),
@@ -62,12 +64,15 @@ impl KeyGen {
         // Init CL group
         let group = CLGroup::new_from_qtilde(seed, qtilde);
 
-        // Simulate CL computation
-        let q = FE::q();
-        group.gq.exp(&q);
-        group.gq.exp(&q);
+        // Generate cl keypair
+        let mut cl_keypair = ClKeyPair::new(&group);
+        let h_caret = cl_keypair.get_public_key().clone();
+        cl_keypair.update_pk_exp_p();
 
-        // Generate signing key pari
+        // Update gp
+        let new_class_group = update_class_group_by_p(&group);
+
+        // Generate signing key pair
         let private_signing_key = EcKeyPair::new();
 
         // Init public key, compute later
@@ -75,9 +80,22 @@ impl KeyGen {
 
         let mut msgs = KeyGenMsgs::new();
 
-        // Generate phase two and phase three msg
-        let (msg_2, msg_3) = KeyGen::generate_phase_two_and_three_msg(&public_signing_key);
-        msgs.phase_two_msgs.insert(party_index, msg_2);
+        // Generate dl com
+        let dlog_com = DlogCommitment::new(&public_signing_key);
+
+        // Generate phase one and two msg
+        let msg_1_2 = KeyGenPhaseOneTwoMsg {
+            h_caret: h_caret.clone(),
+            h: cl_keypair.get_public_key().clone(),
+            gp: group.gq.clone(),
+            commitment: dlog_com.commitment,
+        };
+        msgs.phase_one_two_msgs.insert(party_index, msg_1_2);
+
+        //  Generate phase three msg
+        let msg_3 = KeyGenPhaseThreeMsg {
+            open: dlog_com.open,
+        };
         msgs.phase_three_msgs.insert(party_index, msg_3);
 
         // Generate phase four msg, vss
@@ -90,11 +108,11 @@ impl KeyGen {
         );
 
         Self {
+            group: new_class_group,
             party_index,
             params,
-            ec_keypair: EcKeyPair::new(),
-            cl_keypair: ClKeyPair::new(&group),
-            group,
+            cl_keypair,
+            h_caret,
             private_signing_key,
             public_signing_key,
             share_private_key, // Init share private key, compute later.
@@ -104,26 +122,19 @@ impl KeyGen {
         }
     }
 
-    fn generate_phase_two_and_three_msg(
-        public_signing_key: &GE,
-    ) -> (KeyGenPhaseTwoMsg, KeyGenPhaseThreeMsg) {
-        // Generate dl com
-        let dlog_com = DlogCommitment::new(public_signing_key);
-        let msg_2 = KeyGenPhaseTwoMsg {
-            commitment: dlog_com.commitment,
-        };
-
-        let msg_3 = KeyGenPhaseThreeMsg {
-            open: dlog_com.open,
-        };
-
-        (msg_2, msg_3)
+    fn get_phase_one_two_msg(&self) -> Vec<u8> {
+        let msg = self.msgs.phase_one_two_msgs.get(&self.party_index).unwrap();
+        let msg_send =
+            ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseOneTwoMsg(msg.clone()));
+        bincode::serialize(&msg_send).unwrap()
     }
 
-    fn get_phase_two_msg(&self) -> Vec<u8> {
-        let msg = self.msgs.phase_two_msgs.get(&self.party_index).unwrap();
-        let msg_send = ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseTwoMsg(msg.clone()));
-        bincode::serialize(&msg_send).unwrap()
+    fn verify_phase_one_msg(&self, h_caret: &PK, h: &PK, gp: &BinaryQF) -> Result<(), ProofError> {
+        let h_ret = h_caret.0.exp(&FE::q());
+        if h_ret != h.0 && *gp != self.group.gq {
+            return Err(ProofError);
+        }
+        Ok(())
     }
 
     fn handle_phase_three_msg(
@@ -134,7 +145,7 @@ impl KeyGen {
         println!("index: {}", index);
         let commitment = self
             .msgs
-            .phase_two_msgs
+            .phase_one_two_msgs
             .get(&index)
             .unwrap()
             .commitment
@@ -241,12 +252,14 @@ impl KeyGen {
         // println!("handle receiving msg: {:?}", msg);
         match msg {
             MultiKeyGenMessage::KeyGenBegin => {
-                let sending_msg_bytes = self.get_phase_two_msg();
+                let sending_msg_bytes = self.get_phase_one_two_msg();
                 return SendingMessages::BroadcastMessage(sending_msg_bytes);
             }
-            MultiKeyGenMessage::PhaseTwoMsg(msg) => {
-                self.msgs.phase_two_msgs.insert(index, msg.clone());
-                if self.msgs.phase_two_msgs.len() == self.params.share_count {
+            MultiKeyGenMessage::PhaseOneTwoMsg(msg) => {
+                self.verify_phase_one_msg(&msg.h_caret, &msg.h, &msg.gp)
+                    .unwrap();
+                self.msgs.phase_one_two_msgs.insert(index, msg.clone());
+                if self.msgs.phase_one_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg =
                         self.msgs.phase_three_msgs.get(&self.party_index).unwrap();
                     let sending_msg = ReceivingMessages::MultiKeyGenMessage(
@@ -257,10 +270,6 @@ impl KeyGen {
                 }
             }
             MultiKeyGenMessage::PhaseThreeMsg(msg) => {
-                // Simulate CL check
-                let q = FE::q();
-                self.group.gq.exp(&q);
-
                 // Already received the msg
                 if self.msgs.phase_three_msgs.get(&index).is_some() {
                     return SendingMessages::EmptyMsg;
@@ -313,7 +322,6 @@ impl KeyGen {
                     // Save keygen to file
                     let keygen_path = Path::new("./keygen_result.json");
                     let keygen_json = serde_json::to_string(&(
-                        self.ec_keypair.clone(),
                         self.cl_keypair.clone(),
                         self.public_signing_key.clone(),
                         self.share_private_key.clone(),

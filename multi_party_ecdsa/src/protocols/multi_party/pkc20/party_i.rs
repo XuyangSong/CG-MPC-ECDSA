@@ -1073,7 +1073,7 @@ mod tests {
         let seed: BigInt = str::parse(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
         ).unwrap();
-        let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
+        let group = CLGroup::new_from_setup(&1827, &seed); //discriminant 1827
 
         let params = Parameters {
             threshold: 2,
@@ -1087,6 +1087,6 @@ mod tests {
 
     #[test]
     fn test_pkc20_setup() {
-        setup_n(5, 1348);
+        setup_n(5, 1827);
     }
 }

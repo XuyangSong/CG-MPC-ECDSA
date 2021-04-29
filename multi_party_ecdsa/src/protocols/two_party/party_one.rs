@@ -7,24 +7,34 @@ use curv::FE;
 use curv::GE;
 use serde::{Deserialize, Serialize};
 
+use crate::utilities::class::update_class_group_by_p;
+use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
-use crate::utilities::hsmcl::{HSMCL, HSMCLPublic};
-use class_group::primitives::cl_dl_public_setup::{decrypt, CLGroup, Ciphertext as CLCiphertext};
+use crate::utilities::promise_sigma::*;
+use class_group::primitives::cl_dl_public_setup::SK;
+use class_group::primitives::cl_dl_public_setup::{
+    decrypt, CLGroup, Ciphertext as CLCiphertext, PK,
+};
+use class_group::BinaryQF;
 
 //****************** Begin: Party One structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyGenInit {
+    pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
+    pub cl_keypair: ClKeyPair,
+    pub h_caret: PK,
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
     pub public_signing_key: GE,
-    pub hsmcl_private: HSMCL,
-    pub hsmcl_public: HSMCLPublic,
+    pub promise_state: PromiseState,
+    pub promise_proof: PromiseProof,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhase {
+    pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
@@ -41,25 +51,50 @@ impl KeyGenInit {
     pub fn new(group: &CLGroup) -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
-        // Precomputation
-        let (hsmcl_private, hsmcl_public) = HSMCL::generate_keypair_and_encrypted_share_and_proof(
-            &keypair,
-            group,
+
+        // Generate cl keypair
+        let mut cl_keypair = ClKeyPair::new(&group);
+        let h_caret = cl_keypair.get_public_key().clone();
+        cl_keypair.update_pk_exp_p();
+
+        let new_class_group = update_class_group_by_p(group);
+
+        // Precomputation: promise proof
+        let cipher = PromiseCipher::encrypt(
+            &new_class_group,
+            cl_keypair.get_public_key(),
+            keypair.get_secret_key(),
         );
 
-        // TBD: Party one, Simulate CL check
-        let q = FE::q();
-        group.gq.exp(&q);
-        group.gq.exp(&q);
+        let promise_state = PromiseState {
+            cipher: cipher.0,
+            cl_pub_key: cl_keypair.cl_pub_key.clone(),
+        };
+        let promise_wit = PromiseWit {
+            m: keypair.get_secret_key().clone(),
+            r: cipher.1,
+        };
+        let promise_proof = PromiseProof::prove(&new_class_group, &promise_state, &promise_wit);
 
         Self {
             public_signing_key: ECPoint::generator(), // Compute later
             keypair,
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
-            hsmcl_private,
-            hsmcl_public,
+            cl_keypair,
+            h_caret,
+            promise_state,
+            promise_proof,
+            cl_group: new_class_group,
         }
+    }
+
+    pub fn get_class_group_pk(&self) -> (PK, PK, BinaryQF) {
+        (
+            self.h_caret.clone(),
+            self.cl_keypair.get_public_key().clone(),
+            self.cl_group.gq.clone(),
+        )
     }
 
     // TBD: remove return value
@@ -75,10 +110,14 @@ impl KeyGenInit {
         self.public_signing_key = received_r_2 * self.keypair.get_secret_key();
         self.public_signing_key
     }
+
+    pub fn get_promise_proof(&self) -> (PromiseState, PromiseProof) {
+        (self.promise_state.clone(), self.promise_proof.clone())
+    }
 }
 
 impl SignPhase {
-    pub fn new() -> Self {
+    pub fn new(cl_group: CLGroup) -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
         let received_msg = DLogProof {
@@ -88,6 +127,7 @@ impl SignPhase {
         };
 
         Self {
+            cl_group,
             keypair,
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
@@ -111,8 +151,7 @@ impl SignPhase {
 
     pub fn sign(
         &self,
-        cl_group: &CLGroup,
-        hsmcl: &HSMCL,
+        cl_sk: &SK,
         partial_sig_c3: &CLCiphertext,
         ephemeral_public_share: &GE,
         secret_key: &FE,
@@ -122,7 +161,7 @@ impl SignPhase {
         let r_x: FE = ECScalar::from(&ephemeral_public_share.x_coor().unwrap().mod_floor(&q));
         let k1_inv = self.keypair.get_secret_key().invert();
         let x1_mul_tp = *secret_key * t_p;
-        let s_tag = decrypt(cl_group, &hsmcl.secret, &partial_sig_c3).sub(&x1_mul_tp.get_element());
+        let s_tag = decrypt(&self.cl_group, cl_sk, &partial_sig_c3).sub(&x1_mul_tp.get_element());
         let s_tag_tag = k1_inv * s_tag;
         let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());
         Signature {

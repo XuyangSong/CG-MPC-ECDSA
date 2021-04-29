@@ -2,7 +2,6 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use super::elgamal::ElgamalCipher;
 use super::error::ProofError;
 use super::SECURITY_PARAMETER;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, Ciphertext as CLCipher, PK, SK};
@@ -16,122 +15,86 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PromiseCipher {
-    pub c1: BinaryQF,
-    pub c2: BinaryQF,
-    pub c3: GE,
-    pub c4: GE,
+    pub cl_cipher: CLCipher,
+    pub q: GE,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PromiseProof {
-    pub a1: GE,
-    pub a2: GE,
-    pub b1: BinaryQF,
-    pub b2: BinaryQF,
-    pub z1: FE,
-    pub z2: BigInt,
-    pub z3: FE,
+    pub A: GE,
+    pub a1: BinaryQF,
+    pub a2: BinaryQF,
+    pub zm: FE,
+    pub zr: BigInt,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PromiseState {
     pub cipher: PromiseCipher,
-    pub ec_pub_key: GE,
     pub cl_pub_key: PK,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PromiseWit {
-    pub x: FE,
-    pub r1: FE,
-    pub r2: SK,
+    pub m: FE,
+    pub r: SK,
 }
 
 impl PromiseCipher {
-    pub fn encrypt(group: &CLGroup, cl_pub_key: &PK, ec_pub_key: &GE, m: &FE) -> (Self, FE, SK) {
+    pub fn encrypt(group: &CLGroup, cl_pub_key: &PK, m: &FE) -> (Self, SK) {
         use class_group::primitives::cl_dl_public_setup::encrypt;
-        let (cl_cipher, r2) = encrypt(group, cl_pub_key, m);
-        let (ec_cipher, r1) = ElgamalCipher::encrypt(ec_pub_key, m);
-        (
-            Self {
-                c1: cl_cipher.c1,
-                c2: cl_cipher.c2,
-                c3: ec_cipher.c1,
-                c4: ec_cipher.c2,
-            },
-            r1,
-            r2,
-        )
+        let (cl_cipher, r) = encrypt(group, cl_pub_key, m);
+
+        let base: GE = ECPoint::generator();
+        let q = base * m;
+
+        (Self { cl_cipher, q }, r)
     }
 
     pub fn decrypt(&self, group: &CLGroup, sk: &SK) -> FE {
-        let (c1, c2) = (&self.c1, &self.c2);
-        let cl_cipher = CLCipher {
-            c1: c1.clone(),
-            c2: c2.clone(),
-        };
-        let m = class_group::primitives::cl_dl_public_setup::decrypt(group, sk, &cl_cipher);
-        m
+        class_group::primitives::cl_dl_public_setup::decrypt(group, sk, &self.cl_cipher)
     }
 }
 
 impl PromiseProof {
     pub fn prove(group: &CLGroup, stat: &PromiseState, wit: &PromiseWit) -> Self {
-        let G: GE = GE::generator();
-        let H = stat.ec_pub_key;
-        let cl_pub_key = &stat.cl_pub_key;
-        let (x, r1, r2) = (&wit.x, &wit.r1, &wit.r2);
-        let s_fe: FE = FE::new_random();
-        let s = s_fe.to_big_int();
-        let s1: FE = FE::new_random();
-        let s2: BigInt = BigInt::sample_below(
+        // First round
+        let base: GE = ECPoint::generator();
+        let sm = FE::new_random();
+        let sr: BigInt = BigInt::sample_below(
             &(&group.stilde
                 * BigInt::from(2).pow(40)
                 * BigInt::from(2).pow(SECURITY_PARAMETER as u32)
                 * BigInt::from(2).pow(40)),
         );
-        let a1 = G * s1;
-        let a2 = G * s_fe + H * s1;
-        let b1 = group.gq.exp(&s2);
-        let fr = BinaryQF::expo_f(&FE::q(), &group.delta_q, &s);
-        let pkr1 = cl_pub_key.0.exp(&s2);
-        let b2 = fr.compose(&pkr1).reduce();
-        let k: BigInt = Self::challenge(&cl_pub_key, &a1, &a2, &b1, &b2, &stat.cipher);
-        let z11 = BigInt::mod_add(&s1.to_big_int(), &(&k * r1.to_big_int()), &FE::q());
-        let z1 = ECScalar::from(&z11);
-        let z2 = s2 + &k * &r2.0;
-        let z31 = BigInt::mod_add(&s, &(&k * x.to_big_int()), &FE::q());
-        let z3 = ECScalar::from(&z31);
 
-        Self {
-            a1,
-            a2,
-            b1,
-            b2,
-            z1,
-            z2,
-            z3,
-        }
+        let A = base * sm;
+        let a1 = group.gq.exp(&sr);
+        let hsr = stat.cl_pub_key.0.exp(&sr);
+        let fsm = BinaryQF::expo_f(&FE::q(), &group.delta_q, &sm.to_big_int());
+        let a2 = fsm.compose(&hsr).reduce();
+
+        // Second round: get challenge
+        let e: BigInt = Self::challenge(&stat, &A, &a1, &a2);
+        let e_fe: FE = ECScalar::from(&e);
+
+        // Third round
+        let zm = sm + e_fe * wit.m;
+        let zr = sr + &e * &wit.r.0;
+
+        Self { A, a1, a2, zm, zr }
     }
 
-    pub fn challenge(
-        public_key: &PK,
-        a1: &GE,
-        a2: &GE,
-        b1: &BinaryQF,
-        b2: &BinaryQF,
-        ciphertext: &PromiseCipher,
-    ) -> BigInt {
+    pub fn challenge(state: &PromiseState, A: &GE, a1: &BinaryQF, a2: &BinaryQF) -> BigInt {
         let hash256 = HSha256::create_hash(&[
             // hash the statement i.e. the discrete log of Q is encrypted in (c1,c2) under encryption key h.
-            &a1.bytes_compressed_to_big_int(),
-            &a2.bytes_compressed_to_big_int(),
-            &BigInt::from(ciphertext.c1.to_bytes().as_ref()),
-            &BigInt::from(ciphertext.c2.to_bytes().as_ref()),
-            &BigInt::from(public_key.0.to_bytes().as_ref()),
+            &BigInt::from(state.cipher.cl_cipher.c1.to_bytes().as_ref()),
+            &BigInt::from(state.cipher.cl_cipher.c2.to_bytes().as_ref()),
+            &BigInt::from(state.cl_pub_key.0.to_bytes().as_ref()),
             // hash Sigma protocol commitments
-            &BigInt::from(b1.to_bytes().as_ref()),
-            &BigInt::from(b2.to_bytes().as_ref()),
+            &A.bytes_compressed_to_big_int(),
+            &BigInt::from(a1.to_bytes().as_ref()),
+            &BigInt::from(a2.to_bytes().as_ref()),
         ]);
 
         let hash128 = &BigInt::to_vec(&hash256)[..SECURITY_PARAMETER / 8];
@@ -139,37 +102,36 @@ impl PromiseProof {
     }
 
     pub fn verify(&self, group: &CLGroup, stat: &PromiseState) -> Result<(), ProofError> {
-        let (a1, a2, b1, b2, z1, z2, z3) = (
-            &self.a1, &self.a2, &self.b1, &self.b2, &self.z1, &self.z2, &self.z3,
-        );
-        let (c1, c2, c3, c4) = (
-            &stat.cipher.c1,
-            &stat.cipher.c2,
-            &stat.cipher.c3,
-            &stat.cipher.c4,
-        );
-        let G: GE = GE::generator();
-        let H = &stat.ec_pub_key;
-        let cl_pub_key = &stat.cl_pub_key;
-        let k: BigInt = Self::challenge(&cl_pub_key, &a1, &a2, &b1, &b2, &stat.cipher);
-        let k_fe: FE = ECScalar::from(&k);
-        let r1_left = G * z1;
-        let r1_right = a1 + &(c3 * &k_fe);
-        let r2_left = group.gq.exp(&z2);
-        let c1k = c1.exp(&k);
-        let r2_right = b1.compose(&c1k).reduce();
-        let x_ec_left = G * z3 + H * z1;
-        let x_ec_right = a2 + &(c4 * &k_fe);
-        let pkz2 = cl_pub_key.0.exp(&z2);
-        let fz3 = BinaryQF::expo_f(&FE::q(), &group.delta_q, &z3.to_big_int());
-        let x_cl_left = pkz2.compose(&fz3).reduce();
-        let c2k = c2.exp(&k);
-        let x_cl_right = b2.compose(&c2k).reduce();
-        if r1_left == r1_right
-            && r2_left == r2_right
-            && x_cl_left == x_cl_right
-            && x_ec_left == x_ec_right
-        {
+        let sample_size = &group.stilde
+            * BigInt::from(2).pow(40)
+            * BigInt::from(2).pow(SECURITY_PARAMETER as u32)
+            * BigInt::from(2).pow(40)
+            + (FE::q() - BigInt::one()) * &group.stilde * BigInt::from(2).pow(40);
+
+        if self.zr > sample_size {
+            return Err(ProofError);
+        }
+
+        let base: GE = GE::generator();
+
+        // Get challenge
+        let e: BigInt = Self::challenge(&stat, &self.A, &self.a1, &self.a2);
+        let e_fe: FE = ECScalar::from(&e);
+
+        let left_1 = base * self.zm;
+        let right_1 = self.A + stat.cipher.q * e_fe;
+
+        let left_2 = group.gq.exp(&self.zr);
+        let c1k = stat.cipher.cl_cipher.c1.exp(&e);
+        let right_2 = self.a1.compose(&c1k).reduce();
+
+        let hzr = stat.cl_pub_key.0.exp(&self.zr);
+        let fzm = BinaryQF::expo_f(&FE::q(), &group.delta_q, &self.zm.to_big_int());
+        let left_3 = hzr.compose(&fzm).reduce();
+        let c2k = stat.cipher.cl_cipher.c2.exp(&e);
+        let right_3 = self.a2.compose(&c2k).reduce();
+
+        if left_1 == right_1 && left_2 == right_2 && left_3 == right_3 {
             Ok(())
         } else {
             Err(ProofError)
