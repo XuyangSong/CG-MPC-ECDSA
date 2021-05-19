@@ -70,14 +70,17 @@ impl DlogCommitment {
         Ok(())
     }
 
-    pub fn verify_dlog(commitment: &BigInt, open: &DlogCommitmentOpen) -> Result<(), MulEcdsaError> {
+    pub fn verify_dlog(
+        commitment: &BigInt,
+        open: &DlogCommitmentOpen,
+    ) -> Result<(), MulEcdsaError> {
         if HashCommitment::create_commitment_with_user_defined_randomness(
             &open.public_share.bytes_compressed_to_big_int(),
             &open.blind_factor,
         ) != *commitment
         {
             return Err(MulEcdsaError::OpenDLCommFailed);
-        } 
+        }
 
         Ok(())
     }

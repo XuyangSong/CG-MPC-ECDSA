@@ -69,7 +69,9 @@ impl KeyGenInit {
     ) -> Result<(), MulEcdsaError> {
         // TBD: check pk
 
-        proof.verify(&self.cl_group, state).map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
+        proof
+            .verify(&self.cl_group, state)
+            .map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
 
         Ok(())
     }
@@ -136,7 +138,12 @@ impl SignPhase {
         // message: &FE,
     ) -> Result<(CLCiphertext, FE), MulEcdsaError> {
         let q = FE::q();
-        let r_x: FE = ECScalar::from(&ephemeral_public_share.x_coor().ok_or(MulEcdsaError::XcoorNone)?.mod_floor(&q));
+        let r_x: FE = ECScalar::from(
+            &ephemeral_public_share
+                .x_coor()
+                .ok_or(MulEcdsaError::XcoorNone)?
+                .mod_floor(&q),
+        );
         let k2_inv = self.keypair.get_secret_key().invert();
         // let k2_inv_m = k2_inv * message;
 
@@ -147,6 +154,6 @@ impl SignPhase {
         let t_plus = t + v.to_big_int();
         let c2 = eval_scal(&cipher.cl_cipher, &t_plus);
 
-       Ok((eval_sum(&self.precompute_c1, &c2), t_p))
+        Ok((eval_sum(&self.precompute_c1, &c2), t_p))
     }
 }

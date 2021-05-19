@@ -19,8 +19,8 @@ use multi_party_ecdsa::protocols::multi_party::ours::message::{
 };
 use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;
-use multi_party_ecdsa::utilities::promise_sigma::PromiseState;
 use multi_party_ecdsa::utilities::error::MulEcdsaError;
+use multi_party_ecdsa::utilities::promise_sigma::PromiseState;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::{env, fs, thread};
@@ -855,12 +855,14 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
 
                                 let ephemeral_public_share = party_two_sign
                                     .compute_public_share_key(witness.get_public_key());
-                                let (cipher, t_p) = party_two_sign.sign(
-                                    &ephemeral_public_share,
-                                    &secret_key,
-                                    &promise_state.cipher,
-                                    // &message_to_sign,
-                                ).unwrap();
+                                let (cipher, t_p) = party_two_sign
+                                    .sign(
+                                        &ephemeral_public_share,
+                                        &secret_key,
+                                        &promise_state.cipher,
+                                        // &message_to_sign,
+                                    )
+                                    .unwrap();
 
                                 let msg_send = TwoPartyMsg::SignPartyTwoRoundTwoMsg(cipher, t_p);
                                 let msg_bytes = bincode::serialize(&msg_send).unwrap();
@@ -886,13 +888,15 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
 
                                 let ephemeral_public_share = party_one_sign
                                     .compute_public_share_key(&party_one_sign.received_msg.pk);
-                                let signature = party_one_sign.sign(
-                                    &cl_sk,
-                                    &cipher,
-                                    &ephemeral_public_share,
-                                    &secret_key,
-                                    &t_p,
-                                ).unwrap();
+                                let signature = party_one_sign
+                                    .sign(
+                                        &cl_sk,
+                                        &cipher,
+                                        &ephemeral_public_share,
+                                        &secret_key,
+                                        &t_p,
+                                    )
+                                    .unwrap();
 
                                 let mut _res = String::new();
                                 {
@@ -1059,7 +1063,8 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                             params.clone(),
                             &subset,
                             &mmsg,
-                        ).unwrap();
+                        )
+                        .unwrap();
                         sign.init();
 
                         let msg_send = ReceivingMessages::MultiSignInitSync(my_index);

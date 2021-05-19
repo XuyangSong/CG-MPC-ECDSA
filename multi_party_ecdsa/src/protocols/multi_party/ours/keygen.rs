@@ -60,7 +60,12 @@ impl KeyGenMsgs {
 }
 
 impl KeyGen {
-    pub fn init(seed: &BigInt, qtilde: &BigInt, party_index: usize, params: Parameters) -> Result<Self, MulEcdsaError> {
+    pub fn init(
+        seed: &BigInt,
+        qtilde: &BigInt,
+        party_index: usize,
+        params: Parameters,
+    ) -> Result<Self, MulEcdsaError> {
         // Init CL group
         let group = CLGroup::new_from_qtilde(seed, qtilde);
 
@@ -105,7 +110,8 @@ impl KeyGen {
             params.threshold,
             params.share_count,
             private_signing_key.get_secret_key(),
-        ).map_err(|_| MulEcdsaError::GenVSSFailed)?;
+        )
+        .map_err(|_| MulEcdsaError::GenVSSFailed)?;
 
         Ok(Self {
             group: new_class_group,
@@ -123,14 +129,23 @@ impl KeyGen {
     }
 
     fn get_phase_one_two_msg(&self) -> Result<Vec<u8>, MulEcdsaError> {
-        let msg = self.msgs.phase_one_two_msgs.get(&self.party_index).ok_or(MulEcdsaError::GetIndexFailed)?;
+        let msg = self
+            .msgs
+            .phase_one_two_msgs
+            .get(&self.party_index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
         let msg_send =
             ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseOneTwoMsg(msg.clone()));
         let result = bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
         Ok(result)
     }
 
-    fn verify_phase_one_msg(&self, h_caret: &PK, h: &PK, gp: &BinaryQF) -> Result<(), MulEcdsaError> {
+    fn verify_phase_one_msg(
+        &self,
+        h_caret: &PK,
+        h: &PK,
+        gp: &BinaryQF,
+    ) -> Result<(), MulEcdsaError> {
         let h_ret = h_caret.0.exp(&FE::q());
         if h_ret != h.0 || *gp != self.group.gq {
             return Err(MulEcdsaError::VrfyClassGroupFailed);
@@ -154,7 +169,9 @@ impl KeyGen {
         let open = msg.open.clone();
 
         let dlog_com = DlogCommitment { commitment, open };
-        dlog_com.verify().map_err(|_| MulEcdsaError::OpenDLCommFailed)?;
+        dlog_com
+            .verify()
+            .map_err(|_| MulEcdsaError::OpenDLCommFailed)?;
 
         self.public_signing_key = self.public_signing_key + dlog_com.get_public_share();
 
@@ -187,7 +204,8 @@ impl KeyGen {
             } else {
                 let phase_four_msg =
                     ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseFourMsg(msg));
-                let msg_bytes = bincode::serialize(&phase_four_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                let msg_bytes = bincode::serialize(&phase_four_msg)
+                    .map_err(|_| MulEcdsaError::SerializeFailed)?;
                 msgs.phase_four_vss_sending_msgs.insert(i, msg_bytes);
             }
         }
@@ -249,11 +267,17 @@ impl KeyGen {
         Ok(())
     }
 
-    pub fn msg_handler(&mut self, index: usize, msg: &MultiKeyGenMessage) -> Result<SendingMessages, MulEcdsaError> {
+    pub fn msg_handler(
+        &mut self,
+        index: usize,
+        msg: &MultiKeyGenMessage,
+    ) -> Result<SendingMessages, MulEcdsaError> {
         // println!("handle receiving msg: {:?}", msg);
         match msg {
             MultiKeyGenMessage::KeyGenBegin => {
-                let sending_msg_bytes = self.get_phase_one_two_msg().map_err(|_| MulEcdsaError::GetPhaseOneTwoMsgFailed)?;
+                let sending_msg_bytes = self
+                    .get_phase_one_two_msg()
+                    .map_err(|_| MulEcdsaError::GetPhaseOneTwoMsgFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
             }
             MultiKeyGenMessage::PhaseOneTwoMsg(msg) => {
@@ -261,12 +285,16 @@ impl KeyGen {
                     .map_err(|_| MulEcdsaError::VrfyPhaseOneMsgFailed)?;
                 self.msgs.phase_one_two_msgs.insert(index, msg.clone());
                 if self.msgs.phase_one_two_msgs.len() == self.params.share_count {
-                    let keygen_phase_three_msg =
-                        self.msgs.phase_three_msgs.get(&self.party_index).ok_or(MulEcdsaError::GetIndexFailed)?;
+                    let keygen_phase_three_msg = self
+                        .msgs
+                        .phase_three_msgs
+                        .get(&self.party_index)
+                        .ok_or(MulEcdsaError::GetIndexFailed)?;
                     let sending_msg = ReceivingMessages::MultiKeyGenMessage(
                         MultiKeyGenMessage::PhaseThreeMsg(keygen_phase_three_msg.clone()),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
@@ -277,7 +305,8 @@ impl KeyGen {
                 }
 
                 // Handle the msg
-                self.handle_phase_three_msg(index, &msg).map_err(|_| MulEcdsaError::HandlePhaseThreeMsgFailed)?;
+                self.handle_phase_three_msg(index, &msg)
+                    .map_err(|_| MulEcdsaError::HandlePhaseThreeMsgFailed)?;
                 self.msgs.phase_three_msgs.insert(index, msg.clone());
 
                 // Generate the next msg
@@ -294,7 +323,8 @@ impl KeyGen {
                 }
 
                 // Handle the msg
-                self.handle_phase_four_msg(index, &msg).map_err(|_| MulEcdsaError::HandlePhaseFourMsgFailed)?;
+                self.handle_phase_four_msg(index, &msg)
+                    .map_err(|_| MulEcdsaError::HandlePhaseFourMsgFailed)?;
                 self.msgs.phase_four_msgs.insert(index, msg.clone());
 
                 // Generate the next msg
@@ -306,7 +336,8 @@ impl KeyGen {
                     let sending_msg = ReceivingMessages::MultiKeyGenMessage(
                         MultiKeyGenMessage::PhaseFiveMsg(msg_five),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
@@ -317,7 +348,8 @@ impl KeyGen {
                 }
 
                 // Handle the msg
-                self.handle_phase_five_msg(index, &msg).map_err(|_| MulEcdsaError::HandlePhaseFiveMsgFailed)?;
+                self.handle_phase_five_msg(index, &msg)
+                    .map_err(|_| MulEcdsaError::HandlePhaseFiveMsgFailed)?;
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
                     // Save keygen to file

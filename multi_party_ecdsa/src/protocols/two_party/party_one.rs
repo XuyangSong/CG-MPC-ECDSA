@@ -6,13 +6,12 @@ use curv::FE;
 use curv::GE;
 use serde::{Deserialize, Serialize};
 
-
 use crate::utilities::class::update_class_group_by_p;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
-use crate::utilities::promise_sigma::*;
 use crate::utilities::error::MulEcdsaError;
+use crate::utilities::promise_sigma::*;
 use class_group::primitives::cl_dl_public_setup::SK;
 use class_group::primitives::cl_dl_public_setup::{
     decrypt, CLGroup, Ciphertext as CLCiphertext, PK,
@@ -99,7 +98,10 @@ impl KeyGenInit {
     }
 
     // TBD: remove return value
-    pub fn verify_and_get_next_msg(&self, dl_proof: &DLogProof) -> Result<CommWitness, MulEcdsaError> {
+    pub fn verify_and_get_next_msg(
+        &self,
+        dl_proof: &DLogProof,
+    ) -> Result<CommWitness, MulEcdsaError> {
         // TBD: handle the error
         DLogProof::verify(dl_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
         Ok(self.round_two_msg.clone())
@@ -139,7 +141,10 @@ impl SignPhase {
         self.received_msg = msg;
     }
 
-    pub fn verify_and_get_next_msg(&self, dl_proof: &DLogProof) -> Result<CommWitness, MulEcdsaError> {
+    pub fn verify_and_get_next_msg(
+        &self,
+        dl_proof: &DLogProof,
+    ) -> Result<CommWitness, MulEcdsaError> {
         // TBD: handle the error
         DLogProof::verify(dl_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
         Ok(self.round_two_msg.clone())
@@ -158,7 +163,12 @@ impl SignPhase {
         t_p: &FE,
     ) -> Result<Signature, MulEcdsaError> {
         let q = FE::q();
-        let r_x: FE = ECScalar::from(&ephemeral_public_share.x_coor().ok_or(MulEcdsaError::XcoorNone)?.mod_floor(&q));
+        let r_x: FE = ECScalar::from(
+            &ephemeral_public_share
+                .x_coor()
+                .ok_or(MulEcdsaError::XcoorNone)?
+                .mod_floor(&q),
+        );
         let k1_inv = self.keypair.get_secret_key().invert();
         let x1_mul_tp = *secret_key * t_p;
         let s_tag = decrypt(&self.cl_group, cl_sk, &partial_sig_c3).sub(&x1_mul_tp.get_element());
@@ -170,7 +180,7 @@ impl SignPhase {
         })
     }
 
-    pub fn verify(signature: &Signature, pubkey: &GE, message: &FE) -> Result<(), MulEcdsaError  > {
+    pub fn verify(signature: &Signature, pubkey: &GE, message: &FE) -> Result<(), MulEcdsaError> {
         let q = FE::q();
 
         let s_inv_fe = signature.s.invert();
@@ -178,7 +188,10 @@ impl SignPhase {
         let u2 = *pubkey * (signature.r * s_inv_fe);
 
         // second condition is against malleability
-        let u1_plus_u2 = (u1 + u2).x_coor().ok_or(MulEcdsaError::XcoorNone)?.mod_floor(&q);
+        let u1_plus_u2 = (u1 + u2)
+            .x_coor()
+            .ok_or(MulEcdsaError::XcoorNone)?
+            .mod_floor(&q);
 
         if signature.r.to_big_int() == u1_plus_u2
             && signature.s.to_big_int() < FE::q() - signature.s.to_big_int()

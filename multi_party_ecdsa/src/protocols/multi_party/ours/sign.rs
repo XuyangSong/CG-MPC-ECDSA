@@ -101,9 +101,9 @@ impl SignPhase {
         let new_class_group = update_class_group_by_p(&group);
 
         // Read key file
-        let data = fs::read_to_string("./keygen_result.json").map_err(|_| MulEcdsaError::FileReadFailed)?;
-            //.expect("Unable to load keys, did you run keygen first? ");
-
+        let data = fs::read_to_string("./keygen_result.json")
+            .map_err(|_| MulEcdsaError::FileReadFailed)?;
+        //.expect("Unable to load keys, did you run keygen first? ");
 
         let (
             cl_keypair,
@@ -120,10 +120,12 @@ impl SignPhase {
         ) = serde_json::from_str(&data).map_err(|_| MulEcdsaError::FromStringFailed)?;
 
         let party_num = subset.len();
-        if party_num < params.threshold{
+        if party_num < params.threshold {
             return Err(MulEcdsaError::PartyLessThanThreshold);
         }
-        if vss_scheme_map.len() != params.share_count || share_public_key_map.len() != params.share_count{
+        if vss_scheme_map.len() != params.share_count
+            || share_public_key_map.len() != params.share_count
+        {
             return Err(MulEcdsaError::LeftNotEqualRight);
         }
 
@@ -142,8 +144,14 @@ impl SignPhase {
             .iter()
             .filter_map(|i| {
                 if *i != party_index {
-                    let share_public_key = share_public_key_map.get(i).ok_or(MulEcdsaError::GetIndexFailed).ok()?;
-                    let vss_scheme = vss_scheme_map.get(i).ok_or(MulEcdsaError::GetIndexFailed).ok()?;
+                    let share_public_key = share_public_key_map
+                        .get(i)
+                        .ok_or(MulEcdsaError::GetIndexFailed)
+                        .ok()?;
+                    let vss_scheme = vss_scheme_map
+                        .get(i)
+                        .ok_or(MulEcdsaError::GetIndexFailed)
+                        .ok()?;
                     let ret = share_public_key * &vss_scheme.map_share_to_new_params(*i, subset);
                     big_omega_map.insert(*i, ret.clone());
                     Some(ret)
@@ -281,16 +289,26 @@ impl SignPhase {
     }
 
     fn get_phase_one_msg(&self) -> Result<Vec<u8>, MulEcdsaError> {
-        let msg = self.msgs.phase_one_msgs.get(&self.party_index).ok_or(MulEcdsaError::GetIndexFailed)?;
+        let msg = self
+            .msgs
+            .phase_one_msgs
+            .get(&self.party_index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
         let sending_msg =
             ReceivingMessages::MultiSignMessage(MultiSignMessage::PhaseOneMsg(msg.clone()));
         Ok(bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?)
     }
 
-    fn handle_phase_one_msg(&mut self, index: usize, msg: &SignPhaseOneMsg) -> Result<Vec<u8>, MulEcdsaError> {
+    fn handle_phase_one_msg(
+        &mut self,
+        index: usize,
+        msg: &SignPhaseOneMsg,
+    ) -> Result<Vec<u8>, MulEcdsaError> {
         // TBD: check ec cl pk
         // Verify promise proof
-        msg.proof.verify(&self.group, &msg.promise_state).map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
+        msg.proof
+            .verify(&self.group, &msg.promise_state)
+            .map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
 
         // Homo
         let cipher = &msg.promise_state.cipher;
@@ -299,7 +317,10 @@ impl SignPhase {
         let t_p;
         let t_p_plus;
 
-        let (pre_cipher_1, pre_cipher_2, b) = self.precomputation.get(&index).ok_or(MulEcdsaError::GetIndexFailed)?;
+        let (pre_cipher_1, pre_cipher_2, b) = self
+            .precomputation
+            .get(&index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
         {
             // Generate random.
             let t =
@@ -340,7 +361,7 @@ impl SignPhase {
 
         let sending_msg =
             ReceivingMessages::MultiSignMessage(MultiSignMessage::PhaseTwoMsg(msg_two));
-            Ok(bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?)
+        Ok(bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?)
     }
 
     fn handle_phase_two_msg(
@@ -356,7 +377,10 @@ impl SignPhase {
             &msg.homocipher,
         )
         .sub(&k_mul_t.get_element());
-        let beta = self.beta_map.get(&index).ok_or(MulEcdsaError::GetIndexFailed)?;
+        let beta = self
+            .beta_map
+            .get(&index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
         self.delta = self.delta + alpha + beta;
 
         // Compute sigma
@@ -367,16 +391,22 @@ impl SignPhase {
             &msg.homocipher_plus,
         )
         .sub(&k_mul_t_plus.get_element());
-        let v = self.v_map.get(&index).ok_or(MulEcdsaError::GetIndexFailed)?;
+        let v = self
+            .v_map
+            .get(&index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
         self.sigma = self.sigma + miu + v;
 
         // Check kW = uP + B
-        let big_omega = self.big_omega_map.get(&index).ok_or(MulEcdsaError::GetIndexFailed)?;
+        let big_omega = self
+            .big_omega_map
+            .get(&index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
         let k_omega = big_omega * &self.k;
         let base: GE = ECPoint::generator();
         let up_plus_b = base * miu + msg.b;
-        if k_omega != up_plus_b{
-            return Err(MulEcdsaError::HandleSignPhaseTwoMsgFailed)
+        if k_omega != up_plus_b {
+            return Err(MulEcdsaError::HandleSignPhaseTwoMsgFailed);
         }
         assert_eq!(k_omega, up_plus_b);
 
@@ -384,9 +414,9 @@ impl SignPhase {
         // SignPhaseThreeMsg { delta }
     }
 
-    fn phase_two_compute_delta_sum_msg(&mut self) -> Result<(), MulEcdsaError>{
-        if self.msgs.phase_three_msgs.len() != self.party_num{
-            return Err(MulEcdsaError::LeftNotEqualRight)
+    fn phase_two_compute_delta_sum_msg(&mut self) -> Result<(), MulEcdsaError> {
+        if self.msgs.phase_three_msgs.len() != self.party_num {
+            return Err(MulEcdsaError::LeftNotEqualRight);
         }
 
         self.delta_sum = self
@@ -395,7 +425,7 @@ impl SignPhase {
             .iter()
             .fold(FE::zero(), |acc, (_i, v)| acc + v.delta);
 
-        Ok(())    
+        Ok(())
     }
 
     fn handle_phase_four_msg(
@@ -403,13 +433,18 @@ impl SignPhase {
         index: usize,
         msg: &SignPhaseFourMsg,
     ) -> Result<(), MulEcdsaError> {
-        let msg_one = self.msgs.phase_one_msgs.get(&index).ok_or(MulEcdsaError::GetIndexFailed)?;
-        DlogCommitment::verify_dlog(&msg_one.commitment, &msg.open).map_err(|_| MulEcdsaError::OpenDLCommFailed)?;
+        let msg_one = self
+            .msgs
+            .phase_one_msgs
+            .get(&index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
+        DlogCommitment::verify_dlog(&msg_one.commitment, &msg.open)
+            .map_err(|_| MulEcdsaError::OpenDLCommFailed)?;
 
         Ok(())
     }
 
-    fn compute_r_x(&mut self) -> Result<(), MulEcdsaError>{
+    fn compute_r_x(&mut self) -> Result<(), MulEcdsaError> {
         let r = self
             .msgs
             .phase_four_msgs
@@ -418,7 +453,13 @@ impl SignPhase {
             .sub_point(&GE::generator().get_element());
 
         self.r_point = r * self.delta_sum.invert();
-        self.r_x = ECScalar::from(&self.r_point.x_coor().ok_or(MulEcdsaError::XcoorNone)?.mod_floor(&FE::q()));
+        self.r_x = ECScalar::from(
+            &self
+                .r_point
+                .x_coor()
+                .ok_or(MulEcdsaError::XcoorNone)?
+                .mod_floor(&FE::q()),
+        );
         Ok(())
     }
 
@@ -483,7 +524,11 @@ impl SignPhase {
         index: usize,
         msg: &SignPhaseFiveStepTwoMsg,
     ) -> Result<(), MulEcdsaError> {
-        let msg_one = self.msgs.phase_five_step_one_msgs.get(&index).ok_or(MulEcdsaError::GetIndexFailed)?;
+        let msg_one = self
+            .msgs
+            .phase_five_step_one_msgs
+            .get(&index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
         // Verify commitment
         let input_hash = HSha256::create_hash_from_ge(&[&msg.v_i, &msg.a_i, &msg.b_i]).to_big_int();
 
@@ -502,13 +547,17 @@ impl SignPhase {
             E: msg.b_i,
         };
 
-        msg.proof.verify(&delta).map_err(|_| MulEcdsaError::VrfyHomoElGamalFailed)?;
+        msg.proof
+            .verify(&delta)
+            .map_err(|_| MulEcdsaError::VrfyHomoElGamalFailed)?;
         DLogProof::verify(&msg.dl_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
 
         Ok(())
     }
 
-    fn generate_phase_five_step_four_msg(&mut self) -> Result<SignPhaseFiveStepFourMsg, MulEcdsaError> {
+    fn generate_phase_five_step_four_msg(
+        &mut self,
+    ) -> Result<SignPhaseFiveStepFourMsg, MulEcdsaError> {
         let my_msg = self
             .msgs
             .phase_five_step_two_msgs
@@ -559,7 +608,11 @@ impl SignPhase {
         index: usize,
         msg_five: &SignPhaseFiveStepFiveMsg,
     ) -> Result<(), MulEcdsaError> {
-        let msg_four = self.msgs.phase_five_step_four_msgs.get(&index).ok_or(MulEcdsaError::GetIndexFailed)?;
+        let msg_four = self
+            .msgs
+            .phase_five_step_four_msgs
+            .get(&index)
+            .ok_or(MulEcdsaError::GetIndexFailed)?;
         let input_hash = HSha256::create_hash_from_ge(&[&msg_five.u_i, &msg_five.t_i]).to_big_int();
         if HashCommitment::create_commitment_with_user_defined_randomness(
             &input_hash,
@@ -595,8 +648,8 @@ impl SignPhase {
     }
 
     fn phase_five_step_eight_generate_signature_msg(&self) -> Result<Signature, MulEcdsaError> {
-        if self.msgs.phase_five_step_seven_msgs.len() != self.party_num{
-            return Err(MulEcdsaError::LeftNotEqualRight)
+        if self.msgs.phase_five_step_seven_msgs.len() != self.party_num {
+            return Err(MulEcdsaError::LeftNotEqualRight);
         }
 
         let mut s = self
@@ -621,7 +674,9 @@ impl SignPhase {
         // println!("handle receiving msg: {:?}", msg_received);
         match msg_received {
             MultiSignMessage::SignBegin => {
-                let msg = self.get_phase_one_msg().map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
+                let msg = self
+                    .get_phase_one_msg()
+                    .map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg));
             }
             MultiSignMessage::PhaseOneMsg(msg) => {
@@ -632,7 +687,9 @@ impl SignPhase {
 
                 // Handle the msg and generate the reply msg
                 self.msgs.phase_one_msgs.insert(index, msg.clone());
-                let msg = self.handle_phase_one_msg(index, &msg).map_err(|_| MulEcdsaError::HandleSignPhaseOneMsgFailed)?;
+                let msg = self
+                    .handle_phase_one_msg(index, &msg)
+                    .map_err(|_| MulEcdsaError::HandleSignPhaseOneMsgFailed)?;
                 return Ok(SendingMessages::NormalMessage(index, msg));
             }
             MultiSignMessage::PhaseTwoMsg(msg) => {
@@ -642,7 +699,8 @@ impl SignPhase {
                 }
 
                 // Handle the msg
-                self.handle_phase_two_msg(index, &msg).map_err(|_| MulEcdsaError::HandleSignPhaseTwoMsgFailed)?;
+                self.handle_phase_two_msg(index, &msg)
+                    .map_err(|_| MulEcdsaError::HandleSignPhaseTwoMsgFailed)?;
                 self.msgs.phase_two_msgs.insert(index, msg.clone());
 
                 // Generate the next msg
@@ -656,19 +714,26 @@ impl SignPhase {
                     let sending_msg = ReceivingMessages::MultiSignMessage(
                         MultiSignMessage::PhaseThreeMsg(msg_three),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
             MultiSignMessage::PhaseThreeMsg(msg) => {
                 self.msgs.phase_three_msgs.insert(index, msg.clone());
                 if self.msgs.phase_three_msgs.len() == self.party_num {
-                    self.phase_two_compute_delta_sum_msg().map_err(|_| MulEcdsaError::ComputeDeltaSumFailed)?;
-                    let msg_four = self.msgs.phase_four_msgs.get(&self.party_index).ok_or(MulEcdsaError::GetIndexFailed)?;
+                    self.phase_two_compute_delta_sum_msg()
+                        .map_err(|_| MulEcdsaError::ComputeDeltaSumFailed)?;
+                    let msg_four = self
+                        .msgs
+                        .phase_four_msgs
+                        .get(&self.party_index)
+                        .ok_or(MulEcdsaError::GetIndexFailed)?;
                     let sending_msg = ReceivingMessages::MultiSignMessage(
                         MultiSignMessage::PhaseFourMsg(msg_four.clone()),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::GetIndexFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
@@ -679,17 +744,20 @@ impl SignPhase {
                 }
 
                 // Handle the msg
-                self.handle_phase_four_msg(index, &msg).map_err(|_| MulEcdsaError::HandleSignPhaseFourMsgFailed)?;
+                self.handle_phase_four_msg(index, &msg)
+                    .map_err(|_| MulEcdsaError::HandleSignPhaseFourMsgFailed)?;
                 self.msgs.phase_four_msgs.insert(index, msg.clone());
 
                 // Generate the next msg
                 if self.msgs.phase_four_msgs.len() == self.party_num {
-                    self.compute_r_x().map_err(|_| MulEcdsaError::ComputeRxFailed)?;
+                    self.compute_r_x()
+                        .map_err(|_| MulEcdsaError::ComputeRxFailed)?;
                     let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
                     let sending_msg = ReceivingMessages::MultiSignMessage(
                         MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::GetIndexFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
@@ -706,7 +774,8 @@ impl SignPhase {
                     let sending_msg = ReceivingMessages::MultiSignMessage(
                         MultiSignMessage::PhaseFiveStepTwoMsg(msg_five_two.clone()),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::GetIndexFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
@@ -717,18 +786,22 @@ impl SignPhase {
                 }
 
                 // Handle the msg
-                self.handle_phase_five_step_two_msg(index, &msg).map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepTwoMsgFailed)?;
+                self.handle_phase_five_step_two_msg(index, &msg)
+                    .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepTwoMsgFailed)?;
                 self.msgs
                     .phase_five_step_two_msgs
                     .insert(index, msg.clone());
 
                 // Generate the next msg
                 if self.msgs.phase_five_step_two_msgs.len() == self.party_num {
-                    let msg_five_four = self.generate_phase_five_step_four_msg().map_err(|_| MulEcdsaError::GenerateSignPhaseFiveStepFourMsgFailed)?;
+                    let msg_five_four = self
+                        .generate_phase_five_step_four_msg()
+                        .map_err(|_| MulEcdsaError::GenerateSignPhaseFiveStepFourMsgFailed)?;
                     let sending_msg = ReceivingMessages::MultiSignMessage(
                         MultiSignMessage::PhaseFiveStepFourMsg(msg_five_four.clone()),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
@@ -745,7 +818,8 @@ impl SignPhase {
                     let sending_msg = ReceivingMessages::MultiSignMessage(
                         MultiSignMessage::PhaseFiveStepFiveMsg(msg_five_five.clone()),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
@@ -756,14 +830,16 @@ impl SignPhase {
                 }
 
                 // Handle the msg
-                self.handle_phase_five_step_five_msg(index, &msg).map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepFiveMsgFailed)?;
+                self.handle_phase_five_step_five_msg(index, &msg)
+                    .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepFiveMsgFailed)?;
                 self.msgs
                     .phase_five_step_five_msgs
                     .insert(index, msg.clone());
 
                 // Generate the next msg
                 if self.msgs.phase_five_step_five_msgs.len() == self.party_num {
-                    self.phase_five_step_six_check_sum_a_t().map_err(|_| MulEcdsaError::VrfySumatFailed)?;
+                    self.phase_five_step_six_check_sum_a_t()
+                        .map_err(|_| MulEcdsaError::VrfySumatFailed)?;
                     let msg_seven = self
                         .msgs
                         .phase_five_step_seven_msgs
@@ -772,7 +848,8 @@ impl SignPhase {
                     let sending_msg = ReceivingMessages::MultiSignMessage(
                         MultiSignMessage::PhaseFiveStepSevenMsg(msg_seven.clone()),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    let sending_msg_bytes = bincode::serialize(&sending_msg)
+                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
                     return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
@@ -781,14 +858,18 @@ impl SignPhase {
                     .phase_five_step_seven_msgs
                     .insert(index, msg.clone());
                 if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
-                    let signature = self.phase_five_step_eight_generate_signature_msg().map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
+                    let signature = self
+                        .phase_five_step_eight_generate_signature_msg()
+                        .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
                     println!("Signature: {:?}", signature);
 
                     // Save signature to file
                     let signature_path = Path::new("./sign_result.json");
-                    let signature_json = serde_json::to_string(&(signature,)).map_err(|_| MulEcdsaError::ToStringFailed)?;
+                    let signature_json = serde_json::to_string(&(signature,))
+                        .map_err(|_| MulEcdsaError::ToStringFailed)?;
 
-                    fs::write(signature_path, signature_json.clone()).map_err(|_| MulEcdsaError::FileWriteFailed)?;
+                    fs::write(signature_path, signature_json.clone())
+                        .map_err(|_| MulEcdsaError::FileWriteFailed)?;
                     return Ok(SendingMessages::SignSuccessWithResult(signature_json));
                     // return SendingMessages::SignSuccess;
                 }

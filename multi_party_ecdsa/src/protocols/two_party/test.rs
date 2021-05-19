@@ -92,23 +92,27 @@ fn two_party_test() {
     // Party two: compute partial signature
     let ephemeral_public_share_2 =
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
-    let (cipher, t_p) = party_two_sign_new.sign(
-        &ephemeral_public_share_2,
-        party_two_key_gen_init.keypair.get_secret_key(),
-        &state.cipher,
-        // &sign_message,
-    ).unwrap();
+    let (cipher, t_p) = party_two_sign_new
+        .sign(
+            &ephemeral_public_share_2,
+            party_two_key_gen_init.keypair.get_secret_key(),
+            &state.cipher,
+            // &sign_message,
+        )
+        .unwrap();
 
     // Party one: finish signature
     let ephemeral_public_share_1 =
         party_one_sign_new.compute_public_share_key(&party_two_sign_round_one_msg.pk);
-    let signature = party_one_sign_new.sign(
-        party_one_key_gen_init.cl_keypair.get_secret_key(),
-        &cipher,
-        &ephemeral_public_share_1,
-        party_one_key_gen_init.keypair.get_secret_key(),
-        &t_p,
-    ).unwrap();
+    let signature = party_one_sign_new
+        .sign(
+            party_one_key_gen_init.cl_keypair.get_secret_key(),
+            &cipher,
+            &ephemeral_public_share_1,
+            party_one_key_gen_init.keypair.get_secret_key(),
+            &t_p,
+        )
+        .unwrap();
 
     let sign_end = time::now();
 
