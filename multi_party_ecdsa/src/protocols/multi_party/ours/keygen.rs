@@ -1,7 +1,7 @@
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
-use crate::utilities::error::ProofError;
+use crate::utilities::error::MulEcdsaError;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, PK};
 
 use crate::communication::receiving_messages::ReceivingMessages;
@@ -60,7 +60,7 @@ impl KeyGenMsgs {
 }
 
 impl KeyGen {
-    pub fn init(seed: &BigInt, qtilde: &BigInt, party_index: usize, params: Parameters) -> Self {
+    pub fn init(seed: &BigInt, qtilde: &BigInt, party_index: usize, params: Parameters) -> Result<Self, MulEcdsaError> {
         // Init CL group
         let group = CLGroup::new_from_qtilde(seed, qtilde);
 
@@ -105,9 +105,9 @@ impl KeyGen {
             params.threshold,
             params.share_count,
             private_signing_key.get_secret_key(),
-        );
+        ).map_err(|_| MulEcdsaError::GenVSSFailed)?;
 
-        Self {
+        Ok(Self {
             group: new_class_group,
             party_index,
             params,
@@ -119,20 +119,21 @@ impl KeyGen {
             share_public_key: HashMap::new(),
             vss_scheme_map,
             msgs,
-        }
+        })
     }
 
-    fn get_phase_one_two_msg(&self) -> Vec<u8> {
-        let msg = self.msgs.phase_one_two_msgs.get(&self.party_index).unwrap();
+    fn get_phase_one_two_msg(&self) -> Result<Vec<u8>, MulEcdsaError> {
+        let msg = self.msgs.phase_one_two_msgs.get(&self.party_index).ok_or(MulEcdsaError::GetIndexFailed)?;
         let msg_send =
             ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseOneTwoMsg(msg.clone()));
-        bincode::serialize(&msg_send).unwrap()
+        let result = bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
+        Ok(result)
     }
 
-    fn verify_phase_one_msg(&self, h_caret: &PK, h: &PK, gp: &BinaryQF) -> Result<(), ProofError> {
+    fn verify_phase_one_msg(&self, h_caret: &PK, h: &PK, gp: &BinaryQF) -> Result<(), MulEcdsaError> {
         let h_ret = h_caret.0.exp(&FE::q());
-        if h_ret != h.0 && *gp != self.group.gq {
-            return Err(ProofError);
+        if h_ret != h.0 || *gp != self.group.gq {
+            return Err(MulEcdsaError::VrfyClassGroupFailed);
         }
         Ok(())
     }
@@ -141,19 +142,19 @@ impl KeyGen {
         &mut self,
         index: usize,
         msg: &KeyGenPhaseThreeMsg,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         println!("index: {}", index);
         let commitment = self
             .msgs
             .phase_one_two_msgs
             .get(&index)
-            .unwrap()
+            .ok_or(MulEcdsaError::GetIndexFailed)?
             .commitment
             .clone();
         let open = msg.open.clone();
 
         let dlog_com = DlogCommitment { commitment, open };
-        dlog_com.verify()?;
+        dlog_com.verify().map_err(|_| MulEcdsaError::OpenDLCommFailed)?;
 
         self.public_signing_key = self.public_signing_key + dlog_com.get_public_share();
 
@@ -166,7 +167,7 @@ impl KeyGen {
         threshold: usize,
         share_count: usize,
         private_signing_key: &FE,
-    ) -> (HashMap<usize, VerifiableSS>, FE) {
+    ) -> Result<(HashMap<usize, VerifiableSS>, FE), MulEcdsaError> {
         let (vss_scheme, secret_shares) =
             VerifiableSS::share(threshold, share_count, private_signing_key);
 
@@ -186,12 +187,12 @@ impl KeyGen {
             } else {
                 let phase_four_msg =
                     ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::PhaseFourMsg(msg));
-                let msg_bytes = bincode::serialize(&phase_four_msg).unwrap();
+                let msg_bytes = bincode::serialize(&phase_four_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 msgs.phase_four_vss_sending_msgs.insert(i, msg_bytes);
             }
         }
 
-        (vss_scheme_map, share_private_key)
+        Ok((vss_scheme_map, share_private_key))
     }
 
     fn get_phase_four_msg(&self) -> HashMap<usize, Vec<u8>> {
@@ -202,13 +203,13 @@ impl KeyGen {
         &mut self,
         index: usize,
         msg: &KeyGenPhaseFourMsg,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         // Check VSS
         let q = self
             .msgs
             .phase_three_msgs
             .get(&index)
-            .unwrap()
+            .ok_or(MulEcdsaError::GetIndexFailed)?
             .open
             .public_share;
 
@@ -218,7 +219,7 @@ impl KeyGen {
             .is_ok()
             && msg.vss_scheme.commitments[0] == q)
         {
-            return Err(ProofError);
+            return Err(MulEcdsaError::VrfyVSSFailed);
         }
 
         // Compute share_private_key(x_i)
@@ -241,59 +242,59 @@ impl KeyGen {
         &mut self,
         index: usize,
         msg: &KeyGenPhaseFiveMsg,
-    ) -> Result<(), ProofError> {
-        DLogProof::verify(&msg.dl_proof).unwrap();
+    ) -> Result<(), MulEcdsaError> {
+        DLogProof::verify(&msg.dl_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
         self.share_public_key.insert(index, msg.dl_proof.pk);
 
         Ok(())
     }
 
-    pub fn msg_handler(&mut self, index: usize, msg: &MultiKeyGenMessage) -> SendingMessages {
+    pub fn msg_handler(&mut self, index: usize, msg: &MultiKeyGenMessage) -> Result<SendingMessages, MulEcdsaError> {
         // println!("handle receiving msg: {:?}", msg);
         match msg {
             MultiKeyGenMessage::KeyGenBegin => {
-                let sending_msg_bytes = self.get_phase_one_two_msg();
-                return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                let sending_msg_bytes = self.get_phase_one_two_msg().map_err(|_| MulEcdsaError::GetPhaseOneTwoMsgFailed)?;
+                return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
             }
             MultiKeyGenMessage::PhaseOneTwoMsg(msg) => {
                 self.verify_phase_one_msg(&msg.h_caret, &msg.h, &msg.gp)
-                    .unwrap();
+                    .map_err(|_| MulEcdsaError::VrfyPhaseOneMsgFailed)?;
                 self.msgs.phase_one_two_msgs.insert(index, msg.clone());
                 if self.msgs.phase_one_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg =
-                        self.msgs.phase_three_msgs.get(&self.party_index).unwrap();
+                        self.msgs.phase_three_msgs.get(&self.party_index).ok_or(MulEcdsaError::GetIndexFailed)?;
                     let sending_msg = ReceivingMessages::MultiKeyGenMessage(
                         MultiKeyGenMessage::PhaseThreeMsg(keygen_phase_three_msg.clone()),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
-                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
             MultiKeyGenMessage::PhaseThreeMsg(msg) => {
                 // Already received the msg
                 if self.msgs.phase_three_msgs.get(&index).is_some() {
-                    return SendingMessages::EmptyMsg;
+                    return Ok(SendingMessages::EmptyMsg);
                 }
 
                 // Handle the msg
-                self.handle_phase_three_msg(index, &msg).unwrap();
+                self.handle_phase_three_msg(index, &msg).map_err(|_| MulEcdsaError::HandlePhaseThreeMsgFailed)?;
                 self.msgs.phase_three_msgs.insert(index, msg.clone());
 
                 // Generate the next msg
                 if self.msgs.phase_three_msgs.len() == self.params.share_count {
                     let sending_msg = self.get_phase_four_msg();
 
-                    return SendingMessages::P2pMessage(sending_msg);
+                    return Ok(SendingMessages::P2pMessage(sending_msg));
                 }
             }
             MultiKeyGenMessage::PhaseFourMsg(msg) => {
                 // Already received the msg
                 if self.msgs.phase_four_msgs.get(&index).is_some() {
-                    return SendingMessages::EmptyMsg;
+                    return Ok(SendingMessages::EmptyMsg);
                 }
 
                 // Handle the msg
-                self.handle_phase_four_msg(index, &msg).unwrap();
+                self.handle_phase_four_msg(index, &msg).map_err(|_| MulEcdsaError::HandlePhaseFourMsgFailed)?;
                 self.msgs.phase_four_msgs.insert(index, msg.clone());
 
                 // Generate the next msg
@@ -305,18 +306,18 @@ impl KeyGen {
                     let sending_msg = ReceivingMessages::MultiKeyGenMessage(
                         MultiKeyGenMessage::PhaseFiveMsg(msg_five),
                     );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
-                    return SendingMessages::BroadcastMessage(sending_msg_bytes);
+                    let sending_msg_bytes = bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
                 }
             }
             MultiKeyGenMessage::PhaseFiveMsg(msg) => {
                 // Already received the msg
                 if self.msgs.phase_five_msgs.get(&index).is_some() {
-                    return SendingMessages::EmptyMsg;
+                    return Ok(SendingMessages::EmptyMsg);
                 }
 
                 // Handle the msg
-                self.handle_phase_five_msg(index, &msg).unwrap();
+                self.handle_phase_five_msg(index, &msg).map_err(|_| MulEcdsaError::HandlePhaseFiveMsgFailed)?;
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
                     // Save keygen to file
@@ -328,15 +329,15 @@ impl KeyGen {
                         self.share_public_key.clone(),
                         self.vss_scheme_map.clone(),
                     ))
-                    .unwrap();
+                    .map_err(|_| MulEcdsaError::ToStringFailed)?;
                     fs::write(keygen_path, keygen_json.clone()).expect("Unable to save !");
-                    return SendingMessages::KeyGenSuccessWithResult(keygen_json);
+                    return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
                     //return SendingMessages::KeyGenSuccess;
                 }
             }
         }
 
-        SendingMessages::EmptyMsg
+        Ok(SendingMessages::EmptyMsg)
     }
 }
 

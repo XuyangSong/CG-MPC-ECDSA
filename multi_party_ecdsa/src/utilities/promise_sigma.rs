@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use super::error::ProofError;
+use super::error::MulEcdsaError;
 use super::SECURITY_PARAMETER;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, Ciphertext as CLCipher, PK, SK};
 use class_group::BinaryQF;
@@ -101,7 +101,7 @@ impl PromiseProof {
         BigInt::from(hash128)
     }
 
-    pub fn verify(&self, group: &CLGroup, stat: &PromiseState) -> Result<(), ProofError> {
+    pub fn verify(&self, group: &CLGroup, stat: &PromiseState) -> Result<(), MulEcdsaError> {
         let sample_size = &group.stilde
             * BigInt::from(2).pow(40)
             * BigInt::from(2).pow(SECURITY_PARAMETER as u32)
@@ -109,7 +109,7 @@ impl PromiseProof {
             + (FE::q() - BigInt::one()) * &group.stilde * BigInt::from(2).pow(40);
 
         if self.zr > sample_size {
-            return Err(ProofError);
+            return Err(MulEcdsaError::ZrExcceedSize);
         }
 
         let base: GE = GE::generator();
@@ -134,7 +134,7 @@ impl PromiseProof {
         if left_1 == right_1 && left_2 == right_2 && left_3 == right_3 {
             Ok(())
         } else {
-            Err(ProofError)
+            Err(MulEcdsaError::VrfyPromiseFailed)
         }
     }
 }

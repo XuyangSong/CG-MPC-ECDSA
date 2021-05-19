@@ -121,7 +121,7 @@ fn main() {
                     // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
                     // TBD: add a new func, init it latter.
-                    let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone());
+                    let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone()).unwrap();
                     // let mut sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message);
                     // sign.init();
 
@@ -143,7 +143,7 @@ fn main() {
 
                                 let mut sending_msg = SendingMessages::EmptyMsg;
                                 if let ReceivingMessages::MultiKeyGenMessage(msg) = received_msg {
-                                    sending_msg = keygen.msg_handler(index, &msg);
+                                    sending_msg = keygen.msg_handler(index, &msg).unwrap();
                                 }
                                 // let sending_msg = match received_msg {
                                 //     ReceivingMessages::MultiKeyGenMessage(msg) => {

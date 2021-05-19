@@ -1,5 +1,5 @@
 use super::eckeypair::EcKeyPair;
-use super::error::ProofError;
+use super::error::MulEcdsaError;
 use super::SECURITY_BITS;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
@@ -58,26 +58,26 @@ impl DlogCommitment {
         }
     }
 
-    pub fn verify(&self) -> Result<(), ProofError> {
+    pub fn verify(&self) -> Result<(), MulEcdsaError> {
         if HashCommitment::create_commitment_with_user_defined_randomness(
             &self.open.public_share.bytes_compressed_to_big_int(),
             &self.open.blind_factor,
         ) != self.commitment
         {
-            return Err(ProofError);
+            return Err(MulEcdsaError::OpenDLCommFailed);
         }
 
         Ok(())
     }
 
-    pub fn verify_dlog(commitment: &BigInt, open: &DlogCommitmentOpen) -> Result<(), ProofError> {
+    pub fn verify_dlog(commitment: &BigInt, open: &DlogCommitmentOpen) -> Result<(), MulEcdsaError> {
         if HashCommitment::create_commitment_with_user_defined_randomness(
             &open.public_share.bytes_compressed_to_big_int(),
             &open.blind_factor,
         ) != *commitment
         {
-            return Err(ProofError);
-        }
+            return Err(MulEcdsaError::OpenDLCommFailed);
+        } 
 
         Ok(())
     }
@@ -123,14 +123,14 @@ impl DLComZK {
         }
     }
 
-    pub fn verify_commitments_and_dlog_proof(&self) -> Result<(), ProofError> {
+    pub fn verify_commitments_and_dlog_proof(&self) -> Result<(), MulEcdsaError> {
         // Verify the commitment of DL
         if HashCommitment::create_commitment_with_user_defined_randomness(
             &self.witness.public_share.bytes_compressed_to_big_int(),
             &self.witness.pk_commitment_blind_factor,
         ) != self.commitments.pk_commitment
         {
-            return Err(ProofError);
+            return Err(MulEcdsaError::OpenDLCommFailed);
         }
 
         // Verify the commitment of proof
@@ -143,24 +143,25 @@ impl DLComZK {
             &self.witness.zk_pok_blind_factor,
         ) != self.commitments.zk_pok_commitment
         {
-            return Err(ProofError);
+            return Err(MulEcdsaError::OpenCommZKFailed);
         }
 
         // Verify DL proof
         // TBD: handle the error
-        DLogProof::verify(&self.witness.d_log_proof).unwrap();
+        //DLogProof::verify(&self.witness.d_log_proof).unwrap();
 
+        DLogProof::verify(&self.witness.d_log_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
         Ok(())
     }
 
-    pub fn verify(commitment: &DLCommitments, witness: &CommWitness) -> Result<(), ProofError> {
+    pub fn verify(commitment: &DLCommitments, witness: &CommWitness) -> Result<(), MulEcdsaError> {
         // Verify the commitment of DL
         if HashCommitment::create_commitment_with_user_defined_randomness(
             &witness.public_share.bytes_compressed_to_big_int(),
             &witness.pk_commitment_blind_factor,
         ) != commitment.pk_commitment
         {
-            return Err(ProofError);
+            return Err(MulEcdsaError::OpenDLCommFailed);
         }
 
         // Verify the commitment of proof
@@ -172,13 +173,12 @@ impl DLComZK {
             &witness.zk_pok_blind_factor,
         ) != commitment.zk_pok_commitment
         {
-            return Err(ProofError);
+            return Err(MulEcdsaError::OpenCommZKFailed);
         }
 
         // Verify DL proof
         // TBD: handle the error
-        DLogProof::verify(&witness.d_log_proof).unwrap();
-
+        DLogProof::verify(&witness.d_log_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
         Ok(())
     }
 

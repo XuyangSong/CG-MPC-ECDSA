@@ -1,4 +1,4 @@
-use super::error::ProofError;
+use super::error::MulEcdsaError;
 use super::SECURITY_PARAMETER;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, Ciphertext as CLCipher, PK};
 use class_group::BinaryQF;
@@ -66,7 +66,7 @@ impl CLEncProof {
         BigInt::from(hash128)
     }
 
-    pub fn verify(&self, group: &CLGroup, state: &CLEncState) -> Result<(), ProofError> {
+    pub fn verify(&self, group: &CLGroup, state: &CLEncState) -> Result<(), MulEcdsaError> {
         let k = Self::challenge(state, &self.t1, &self.t2);
         // let k_fe: FE = ECScalar::from(&k);
 
@@ -82,7 +82,7 @@ impl CLEncProof {
         if left1 == right1 && left2 == right2 {
             Ok(())
         } else {
-            Err(ProofError)
+            Err(MulEcdsaError::VrfyClEncProofFailed)
         }
     }
 }

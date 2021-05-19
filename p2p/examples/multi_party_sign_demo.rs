@@ -121,7 +121,7 @@ fn main() {
                     // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
                     // let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone());
-                    let mut sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message);
+                    let mut sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message).unwrap();
                     sign.init();
 
                     let mut time = time::now();
@@ -142,7 +142,7 @@ fn main() {
 
                                 let mut sending_msg = SendingMessages::EmptyMsg;
                                 if let ReceivingMessages::MultiSignMessage(msg) = received_msg {
-                                    sending_msg = sign.msg_handler(index, &msg);
+                                    sending_msg = sign.msg_handler(index, &msg).unwrap();
                                 } else {
                                     // return some error
                                 }

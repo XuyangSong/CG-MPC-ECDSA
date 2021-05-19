@@ -2,7 +2,7 @@ use super::message::*;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
-use crate::utilities::error::ProofError;
+use crate::utilities::error::MulEcdsaError;
 use crate::utilities::signature::Signature;
 use curv::elliptic::curves::traits::*;
 use curv::{BigInt, FE, GE};
@@ -104,11 +104,11 @@ impl KeyGenTest {
     pub fn verify_class_group_pk(
         &self,
         pk_vec: &Vec<(CLPK, CLPK, BinaryQF)>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         for element in pk_vec.iter() {
             let h_ret = element.0 .0.exp(&FE::q());
-            if h_ret != element.1 .0 && element.2 != self.cl_group.gq {
-                return Err(ProofError);
+            if h_ret != element.1 .0 || element.2 != self.cl_group.gq {
+                return Err(MulEcdsaError::GeneralError);
             }
         }
         Ok(())
@@ -121,7 +121,7 @@ impl KeyGenTest {
     pub fn phase_three_verify_dl_com_and_generate_signing_key(
         &mut self,
         dl_com_vec: &Vec<DlogCommitment>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         assert_eq!(dl_com_vec.len(), self.params.share_count - 1);
 
         for element in dl_com_vec.iter() {
@@ -137,7 +137,7 @@ impl KeyGenTest {
         q_vec: &Vec<GE>,
         secret_shares_vec: &HashMap<usize, FE>,
         vss_scheme_map: &HashMap<usize, VerifiableSS>,
-    ) -> Result<DLogProof, ProofError> {
+    ) -> Result<DLogProof, MulEcdsaError> {
         assert_eq!(q_vec.len(), self.params.share_count);
         assert_eq!(secret_shares_vec.len(), self.params.share_count);
         assert_eq!(vss_scheme_map.len(), self.params.share_count);
@@ -152,7 +152,7 @@ impl KeyGenTest {
                 && vss_scheme.commitments[0] == q_vec[i])
             {
                 // TBD: use new error type
-                return Err(ProofError);
+                return Err(MulEcdsaError::GeneralError);
             }
         }
 
@@ -170,7 +170,7 @@ impl KeyGenTest {
     pub fn phase_six_verify_dlog_proof(
         &mut self,
         dlog_proofs: &Vec<DLogProof>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         assert_eq!(dlog_proofs.len(), self.params.share_count);
         for i in 0..self.params.share_count {
             DLogProof::verify(&dlog_proofs[i]).unwrap();
@@ -203,7 +203,7 @@ impl SignPhaseTest {
         party_num: usize,
         public_signing_key: GE,
         message: FE,
-    ) -> Result<Self, ProofError> {
+    ) -> Result<Self, MulEcdsaError> {
         assert!(party_num > params.threshold);
         assert_eq!(vss_scheme_map.len(), params.share_count);
         assert_eq!(share_public_key_map.len(), params.share_count);
@@ -406,7 +406,7 @@ impl SignPhaseTest {
         &mut self,
         dl_com_vec: &Vec<SignPhaseOneMsg>,
         dl_open_vec: &Vec<SignPhaseFourMsg>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         assert_eq!(dl_com_vec.len(), self.party_num);
         assert_eq!(dl_open_vec.len(), self.party_num);
         for i in 0..dl_com_vec.len() {
@@ -481,7 +481,7 @@ impl SignPhaseTest {
         q: &GE, // signing public key
         msgs_step_one: &Vec<SignPhaseFiveStepOneMsg>,
         msgs_step_two: &Vec<SignPhaseFiveStepTwoMsg>,
-    ) -> Result<(SignPhaseFiveStepFourMsg, SignPhaseFiveStepFiveMsg), ProofError> {
+    ) -> Result<(SignPhaseFiveStepFourMsg, SignPhaseFiveStepFiveMsg), MulEcdsaError> {
         // TBD: check the size
 
         let base: GE = ECPoint::generator();
@@ -502,7 +502,7 @@ impl SignPhaseTest {
                 &msgs_step_two[i].blind,
             ) != msgs_step_one[i].commitment
             {
-                return Err(ProofError);
+                return Err(MulEcdsaError::GeneralError);
             }
 
             // Verify zk proof
@@ -544,7 +544,7 @@ impl SignPhaseTest {
     pub fn phase_five_step_six_verify_com_and_check_sum_a_t(
         msgs_step_four: &Vec<SignPhaseFiveStepFourMsg>,
         msgs_step_five: &Vec<SignPhaseFiveStepFiveMsg>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         assert_eq!(msgs_step_four.len(), msgs_step_five.len());
         let test_com = (0..msgs_step_four.len())
             .map(|i| {
@@ -572,7 +572,7 @@ impl SignPhaseTest {
             .fold(biased_sum_ti, |acc, x| acc.sub_point(&x.get_element()));
 
         if !test_com || base != biased_sum_ti_minus_ui {
-            return Err(ProofError);
+            return Err(MulEcdsaError::GeneralError);
         }
 
         Ok(())

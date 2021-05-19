@@ -257,7 +257,7 @@ fn main() {
                                             &secret_key,
                                             &promise_state.cipher,
                                             // &message_to_sign,
-                                        );
+                                        ).unwrap();
 
                                         let msg_send = TwoPartyMsg::SignPartyTwoRoundTwoMsg(cipher, t_p);
                                         let msg_bytes = bincode::serialize(&msg_send).unwrap();

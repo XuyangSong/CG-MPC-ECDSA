@@ -97,7 +97,7 @@ fn two_party_test() {
         party_two_key_gen_init.keypair.get_secret_key(),
         &state.cipher,
         // &sign_message,
-    );
+    ).unwrap();
 
     // Party one: finish signature
     let ephemeral_public_share_1 =
@@ -108,7 +108,7 @@ fn two_party_test() {
         &ephemeral_public_share_1,
         party_one_key_gen_init.keypair.get_secret_key(),
         &t_p,
-    );
+    ).unwrap();
 
     let sign_end = time::now();
 

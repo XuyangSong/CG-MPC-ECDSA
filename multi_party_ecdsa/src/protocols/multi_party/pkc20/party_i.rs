@@ -2,7 +2,7 @@ use crate::utilities::cl_enc_proof::*;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
-use crate::utilities::error::ProofError;
+use crate::utilities::error::MulEcdsaError;
 use crate::utilities::signature::Signature;
 use crate::utilities::SECURITY_BITS;
 use class_group::primitives::cl_dl_public_setup::{
@@ -198,7 +198,7 @@ impl Setup {
         &self,
         msg_one_vec: &Vec<SetupPhaseOneMsg>,
         msg_two_vec: &Vec<SetupPhaseTwoMsg>,
-    ) -> Result<BigInt, ProofError> {
+    ) -> Result<BigInt, MulEcdsaError> {
         // TBD: check msg size
         let mut qtilde = self.r.clone();
 
@@ -208,7 +208,7 @@ impl Setup {
                 &msg_two_vec[i].open.1,
             ) != msg_one_vec[i].commitment
             {
-                return Err(ProofError);
+                return Err(MulEcdsaError::GeneralError);
             } else {
                 qtilde = qtilde ^ &(msg_two_vec[i].open.0);
             }
@@ -247,7 +247,7 @@ impl Setup {
     pub fn phase_four_verify_commitment(
         msg_three_vec: &Vec<SetupPhaseThreeMsg>,
         msg_four_vec: &Vec<SetupPhaseFourMsg>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         for i in 0..msg_three_vec.len() {
             let input_hash = HSha256::create_hash_from_slice(&msg_four_vec[i].open.0.to_bytes());
             if HashCommitment::create_commitment_with_user_defined_randomness(
@@ -255,7 +255,7 @@ impl Setup {
                 &msg_four_vec[i].open.1,
             ) != msg_three_vec[i].commitment
             {
-                return Err(ProofError);
+                return Err(MulEcdsaError::GeneralError);
             }
         }
         Ok(())
@@ -290,7 +290,7 @@ impl Setup {
         &mut self,
         group: &CLGroup,
         msg_five_vec: &Vec<SetupPhaseFiveMsg>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         for element in msg_five_vec.iter() {
             element.verify(group)?;
             self.gp = self.gp.compose(&element.h).reduce();
@@ -301,12 +301,12 @@ impl Setup {
 }
 
 impl SetupPhaseFiveMsg {
-    pub fn verify(&self, group: &CLGroup) -> Result<(), ProofError> {
+    pub fn verify(&self, group: &CLGroup) -> Result<(), MulEcdsaError> {
         let left = group.gq.exp(&self.u);
         let challenge_k = Setup::challenge(&self.h, &group.gq, &self.t);
         let right = self.h.exp(&challenge_k).compose(&self.t).reduce();
         if left != right {
-            return Err(ProofError);
+            return Err(MulEcdsaError::GeneralError);
         }
 
         Ok(())
@@ -342,7 +342,7 @@ impl KeyGen {
     pub fn phase_three_verify_dl_com_and_generate_signing_key(
         &mut self,
         dl_com_vec: &Vec<DlogCommitment>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         assert_eq!(dl_com_vec.len(), self.params.share_count - 1);
 
         for element in dl_com_vec.iter() {
@@ -368,7 +368,7 @@ impl KeyGen {
         q_vec: &Vec<GE>,
         secret_shares_vec: &Vec<FE>,
         vss_scheme_vec: &Vec<VerifiableSS>,
-    ) -> Result<DLogProof, ProofError> {
+    ) -> Result<DLogProof, MulEcdsaError> {
         assert_eq!(q_vec.len(), self.params.share_count);
         assert_eq!(secret_shares_vec.len(), self.params.share_count);
         assert_eq!(vss_scheme_vec.len(), self.params.share_count);
@@ -381,7 +381,7 @@ impl KeyGen {
                 && vss_scheme_vec[i].commitments[0] == q_vec[i])
             {
                 // TBD: use new error type
-                return Err(ProofError);
+                return Err(MulEcdsaError::GeneralError);
             }
         }
 
@@ -398,7 +398,7 @@ impl KeyGen {
     pub fn phase_six_verify_dlog_proof(
         &mut self,
         dlog_proofs: &Vec<DLogProof>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         assert_eq!(dlog_proofs.len(), self.params.share_count);
         for i in 0..self.params.share_count {
             DLogProof::verify(&dlog_proofs[i]).unwrap();
@@ -418,7 +418,7 @@ impl SignPhase {
         share_public_key: &Vec<GE>,
         x: &FE,
         party_num: usize,
-    ) -> Result<Self, ProofError> {
+    ) -> Result<Self, MulEcdsaError> {
         assert!(party_num > params.threshold);
         assert_eq!(vss_scheme_vec.len(), params.share_count);
         assert_eq!(share_public_key.len(), params.share_count);
@@ -605,7 +605,7 @@ impl SignPhase {
         &mut self,
         dl_com_vec: &Vec<SignPhaseOneMsg>,
         dl_open_vec: &Vec<SignPhaseFourMsg>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         assert_eq!(dl_com_vec.len(), self.party_num);
         assert_eq!(dl_open_vec.len(), self.party_num);
         for i in 0..dl_com_vec.len() {
@@ -680,7 +680,7 @@ impl SignPhase {
         q: &GE, // signing public key
         msgs_step_one: &Vec<SignPhaseFiveStepOneMsg>,
         msgs_step_two: &Vec<SignPhaseFiveStepTwoMsg>,
-    ) -> Result<(SignPhaseFiveStepFourMsg, SignPhaseFiveStepFiveMsg), ProofError> {
+    ) -> Result<(SignPhaseFiveStepFourMsg, SignPhaseFiveStepFiveMsg), MulEcdsaError> {
         // TBD: check the size
 
         let base: GE = ECPoint::generator();
@@ -701,7 +701,7 @@ impl SignPhase {
                 &msgs_step_two[i].blind,
             ) != msgs_step_one[i].commitment
             {
-                return Err(ProofError);
+                return Err(MulEcdsaError::GeneralError);
             }
 
             // Verify zk proof
@@ -743,7 +743,7 @@ impl SignPhase {
     pub fn phase_five_step_six_verify_com_and_check_sum_a_t(
         msgs_step_four: &Vec<SignPhaseFiveStepFourMsg>,
         msgs_step_five: &Vec<SignPhaseFiveStepFiveMsg>,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         assert_eq!(msgs_step_four.len(), msgs_step_five.len());
         assert_eq!(msgs_step_four.len(), msgs_step_five.len());
         let test_com = (0..msgs_step_four.len())
@@ -772,7 +772,7 @@ impl SignPhase {
             .fold(biased_sum_ti, |acc, x| acc.sub_point(&x.get_element()));
 
         if !test_com || base != biased_sum_ti_minus_ui {
-            return Err(ProofError);
+            return Err(MulEcdsaError::GeneralError);
         }
 
         Ok(())

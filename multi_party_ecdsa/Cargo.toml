@@ -32,6 +32,7 @@ tokio-util = {version = "0.3.1", features=["codec"]}
 rand = "0.7"
 curve25519-dalek = { version = "3", features = ["serde"] }
 readerwriter = {path = "../readerwriter", features=["bytes"]}
+thiserror = "1"
 
 # TBD: update the dependencies
 [dependencies.curv]

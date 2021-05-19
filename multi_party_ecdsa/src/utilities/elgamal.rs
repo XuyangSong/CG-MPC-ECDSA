@@ -1,4 +1,4 @@
-use super::error::ProofError;
+use super::error::MulEcdsaError;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::traits::*;
@@ -80,7 +80,7 @@ impl ElgamalProof {
         a22.zeroize();
         ElgamalProof { a1, a2, z1, z2 }
     }
-    pub fn verify(&self, cipher: &ElgamalCipher, p_key: &GE) -> Result<(), ProofError> {
+    pub fn verify(&self, cipher: &ElgamalCipher, p_key: &GE) -> Result<(), MulEcdsaError> {
         let e = HSha256::create_hash_from_ge(&[p_key, &cipher.c1, &cipher.c2, &self.a1, &self.a2]);
         let base: GE = GE::generator();
         let gz1 = base * self.z1;
@@ -90,7 +90,7 @@ impl ElgamalProof {
         if gz1 == rcheck && hz1gz2 == xcheck {
             Ok(())
         } else {
-            Err(ProofError)
+            Err(MulEcdsaError::VrfyElgamalProofFailed)
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::utilities::class::update_class_group_by_p;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
-use crate::utilities::error::ProofError;
+use crate::utilities::error::MulEcdsaError;
 use crate::utilities::promise_sigma::{PromiseCipher, PromiseProof, PromiseState};
 use class_group::primitives::cl_dl_public_setup::{
     encrypt_without_r, eval_scal, eval_sum, CLGroup, Ciphertext as CLCiphertext, PK,
@@ -44,10 +44,10 @@ impl KeyGenInit {
         h_caret: &PK,
         h: &PK,
         gp: &BinaryQF,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         let h_ret = h_caret.0.exp(&FE::q());
-        if h_ret != h.0 && *gp != self.cl_group.gq {
-            return Err(ProofError);
+        if h_ret != h.0 || *gp != self.cl_group.gq {
+            return Err(MulEcdsaError::VrfyClassGroupFailed);
         }
         Ok(())
     }
@@ -55,9 +55,9 @@ impl KeyGenInit {
     pub fn verify_received_dl_com_zk(
         commitment: &DLCommitments,
         witness: &CommWitness,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         // TBD: handle the error
-        DLComZK::verify(commitment, witness).unwrap();
+        DLComZK::verify(commitment, witness).map_err(|_| MulEcdsaError::VrfyRecvDLComZKFailed)?;
 
         Ok(())
     }
@@ -66,10 +66,10 @@ impl KeyGenInit {
         &self,
         state: &PromiseState,
         proof: &PromiseProof,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         // TBD: check pk
 
-        proof.verify(&self.cl_group, state)?;
+        proof.verify(&self.cl_group, state).map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
 
         Ok(())
     }
@@ -118,10 +118,9 @@ impl SignPhase {
     pub fn verify_received_dl_com_zk(
         commitment: &DLCommitments,
         witness: &CommWitness,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(), MulEcdsaError> {
         // TBD: handle the error
-        DLComZK::verify(commitment, witness).unwrap();
-
+        DLComZK::verify(commitment, witness).map_err(|_| MulEcdsaError::VrfyRecvDLComZKFailed)?;
         Ok(())
     }
 
@@ -135,9 +134,9 @@ impl SignPhase {
         secret_key: &FE,
         cipher: &PromiseCipher,
         // message: &FE,
-    ) -> (CLCiphertext, FE) {
+    ) -> Result<(CLCiphertext, FE), MulEcdsaError> {
         let q = FE::q();
-        let r_x: FE = ECScalar::from(&ephemeral_public_share.x_coor().unwrap().mod_floor(&q));
+        let r_x: FE = ECScalar::from(&ephemeral_public_share.x_coor().ok_or(MulEcdsaError::XcoorNone)?.mod_floor(&q));
         let k2_inv = self.keypair.get_secret_key().invert();
         // let k2_inv_m = k2_inv * message;
 
@@ -148,6 +147,6 @@ impl SignPhase {
         let t_plus = t + v.to_big_int();
         let c2 = eval_scal(&cipher.cl_cipher, &t_plus);
 
-        (eval_sum(&self.precompute_c1, &c2), t_p)
+       Ok((eval_sum(&self.precompute_c1, &c2), t_p))
     }
 }

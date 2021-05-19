@@ -1,4 +1,4 @@
-use super::error::ProofError;
+use super::error::MulEcdsaError;
 use curv::elliptic::curves::traits::*;
 use curv::{FE, GE};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ pub struct Signature {
 }
 
 impl Signature {
-    pub fn verify(signature: &Signature, pubkey: &GE, message: &FE) -> Result<(), ProofError> {
+    pub fn verify(signature: &Signature, pubkey: &GE, message: &FE) -> Result<(), MulEcdsaError> {
         let q = FE::q();
 
         let s_inv_fe = signature.s.invert();
@@ -25,7 +25,7 @@ impl Signature {
         {
             Ok(())
         } else {
-            return Err(ProofError);
+            return Err(MulEcdsaError::GeneralError);
         }
     }
 }

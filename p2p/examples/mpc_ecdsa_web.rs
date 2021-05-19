@@ -20,6 +20,7 @@ use multi_party_ecdsa::protocols::multi_party::ours::message::{
 use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;
 use multi_party_ecdsa::utilities::promise_sigma::PromiseState;
+use multi_party_ecdsa::utilities::error::MulEcdsaError;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::{env, fs, thread};
@@ -859,7 +860,7 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
                                     &secret_key,
                                     &promise_state.cipher,
                                     // &message_to_sign,
-                                );
+                                ).unwrap();
 
                                 let msg_send = TwoPartyMsg::SignPartyTwoRoundTwoMsg(cipher, t_p);
                                 let msg_bytes = bincode::serialize(&msg_send).unwrap();
@@ -891,7 +892,7 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
                                     &ephemeral_public_share,
                                     &secret_key,
                                     &t_p,
-                                );
+                                ).unwrap();
 
                                 let mut _res = String::new();
                                 {
@@ -1006,7 +1007,7 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
             // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
             // TBD: add a new func, init it latter.
-            let mut keygen = KeyGen::init(&seed, &qtilde, my_index, params.clone());
+            let mut keygen = KeyGen::init(&seed, &qtilde, my_index, params.clone()).unwrap();
             let mut sign: SignPhase = SignPhase::new_default(&seed, &qtilde, params.clone());
 
             let mut time = time::now();
@@ -1032,7 +1033,7 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                             STATE_KEYGENS[my_index] = KMSState::KeyGenIniting;
                         }
                         println!("\n=> Peer KeyGenInit");
-                        keygen = KeyGen::init(&seed, &qtilde, my_index, params.clone());
+                        keygen = KeyGen::init(&seed, &qtilde, my_index, params.clone()).unwrap();
 
                         let msg_send = ReceivingMessages::MultiKeyGenInitSync(my_index);
                         let msg_bytes = bincode::serialize(&msg_send).unwrap();
@@ -1058,7 +1059,7 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                             params.clone(),
                             &subset,
                             &mmsg,
-                        );
+                        ).unwrap();
                         sign.init();
 
                         let msg_send = ReceivingMessages::MultiSignInitSync(my_index);
@@ -1090,13 +1091,13 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                                 unsafe {
                                     STATE_KEYGENS[index] = KMSState::KeyGenerating;
                                 }
-                                keygen.msg_handler(index, &msg)
+                                keygen.msg_handler(index, &msg).unwrap()
                             }
                             ReceivingMessages::MultiSignMessage(msg) => {
                                 unsafe {
                                     STATE_SIGNS[index] = KMSState::Signing;
                                 }
-                                sign.msg_handler(index, &msg)
+                                sign.msg_handler(index, &msg).unwrap()
                             }
                         };
 
