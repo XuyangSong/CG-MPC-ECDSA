@@ -47,6 +47,8 @@ pub enum MulEcdsaError {
     PartyLessThanThreshold,
     #[error("Left not equal to Right")]
     LeftNotEqualRight,
+    #[error("Verify multiparty ecdsa sign phase one message failed")]
+    VrfySignPhaseOneMsgFailed,
     #[error("Handle multiparty ecdsa sign phase two message failed")]
     HandleSignPhaseTwoMsgFailed,
     #[error("Open general commitment failed")]

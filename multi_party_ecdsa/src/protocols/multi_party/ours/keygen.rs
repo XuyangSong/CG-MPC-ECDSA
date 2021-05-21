@@ -148,7 +148,7 @@ impl KeyGen {
     ) -> Result<(), MulEcdsaError> {
         let h_ret = h_caret.0.exp(&FE::q());
         if h_ret != h.0 || *gp != self.group.gq {
-            return Err(MulEcdsaError::VrfyClassGroupFailed);
+            return Err(MulEcdsaError::VrfySignPhaseOneMsgFailed);
         }
         Ok(())
     }

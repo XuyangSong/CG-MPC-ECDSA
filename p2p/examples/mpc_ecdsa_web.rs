@@ -19,7 +19,6 @@ use multi_party_ecdsa::protocols::multi_party::ours::message::{
 };
 use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;
-use multi_party_ecdsa::utilities::error::MulEcdsaError;
 use multi_party_ecdsa::utilities::promise_sigma::PromiseState;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
