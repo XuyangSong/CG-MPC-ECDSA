@@ -92,7 +92,7 @@ impl KeyGen {
         let msg_1_2 = KeyGenPhaseOneTwoMsg {
             h_caret: h_caret.clone(),
             h: cl_keypair.get_public_key().clone(),
-            gp: group.gq.clone(),
+            gp: new_class_group.gq.clone(),
             commitment: dlog_com.commitment,
         };
         msgs.phase_one_two_msgs.insert(party_index, msg_1_2);
@@ -147,6 +147,10 @@ impl KeyGen {
         gp: &BinaryQF,
     ) -> Result<(), MulEcdsaError> {
         let h_ret = h_caret.0.exp(&FE::q());
+        println!("h_ret = {:?}", h_ret);
+        println!("h.0 = {:?}", h.0);
+        println!("gp = {:?}", *gp);
+        println!(" = {:?}", self.group.gq);
         if h_ret != h.0 || *gp != self.group.gq {
             return Err(MulEcdsaError::VrfySignPhaseOneMsgFailed);
         }
@@ -353,7 +357,8 @@ impl KeyGen {
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
                     // Save keygen to file
-                    let keygen_path = Path::new("./keygen_result.json");
+                    let file_name = "./keygen_result".to_string()+&self.party_index.to_string()+".json";
+                    let keygen_path = Path::new(&file_name);
                     let keygen_json = serde_json::to_string(&(
                         self.cl_keypair.clone(),
                         self.public_signing_key.clone(),

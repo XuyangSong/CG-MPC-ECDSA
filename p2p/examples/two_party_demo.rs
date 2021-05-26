@@ -24,30 +24,94 @@ use std::{env, fs};
 
 #[derive(Debug, Deserialize)]
 struct JsonConfig {
-    pub my_info: MyInfo,
-    pub peer_info: PeerInfo,
+    pub infos: Vec<PeerInfo>,
     pub message: String, // message to sign
 }
 
-#[derive(Debug, Deserialize)]
-struct MyInfo {
+#[derive(Debug, Deserialize, Clone)]
+pub struct MyInfo {
     pub index: usize,
     pub ip: String,
     pub port: u16,
 }
+impl MyInfo{
+    pub fn new(index_: usize, ip_: String, port_:u16) -> Self {
+        Self {
+            index: index_,
+            ip: ip_,
+            port: port_,
+        }
+    }
+}
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PeerInfo {
     pub index: usize,
     pub address: String,
 }
+impl PeerInfo {
+    pub fn new(index_: usize, address_: String) -> Self {
+        Self {
+            index: index_,
+            address: address_,
+        }
+    }
+}
+#[derive(Debug, Deserialize, Clone)]
+pub struct JsonConfigInternal {
+    pub http_port: u16,
+    pub my_info: MyInfo,
+    pub peer_info: PeerInfo,
+    pub message: String,
+}
+
+impl JsonConfigInternal {
+    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
+        let file_path = Path::new(&json_config_file);
+        let json_str = fs::read_to_string(file_path).unwrap();
+        let json_config: JsonConfig =
+            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
+
+        let index_ = party_id;
+        let mut ip_: String = String::new();
+        let mut port_: u16 = 8888;
+        let mut peers_info_: PeerInfo = PeerInfo::new(0, " ".to_string());
+        for info in json_config.infos.iter() {
+            if info.index == index_ {
+                let s = info.address.clone();
+                let vs: Vec<&str> = s.splitn(2, ":").collect();
+                ip_ = vs[0].to_string();
+                port_ = vs[1].to_string().parse::<u16>().unwrap();
+            } else {
+                peers_info_  = PeerInfo::new(info.index, info.address.clone());
+            }
+        }
+
+        Self {
+            http_port: 8000,
+            my_info: MyInfo::new(index_, ip_, port_),
+            peer_info: peers_info_,
+            message: json_config.message
+        }
+    }
+}
 
 fn main() {
-    if env::args().nth(1).is_none() {
+    if env::args().count() < 3 {
+        println!(
+            "Usage:\n\t{} <parties> <party-id> <port> <config-file>",
+            env::args().nth(0).unwrap()
+        );
         panic!("Need Config File")
     }
-    let path_str = env::args().nth(1).unwrap();
 
+    let party_id_str = env::args().nth(1).unwrap();
+    let party_id = party_id_str.parse::<usize>().unwrap();
+    let json_config_file = env::args().nth(2).unwrap();
+    let json_config_internal =
+        JsonConfigInternal::init_with(party_id, json_config_file);
+    //json_config_internal.http_port = port;
+    let json_config = json_config_internal.clone();
     // Create the runtime.
     let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
     let local = task::LocalSet::new();
@@ -57,17 +121,14 @@ fn main() {
             let host_privkey = cybershake::PrivateKey::from(Scalar::random(&mut thread_rng()));
 
             // Read config info from file
-            let file_path = Path::new(&path_str);
-            let json_str = fs::read_to_string(file_path).unwrap();
-            let json_config: JsonConfig = serde_json::from_str(&json_str).expect("JSON was not well-formatted");
-
-            let index = json_config.my_info.index;
+            let party_index = json_config.my_info.index;
+        
             // let message = json_config.message;
             let message_hash = HSha256::create_hash_from_slice(json_config.message.as_bytes());
             let message_to_sign: FE = ECScalar::from(&message_hash);
 
             let config = NodeConfig {
-                index: index,
+                index: party_index,
                 listen_ip: json_config.my_info.ip.parse().unwrap(),
                 listen_port: json_config.my_info.port,
                 inbound_limit: 100,
@@ -83,7 +144,7 @@ fn main() {
                 "Listening on {} with peer ID: {} with index: {}",
                 node.socket_address(),
                 node.id(),
-                index,
+                party_index,
             );
 
             let mut node2 = node.clone();
@@ -161,7 +222,8 @@ fn main() {
                                         println!("keygen party one time: {:?}", time::now() - time);
 
                                         // Party one save keygen to file
-                                        let keygen_path = Path::new("./keygen_result.json");
+                                        let file_name = "./keygen_result".to_string()+&party_index.to_string()+".json";
+                                        let keygen_path = Path::new(&file_name);
                                         let keygen_json = serde_json::to_string(&(
                                             party_one_keygen.cl_keypair.get_secret_key().clone(),
                                             party_one_keygen.keypair.get_secret_key().clone(),
@@ -191,7 +253,8 @@ fn main() {
                                         println!("keygen party two time: {:?}", time::now() - time);
 
                                         // Party two save keygen to file
-                                        let keygen_path = Path::new("./keygen_result.json");
+                                        let file_name = "./keygen_result".to_string()+".json";
+                                        let keygen_path = Path::new(&file_name);
                                         let keygen_json = serde_json::to_string(&(
                                             promise_state,
                                             party_two_keygen.keypair.get_secret_key().clone(),
@@ -243,7 +306,8 @@ fn main() {
                                         .unwrap();
 
                                         // read key file
-                                        let data = fs::read_to_string("./keygen_result.json")
+                                        let file_name = "./keygen_result".to_string()+".json";
+                                        let data = fs::read_to_string(file_name)
                                             .expect("Unable to load keys, did you run keygen first? ");
                                         let (promise_state, secret_key): (
                                             PromiseState,
@@ -271,7 +335,8 @@ fn main() {
                                         println!("\n=>    Sign: Receiving RoundTwoMsg from index 1");
 
                                         // read key file
-                                        let data = fs::read_to_string("./keygen_result.json")
+                                        let file_name = "./keygen_result".to_string()+&party_index.to_string()+".json";
+                                        let data = fs::read_to_string(file_name)
                                             .expect("Unable to load keys, did you run keygen first? ");
                                         let (cl_sk, secret_key): (
                                             SK,

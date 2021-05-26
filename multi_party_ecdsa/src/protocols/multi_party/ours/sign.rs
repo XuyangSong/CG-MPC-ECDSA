@@ -101,7 +101,8 @@ impl SignPhase {
         let new_class_group = update_class_group_by_p(&group);
 
         // Read key file
-        let data = fs::read_to_string("./keygen_result.json")
+        let file_name = "./keygen_result".to_string()+&party_index.to_string()+".json";
+        let data = fs::read_to_string(file_name)
             .map_err(|_| MulEcdsaError::FileReadFailed)?;
         //.expect("Unable to load keys, did you run keygen first? ");
 
