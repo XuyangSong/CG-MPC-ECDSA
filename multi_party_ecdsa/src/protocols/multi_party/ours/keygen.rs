@@ -357,7 +357,8 @@ impl KeyGen {
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
                     // Save keygen to file
-                    let file_name = "./keygen_result".to_string()+&self.party_index.to_string()+".json";
+                    let file_name =
+                        "./keygen_result".to_string() + &self.party_index.to_string() + ".json";
                     let keygen_path = Path::new(&file_name);
                     let keygen_json = serde_json::to_string(&(
                         self.cl_keypair.clone(),

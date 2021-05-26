@@ -34,8 +34,8 @@ pub struct MyInfo {
     pub ip: String,
     pub port: u16,
 }
-impl MyInfo{
-    pub fn new(index_: usize, ip_: String, port_:u16) -> Self {
+impl MyInfo {
+    pub fn new(index_: usize, ip_: String, port_: u16) -> Self {
         Self {
             index: index_,
             ip: ip_,
@@ -83,7 +83,7 @@ impl JsonConfigInternal {
                 ip_ = vs[0].to_string();
                 port_ = vs[1].to_string().parse::<u16>().unwrap();
             } else {
-                peers_info_  = PeerInfo::new(info.index, info.address.clone());
+                peers_info_ = PeerInfo::new(info.index, info.address.clone());
             }
         }
 
@@ -91,7 +91,7 @@ impl JsonConfigInternal {
             http_port: 8000,
             my_info: MyInfo::new(index_, ip_, port_),
             peer_info: peers_info_,
-            message: json_config.message
+            message: json_config.message,
         }
     }
 }
@@ -108,8 +108,7 @@ fn main() {
     let party_id_str = env::args().nth(1).unwrap();
     let party_id = party_id_str.parse::<usize>().unwrap();
     let json_config_file = env::args().nth(2).unwrap();
-    let json_config_internal =
-        JsonConfigInternal::init_with(party_id, json_config_file);
+    let json_config_internal = JsonConfigInternal::init_with(party_id, json_config_file);
     //json_config_internal.http_port = port;
     let json_config = json_config_internal.clone();
     // Create the runtime.
@@ -122,7 +121,6 @@ fn main() {
 
             // Read config info from file
             let party_index = json_config.my_info.index;
-        
             // let message = json_config.message;
             let message_hash = HSha256::create_hash_from_slice(json_config.message.as_bytes());
             let message_to_sign: FE = ECScalar::from(&message_hash);

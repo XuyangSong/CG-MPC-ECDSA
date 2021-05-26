@@ -35,8 +35,8 @@ pub struct MyInfo {
     pub ip: String,
     pub port: u16,
 }
-impl MyInfo{
-    pub fn new(index_: usize, ip_: String, port_:u16) -> Self {
+impl MyInfo {
+    pub fn new(index_: usize, ip_: String, port_: u16) -> Self {
         Self {
             index: index_,
             ip: ip_,
@@ -118,8 +118,7 @@ fn main() {
     //let port = port_str.parse::<u16>().unwrap();
     let party_id = party_id_str.parse::<usize>().unwrap();
     let json_config_file = env::args().nth(2).unwrap();
-    let json_config_internal =
-        JsonConfigInternal::init_with(party_id, json_config_file);
+    let json_config_internal = JsonConfigInternal::init_with(party_id, json_config_file);
     //json_config_internal.http_port = port;
     let json_config = json_config_internal.clone();
 
