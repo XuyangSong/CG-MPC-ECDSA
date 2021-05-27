@@ -147,10 +147,6 @@ impl KeyGen {
         gp: &BinaryQF,
     ) -> Result<(), MulEcdsaError> {
         let h_ret = h_caret.0.exp(&FE::q());
-        println!("h_ret = {:?}", h_ret);
-        println!("h.0 = {:?}", h.0);
-        println!("gp = {:?}", *gp);
-        println!(" = {:?}", self.group.gq);
         if h_ret != h.0 || *gp != self.group.gq {
             return Err(MulEcdsaError::VrfySignPhaseOneMsgFailed);
         }
