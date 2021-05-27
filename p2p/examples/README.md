@@ -1,11 +1,10 @@
 # Run multi party demo
 
-## Two party 
+## Two party
 CONFIGFILE is the config json file. You can found the example file here: "p2p/examples/config_2pc.json".
-```example
+example
+```
 {
-    "share_count": 2,
-    "threshold": 1,
     "infos": [
         {
             "index": 0,
@@ -16,19 +15,13 @@ CONFIGFILE is the config json file. You can found the example file here: "p2p/ex
             "address": "127.0.0.1:64001"
         }
     ],
-    "message": "xxxxxxxxxxxx",
-    "subset": [
-        0,
-        1
-    ]
+    "message": "xxxxxxxxxxxx"
 }
-
+```
 Specify the party_index 0 or 1.
-
 ```
 $ cargo run --example two_party_demo <party_index> <CONFIGFILE>
 ```
-
 *Please start all nodes before connect.
 
 ### connect
@@ -53,7 +46,7 @@ Disconnect peers.
 ```
 >> q
 ```
-## sign
+### sign
 * Please run sign by party 0.
 ```
 >> sign
@@ -94,6 +87,7 @@ CONFIGFILE is the config json file. You can found the example file here: "p2p/ex
         2
     ]
 }
+```
 Specify the party_index, party_index should be less than the total share counts.
 
 ```
@@ -151,4 +145,5 @@ Connect the subset peers.
 Disconnect peers.
 ```
 >> q
+
 ```
