@@ -1,0 +1,13 @@
+{
+    "infos": [
+        {
+            "index": 0,
+            "address": "127.0.0.1:64000"
+        },
+        {
+            "index": 1,
+            "address": "127.0.0.1:64001"
+        }
+    ],
+    "message": "xxxxxxxxxxxx"
+}

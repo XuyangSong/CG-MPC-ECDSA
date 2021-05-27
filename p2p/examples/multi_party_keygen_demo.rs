@@ -24,30 +24,103 @@ use std::{env, fs};
 struct JsonConfig {
     pub share_count: usize,
     pub threshold: usize,
-    pub my_info: MyInfo,
-    pub peers_info: Vec<PeerInfo>,
+    pub infos: Vec<PeerInfo>,
     pub message: String,    // message to sign
     pub subset: Vec<usize>, // sign parties
 }
 
-#[derive(Debug, Deserialize)]
-struct MyInfo {
+#[derive(Debug, Deserialize, Clone)]
+pub struct MyInfo {
     pub index: usize,
     pub ip: String,
     pub port: u16,
 }
+impl MyInfo {
+    pub fn new(index_: usize, ip_: String, port_: u16) -> Self {
+        Self {
+            index: index_,
+            ip: ip_,
+            port: port_,
+        }
+    }
+}
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PeerInfo {
     pub index: usize,
     pub address: String,
 }
+impl PeerInfo {
+    pub fn new(index_: usize, address_: String) -> Self {
+        Self {
+            index: index_,
+            address: address_,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct JsonConfigInternal {
+    pub http_port: u16,
+    pub share_count: usize,
+    pub threshold: usize,
+    pub my_info: MyInfo,
+    pub peers_info: Vec<PeerInfo>,
+    pub message: String,
+    pub subset: Vec<usize>,
+}
+
+impl JsonConfigInternal {
+    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
+        let file_path = Path::new(&json_config_file);
+        let json_str = fs::read_to_string(file_path).unwrap();
+        let json_config: JsonConfig =
+            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
+
+        let index_ = party_id;
+        let mut ip_: String = String::new();
+        let mut port_: u16 = 8888;
+        let mut peers_info_: Vec<PeerInfo> = Vec::new();
+        for info in json_config.infos.iter() {
+            if info.index == index_ {
+                let s = info.address.clone();
+                let vs: Vec<&str> = s.splitn(2, ":").collect();
+                ip_ = vs[0].to_string();
+                port_ = vs[1].to_string().parse::<u16>().unwrap();
+            } else {
+                peers_info_.push(PeerInfo::new(info.index, info.address.clone()));
+            }
+        }
+
+        Self {
+            http_port: 8000,
+            share_count: json_config.share_count,
+            threshold: json_config.threshold,
+            my_info: MyInfo::new(index_, ip_, port_),
+            peers_info: peers_info_,
+            message: json_config.message,
+            subset: json_config.subset,
+        }
+    }
+}
 
 fn main() {
-    if env::args().nth(1).is_none() {
+    if env::args().count() < 3 {
+        println!(
+            "Usage:\n\t{} <parties> <party-id> <port> <config-file>",
+            env::args().nth(0).unwrap()
+        );
         panic!("Need Config File")
     }
-    let path_str = env::args().nth(1).unwrap();
+
+    let party_id_str = env::args().nth(1).unwrap();
+    //let port_str = env::args().nth(2).unwrap();
+    //let port = port_str.parse::<u16>().unwrap();
+    let party_id = party_id_str.parse::<usize>().unwrap();
+    let json_config_file = env::args().nth(2).unwrap();
+    let json_config_internal = JsonConfigInternal::init_with(party_id, json_config_file);
+    //json_config_internal.http_port = port;
+    let json_config = json_config_internal.clone();
 
     // Create the runtime.
     let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
@@ -58,10 +131,6 @@ fn main() {
             let host_privkey = cybershake::PrivateKey::from(Scalar::random(&mut thread_rng()));
 
             // Read config info from file
-            let file_path = Path::new(&path_str);
-            let json_str = fs::read_to_string(file_path).unwrap();
-            let json_config: JsonConfig = serde_json::from_str(&json_str).expect("JSON was not well-formatted");
-
             let party_index = json_config.my_info.index;
             let params = Parameters {
                 threshold: json_config.threshold,
