@@ -5,7 +5,8 @@ use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::HomoELGamalProof;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
-use curv::{BigInt, FE, GE};
+use curv::{BigInt};
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -32,13 +33,14 @@ pub struct KeyGenPhaseThreeMsg {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyGenPhaseFourMsg {
-    pub vss_scheme: VerifiableSS,
+    pub vss_scheme: VerifiableSS<GE>,
     pub secret_share: FE,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyGenPhaseFiveMsg {
-    pub dl_proof: DLogProof,
+    //TBD:generalize curv
+    pub dl_proof: DLogProof<GE>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -114,8 +116,9 @@ pub struct SignPhaseFiveStepTwoMsg {
     pub a_i: GE,
     pub b_i: GE,
     pub blind: BigInt,
-    pub dl_proof: DLogProof,
-    pub proof: HomoELGamalProof,
+    //TBD:generalize curv
+    pub dl_proof: DLogProof<GE>,
+    pub proof: HomoELGamalProof<GE>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

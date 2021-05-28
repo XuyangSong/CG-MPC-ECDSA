@@ -5,7 +5,8 @@ use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::signature::Signature;
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE, GE};
+use curv::{BigInt};
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use std::collections::HashMap;
 
 use crate::utilities::class::update_class_group_by_p;
@@ -21,7 +22,7 @@ use curv::cryptographic_primitives::commitments::traits::Commitment;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::*;
-use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof, ProveDLog};
+use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof};
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 
 #[derive(Clone, Debug)]
@@ -41,7 +42,7 @@ pub struct KeyGenTest {
     pub public_signing_key: GE,               // Q
     pub share_private_key: FE,                // x_i
     pub share_public_key: HashMap<usize, GE>, // X_i
-    pub vss_scheme_map: HashMap<usize, VerifiableSS>,
+    pub vss_scheme_map: HashMap<usize, VerifiableSS<GE>>,
 }
 
 #[derive(Clone, Debug)]
@@ -136,8 +137,8 @@ impl KeyGenTest {
         &mut self,
         q_vec: &Vec<GE>,
         secret_shares_vec: &HashMap<usize, FE>,
-        vss_scheme_map: &HashMap<usize, VerifiableSS>,
-    ) -> Result<DLogProof, MulEcdsaError> {
+        vss_scheme_map: &HashMap<usize, VerifiableSS<GE>>,
+    ) -> Result<DLogProof<GE>, MulEcdsaError> {
         assert_eq!(q_vec.len(), self.params.share_count);
         assert_eq!(secret_shares_vec.len(), self.params.share_count);
         assert_eq!(vss_scheme_map.len(), self.params.share_count);
@@ -169,7 +170,7 @@ impl KeyGenTest {
 
     pub fn phase_six_verify_dlog_proof(
         &mut self,
-        dlog_proofs: &Vec<DLogProof>,
+        dlog_proofs: &Vec<DLogProof<GE>>,
     ) -> Result<(), MulEcdsaError> {
         assert_eq!(dlog_proofs.len(), self.params.share_count);
         for i in 0..self.params.share_count {
@@ -180,7 +181,7 @@ impl KeyGenTest {
         Ok(())
     }
 
-    pub fn phase_four_generate_vss(&self) -> (VerifiableSS, Vec<FE>, usize) {
+    pub fn phase_four_generate_vss(&self) -> (VerifiableSS<GE>, Vec<FE>, usize) {
         let (vss_scheme, secret_shares) = VerifiableSS::share(
             self.params.threshold as usize,
             self.params.share_count as usize,
@@ -196,7 +197,7 @@ impl SignPhaseTest {
         cl_group: CLGroup,
         party_index: usize,
         params: Parameters,
-        vss_scheme_map: &HashMap<usize, VerifiableSS>,
+        vss_scheme_map: &HashMap<usize, VerifiableSS<GE>>,
         subset: &[usize],
         share_public_key_map: &HashMap<usize, GE>,
         x: &FE,
@@ -207,11 +208,9 @@ impl SignPhaseTest {
         assert!(party_num > params.threshold);
         assert_eq!(vss_scheme_map.len(), params.share_count);
         assert_eq!(share_public_key_map.len(), params.share_count);
-
-        let lamda = vss_scheme_map
+        let lamda =  VerifiableSS::<GE>::map_share_to_new_params(&vss_scheme_map
             .get(&party_index)
-            .unwrap()
-            .map_share_to_new_params(party_index, subset);
+            .unwrap().parameters, party_index, subset);
         let omega = lamda * x;
         let big_omega_vec = subset
             .iter()
@@ -219,7 +218,7 @@ impl SignPhaseTest {
                 if *i != party_index {
                     let share_public_key = share_public_key_map.get(i).unwrap();
                     let vss_scheme = vss_scheme_map.get(i).unwrap();
-                    let ret = share_public_key * &vss_scheme.map_share_to_new_params(*i, subset);
+                    let ret = share_public_key*&(VerifiableSS::<GE>::map_share_to_new_params(&vss_scheme.parameters, *i, subset));
                     Some(ret)
                 } else {
                     None
@@ -911,7 +910,7 @@ fn test_sign(params: &Parameters, key_gen_vec: Vec<KeyGenTest>) {
 
 #[test]
 fn test_multi_party() {
-    let seed: BigInt = str::parse(
+    let seed: BigInt = BigInt::from_hex(
         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
     ).unwrap();
     let group = CLGroup::new_from_setup(&1827, &seed); //discriminant 1827

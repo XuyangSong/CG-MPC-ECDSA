@@ -2,7 +2,7 @@ use super::error::MulEcdsaError;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::traits::*;
-use curv::{FE, GE};
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
 use zeroize::Zeroize;
@@ -67,7 +67,7 @@ impl ElgamalProof {
         let mut a21 = p_key * &s1;
         let mut a22 = base * s2;
         let a2 = a21 + a22;
-        let e = HSha256::create_hash_from_ge(&[&p_key, &cipher.c1, &cipher.c2, &a1, &a2]);
+        let e = HSha256::create_hash_from_ge(&[p_key, &cipher.c1, &cipher.c2, &a1, &a2]);
         let z1 = if wit.r != FE::zero() {
             s1 + wit.r * e
         } else {

@@ -2,12 +2,13 @@ use super::*;
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
-use curv::{FE, GE};
+use curv::elliptic::curves::secp256_k1::{FE, GE};
+use curv::arithmetic::Converter;
 
 #[test]
 fn two_party_test() {
     let setup_start = time::now();
-    let seed: BigInt = str::parse(
+    let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
         ).unwrap();
     let cl_group = CLGroup::new_from_setup(&1827, &seed); //discriminant 1827

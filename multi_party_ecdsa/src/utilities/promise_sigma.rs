@@ -10,7 +10,8 @@ use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE, GE};
+use curv::BigInt; 
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -88,17 +89,17 @@ impl PromiseProof {
     pub fn challenge(state: &PromiseState, A: &GE, a1: &BinaryQF, a2: &BinaryQF) -> BigInt {
         let hash256 = HSha256::create_hash(&[
             // hash the statement i.e. the discrete log of Q is encrypted in (c1,c2) under encryption key h.
-            &BigInt::from(state.cipher.cl_cipher.c1.to_bytes().as_ref()),
-            &BigInt::from(state.cipher.cl_cipher.c2.to_bytes().as_ref()),
-            &BigInt::from(state.cl_pub_key.0.to_bytes().as_ref()),
+            &BigInt::from_bytes(state.cipher.cl_cipher.c1.to_bytes().as_ref()),
+            &BigInt::from_bytes(state.cipher.cl_cipher.c2.to_bytes().as_ref()),
+            &BigInt::from_bytes(state.cl_pub_key.0.to_bytes().as_ref()),
             // hash Sigma protocol commitments
             &A.bytes_compressed_to_big_int(),
-            &BigInt::from(a1.to_bytes().as_ref()),
-            &BigInt::from(a2.to_bytes().as_ref()),
+            &BigInt::from_bytes(a1.to_bytes().as_ref()),
+            &BigInt::from_bytes(a2.to_bytes().as_ref()),
         ]);
 
-        let hash128 = &BigInt::to_vec(&hash256)[..SECURITY_PARAMETER / 8];
-        BigInt::from(hash128)
+        let hash128 = &BigInt::to_bytes(&hash256)[..SECURITY_PARAMETER / 8];
+        BigInt::from_bytes(hash128)
     }
 
     pub fn verify(&self, group: &CLGroup, stat: &PromiseState) -> Result<(), MulEcdsaError> {

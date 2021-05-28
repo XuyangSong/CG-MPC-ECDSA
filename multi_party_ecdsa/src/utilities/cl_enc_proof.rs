@@ -6,8 +6,10 @@ use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE};
+use curv::{BigInt};
+use curv::elliptic::curves::secp256_k1::FE;
 use serde::{Deserialize, Serialize};
+
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CLEncState {
@@ -55,15 +57,15 @@ impl CLEncProof {
 
     pub fn challenge(state: &CLEncState, t1: &BinaryQF, t2: &BinaryQF) -> BigInt {
         let hash256 = HSha256::create_hash(&[
-            &BigInt::from(state.cipher.c1.to_bytes().as_ref()),
-            &BigInt::from(state.cipher.c2.to_bytes().as_ref()),
-            &BigInt::from(state.cl_pub_key.0.to_bytes().as_ref()),
-            &BigInt::from(t1.to_bytes().as_ref()),
-            &BigInt::from(t2.to_bytes().as_ref()),
+            &BigInt::from_bytes(state.cipher.c1.to_bytes().as_ref()),
+            &BigInt::from_bytes(state.cipher.c2.to_bytes().as_ref()),
+            &BigInt::from_bytes(state.cl_pub_key.0.to_bytes().as_ref()),
+            &BigInt::from_bytes(t1.to_bytes().as_ref()),
+            &BigInt::from_bytes(t2.to_bytes().as_ref()),
         ]);
 
-        let hash128 = &BigInt::to_vec(&hash256)[..SECURITY_PARAMETER / 8];
-        BigInt::from(hash128)
+        let hash128 = &BigInt::to_bytes(&hash256)[..SECURITY_PARAMETER / 8];
+        BigInt::from_bytes(hash128)
     }
 
     pub fn verify(&self, group: &CLGroup, state: &CLEncState) -> Result<(), MulEcdsaError> {

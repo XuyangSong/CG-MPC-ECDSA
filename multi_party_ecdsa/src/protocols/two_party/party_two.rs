@@ -11,8 +11,9 @@ use curv::arithmetic::traits::Samplable;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
-use curv::FE;
-use curv::GE;
+use curv::elliptic::curves::secp256_k1::FE;
+use curv::elliptic::curves::secp256_k1::GE;
+use curv::arithmetic::traits::*;
 use serde::{Deserialize, Serialize};
 
 //****************** Begin: Party Two structs ******************//
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 pub struct KeyGenInit {
     pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
-    pub msg: DLogProof,
+    pub msg: DLogProof<GE>,
     pub received_msg: DLCommitments,
     pub public_signing_key: GE,
 }
@@ -89,7 +90,7 @@ impl KeyGenInit {
 pub struct SignPhase {
     pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
-    pub msg: DLogProof,
+    pub msg: DLogProof<GE>,
     pub received_round_one_msg: DLCommitments,
     pub precompute_c1: CLCiphertext,
 }

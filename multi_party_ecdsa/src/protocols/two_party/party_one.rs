@@ -2,8 +2,9 @@ use std::cmp;
 
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::elliptic::curves::traits::*;
-use curv::FE;
-use curv::GE;
+use curv::elliptic::curves::secp256_k1::FE;
+use curv::elliptic::curves::secp256_k1::GE;
+use curv::arithmetic::traits::*;
 use serde::{Deserialize, Serialize};
 
 use crate::utilities::class::update_class_group_by_p;
@@ -38,7 +39,7 @@ pub struct SignPhase {
     pub keypair: EcKeyPair,
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
-    pub received_msg: DLogProof,
+    pub received_msg: DLogProof<GE>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -100,7 +101,7 @@ impl KeyGenInit {
     // TBD: remove return value
     pub fn verify_and_get_next_msg(
         &self,
-        dl_proof: &DLogProof,
+        dl_proof: &DLogProof<GE>,
     ) -> Result<CommWitness, MulEcdsaError> {
         // TBD: handle the error
         DLogProof::verify(dl_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
@@ -137,13 +138,13 @@ impl SignPhase {
         }
     }
 
-    pub fn set_received_msg(&mut self, msg: DLogProof) {
+    pub fn set_received_msg(&mut self, msg: DLogProof<GE>) {
         self.received_msg = msg;
     }
 
     pub fn verify_and_get_next_msg(
         &self,
-        dl_proof: &DLogProof,
+        dl_proof: &DLogProof<GE>,
     ) -> Result<CommWitness, MulEcdsaError> {
         // TBD: handle the error
         DLogProof::verify(dl_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;

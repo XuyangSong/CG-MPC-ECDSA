@@ -1,11 +1,13 @@
+use curv::arithmetic::Converter;
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE};
+use curv::{BigInt};
+use curv::elliptic::curves::secp256_k1::FE;
 use multi_party_ecdsa::protocols::multi_party::pkc20::party_i::*;
 use multi_party_ecdsa::utilities::signature::Signature;
 
 fn main() {
-    let seed: BigInt = str::parse(
+    let seed: BigInt = BigInt::from_hex(
         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
     ).unwrap();
 
@@ -52,7 +54,7 @@ fn setup_n(n: usize, discriminant: usize) {
         .unwrap();
     let setup_phase_two_time = (time::now() - setup_phase_two_start) / n_i32;
 
-    let seed: BigInt = str::parse(
+    let seed: BigInt = BigInt::from_hex(
         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
     ).unwrap();
     let group = Setup::cl_setup(&seed, &qtilde);
