@@ -428,7 +428,7 @@ impl SignPhase {
             party_index,
             subset,
         );
-        //let lamda = vss_scheme_vec[party_index].map_share_to_new_params(party_index, subset);
+
         let omega = lamda * x;
         let big_omega_vec = subset
             .iter()
@@ -442,7 +442,6 @@ impl SignPhase {
                                 subset,
                             ),
                     )
-                //Some(share_public_key[i] * vss_scheme_vec[i].map_share_to_new_params(i, subset))
                 } else {
                     None
                 }

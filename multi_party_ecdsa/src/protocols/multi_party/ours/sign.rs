@@ -135,10 +135,6 @@ impl SignPhase {
         let message: FE = ECScalar::from(&message_hash);
 
         // Compute lambda
-        // let lamda = vss_scheme_map
-        //     .get(&party_index)
-        //     .ok_or(MulEcdsaError::GetIndexFailed)?
-        //     .map_share_to_new_params(party_index, subset);
         let lamda = VerifiableSS::<GE>::map_share_to_new_params(
             &vss_scheme_map
                 .get(&party_index)
