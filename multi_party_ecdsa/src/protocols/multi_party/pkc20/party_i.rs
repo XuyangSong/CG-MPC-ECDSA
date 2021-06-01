@@ -16,10 +16,11 @@ use curv::cryptographic_primitives::commitments::traits::Commitment;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::*;
-use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof, ProveDLog};
+use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE, GE};
+use curv::BigInt;
 
 #[derive(Clone, Debug)]
 pub struct Parameters {
@@ -74,7 +75,7 @@ pub struct KeyGen {
     pub public_signing_key: GE,         // Q
     pub share_private_key: FE,          // x_i
     pub share_public_key: Vec<GE>,      // X_i
-    pub vss_scheme_vec: Vec<VerifiableSS>,
+    pub vss_scheme_vec: Vec<VerifiableSS<GE>>,
 }
 
 #[derive(Clone, Debug)]
@@ -134,8 +135,8 @@ pub struct SignPhaseFiveStepTwoMsg {
     a_i: GE,
     b_i: GE,
     blind: BigInt,
-    dl_proof: DLogProof,
-    proof: HomoELGamalProof,
+    dl_proof: DLogProof<GE>,
+    proof: HomoELGamalProof<GE>,
 }
 
 #[derive(Clone, Debug)]
@@ -277,9 +278,9 @@ impl Setup {
 
     pub fn challenge(h: &BinaryQF, gq: &BinaryQF, r: &BinaryQF) -> BigInt {
         let hash256 = HSha256::create_hash(&[
-            &BigInt::from(h.to_bytes().as_ref()),
-            &BigInt::from(gq.to_bytes().as_ref()),
-            &BigInt::from(r.to_bytes().as_ref()),
+            &BigInt::from_bytes(h.to_bytes().as_ref()),
+            &BigInt::from_bytes(gq.to_bytes().as_ref()),
+            &BigInt::from_bytes(r.to_bytes().as_ref()),
         ]);
 
         // lcm = 10
@@ -352,8 +353,8 @@ impl KeyGen {
 
         Ok(())
     }
-
-    pub fn phase_four_generate_vss(&self) -> (VerifiableSS, Vec<FE>, usize) {
+    //TBD:generalize curv
+    pub fn phase_four_generate_vss(&self) -> (VerifiableSS<GE>, Vec<FE>, usize) {
         let (vss_scheme, secret_shares) = VerifiableSS::share(
             self.params.threshold as usize,
             self.params.share_count as usize,
@@ -367,8 +368,8 @@ impl KeyGen {
         &mut self,
         q_vec: &Vec<GE>,
         secret_shares_vec: &Vec<FE>,
-        vss_scheme_vec: &Vec<VerifiableSS>,
-    ) -> Result<DLogProof, MulEcdsaError> {
+        vss_scheme_vec: &Vec<VerifiableSS<GE>>,
+    ) -> Result<DLogProof<GE>, MulEcdsaError> {
         assert_eq!(q_vec.len(), self.params.share_count);
         assert_eq!(secret_shares_vec.len(), self.params.share_count);
         assert_eq!(vss_scheme_vec.len(), self.params.share_count);
@@ -397,7 +398,7 @@ impl KeyGen {
 
     pub fn phase_six_verify_dlog_proof(
         &mut self,
-        dlog_proofs: &Vec<DLogProof>,
+        dlog_proofs: &Vec<DLogProof<GE>>,
     ) -> Result<(), MulEcdsaError> {
         assert_eq!(dlog_proofs.len(), self.params.share_count);
         for i in 0..self.params.share_count {
@@ -413,7 +414,7 @@ impl SignPhase {
     pub fn init(
         party_index: usize,
         params: Parameters,
-        vss_scheme_vec: &Vec<VerifiableSS>,
+        vss_scheme_vec: &Vec<VerifiableSS<GE>>,
         subset: &[usize],
         share_public_key: &Vec<GE>,
         x: &FE,
@@ -422,14 +423,25 @@ impl SignPhase {
         assert!(party_num > params.threshold);
         assert_eq!(vss_scheme_vec.len(), params.share_count);
         assert_eq!(share_public_key.len(), params.share_count);
+        let lamda = VerifiableSS::<GE>::map_share_to_new_params(
+            &vss_scheme_vec[party_index].parameters,
+            party_index,
+            subset,
+        );
 
-        let lamda = vss_scheme_vec[party_index].map_share_to_new_params(party_index, subset);
         let omega = lamda * x;
         let big_omega_vec = subset
             .iter()
             .filter_map(|&i| {
                 if i != party_index {
-                    Some(share_public_key[i] * vss_scheme_vec[i].map_share_to_new_params(i, subset))
+                    Some(
+                        share_public_key[i]
+                            * VerifiableSS::<GE>::map_share_to_new_params(
+                                &vss_scheme_vec[i].parameters,
+                                i,
+                                subset,
+                            ),
+                    )
                 } else {
                     None
                 }
@@ -822,7 +834,7 @@ mod tests {
             .phase_two_verify_commitment_and_generate_qtilde(&phase_one_msg_vec, &phase_two_msg_vec)
             .unwrap();
 
-        let seed: BigInt = str::parse(
+        let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
         ).unwrap();
         let group = Setup::cl_setup(&seed, &qtilde);
@@ -1070,7 +1082,7 @@ mod tests {
 
     #[test]
     fn test_pkc20() {
-        let seed: BigInt = str::parse(
+        let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
         ).unwrap();
         let group = CLGroup::new_from_setup(&1827, &seed); //discriminant 1827

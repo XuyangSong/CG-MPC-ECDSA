@@ -1,6 +1,6 @@
 use class_group::primitives::cl_dl_public_setup::{CLGroup, PK, SK};
+use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::traits::*;
-use curv::FE;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

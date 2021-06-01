@@ -5,8 +5,9 @@ use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
+use curv::elliptic::curves::secp256_k1::GE;
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, GE};
+use curv::BigInt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -38,7 +39,7 @@ pub struct CommWitness {
     pub pk_commitment_blind_factor: BigInt,
     pub zk_pok_blind_factor: BigInt,
     pub public_share: GE,
-    pub d_log_proof: DLogProof,
+    pub d_log_proof: DLogProof<GE>,
 }
 
 impl DlogCommitment {
@@ -92,7 +93,7 @@ impl DlogCommitment {
 
 impl DLComZK {
     pub fn new(keypair: &EcKeyPair) -> Self {
-        let d_log_proof = DLogProof::prove(keypair.get_secret_key());
+        let d_log_proof = DLogProof::<GE>::prove(keypair.get_secret_key());
         // we use hash based commitment
         let pk_commitment_blind_factor = BigInt::sample(SECURITY_BITS);
         let pk_commitment = HashCommitment::create_commitment_with_user_defined_randomness(

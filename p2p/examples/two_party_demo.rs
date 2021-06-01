@@ -1,3 +1,4 @@
+use curv::arithmetic::Converter;
 use curve25519_dalek::scalar::Scalar;
 use rand::thread_rng;
 
@@ -11,8 +12,9 @@ use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
+use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE};
+use curv::BigInt;
 use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
 use multi_party_ecdsa::protocols::two_party::party_two;
@@ -153,10 +155,10 @@ fn main() {
             // Spawn the notifications loop
             let notifications_loop = {
                 task::spawn_local(async move {
-                    let seed: BigInt = str::parse(
+                    let seed: BigInt = BigInt::from_hex(
                         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
                     ).unwrap();
-                    let qtilde: BigInt = str::parse("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
+                    let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
                     let group = CLGroup::new_from_qtilde(&seed, &qtilde);
                     // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 

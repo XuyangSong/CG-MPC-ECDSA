@@ -1,18 +1,18 @@
+use crate::communication::receiving_messages::ReceivingMessages;
+use crate::communication::sending_messages::SendingMessages;
+use crate::protocols::multi_party::ours::message::*;
+use crate::utilities::class::update_class_group_by_p;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, PK};
-
-use crate::communication::receiving_messages::ReceivingMessages;
-use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::update_class_group_by_p;
 use class_group::BinaryQF;
-use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof, ProveDLog};
+use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE, GE};
+use curv::BigInt;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -43,7 +43,7 @@ pub struct KeyGen {
     pub public_signing_key: GE,               // Q
     pub share_private_key: FE,                // x_i
     pub share_public_key: HashMap<usize, GE>, // X_i
-    pub vss_scheme_map: HashMap<usize, VerifiableSS>,
+    pub vss_scheme_map: HashMap<usize, VerifiableSS<GE>>,
     pub msgs: KeyGenMsgs,
 }
 
@@ -184,7 +184,7 @@ impl KeyGen {
         threshold: usize,
         share_count: usize,
         private_signing_key: &FE,
-    ) -> Result<(HashMap<usize, VerifiableSS>, FE), MulEcdsaError> {
+    ) -> Result<(HashMap<usize, VerifiableSS<GE>>, FE), MulEcdsaError> {
         let (vss_scheme, secret_shares) =
             VerifiableSS::share(threshold, share_count, private_signing_key);
 
@@ -250,7 +250,8 @@ impl KeyGen {
     }
 
     fn generate_phase_five_msg(&mut self) -> KeyGenPhaseFiveMsg {
-        let dl_proof = DLogProof::prove(&self.share_private_key);
+        //TBD:generalize curv
+        let dl_proof = DLogProof::<GE>::prove(&self.share_private_key);
         self.share_public_key
             .insert(self.party_index, dl_proof.pk.clone());
         KeyGenPhaseFiveMsg { dl_proof }
@@ -378,7 +379,7 @@ impl KeyGen {
 #[test]
 fn test_exp() {
     use curv::arithmetic::traits::*;
-    let seed: BigInt = str::parse(
+    let seed: BigInt = BigInt::from_hex(
         "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
     ).unwrap();
 
@@ -386,7 +387,7 @@ fn test_exp() {
     // let qtilde: BigInt = str::parse("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
 
     // 923
-    let qtilde: BigInt = str::parse("23134629277267369792843354241183585965289672542849276532207430015120455980466994354663282525744929223097771940566085692607836906398587331469747248600524817812682304621106507179764371100444437141969242248158429617082063052414988242667563996070192147160738941577591048902446543474661282744240565430969463246910793975505673398580796242020117195767211576704240148858827298420892993584245717232048052900060035847264121684747571088249105643535567823029086931610261875021794804631").unwrap();
+    let qtilde: BigInt = BigInt::from_hex("23134629277267369792843354241183585965289672542849276532207430015120455980466994354663282525744929223097771940566085692607836906398587331469747248600524817812682304621106507179764371100444437141969242248158429617082063052414988242667563996070192147160738941577591048902446543474661282744240565430969463246910793975505673398580796242020117195767211576704240148858827298420892993584245717232048052900060035847264121684747571088249105643535567823029086931610261875021794804631").unwrap();
     let group = CLGroup::new_from_qtilde(&seed, &qtilde);
     println!("{}", group.stilde.bit_length());
     let r_1 = BigInt::sample_below(&(&group.stilde * BigInt::from(2).pow(40)));

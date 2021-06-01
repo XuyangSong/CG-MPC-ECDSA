@@ -20,10 +20,11 @@ use curv::cryptographic_primitives::commitments::traits::Commitment;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::*;
-use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof, ProveDLog};
+use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
-use curv::{BigInt, FE, GE};
+use curv::BigInt;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -116,7 +117,7 @@ impl SignPhase {
             GE,
             FE,
             HashMap<usize, GE>,
-            HashMap<usize, VerifiableSS>,
+            HashMap<usize, VerifiableSS<GE>>,
         ) = serde_json::from_str(&data).map_err(|_| MulEcdsaError::FromStringFailed)?;
 
         let party_num = subset.len();
@@ -134,10 +135,14 @@ impl SignPhase {
         let message: FE = ECScalar::from(&message_hash);
 
         // Compute lambda
-        let lamda = vss_scheme_map
-            .get(&party_index)
-            .ok_or(MulEcdsaError::GetIndexFailed)?
-            .map_share_to_new_params(party_index, subset);
+        let lamda = VerifiableSS::<GE>::map_share_to_new_params(
+            &vss_scheme_map
+                .get(&party_index)
+                .ok_or(MulEcdsaError::GetIndexFailed)?
+                .parameters,
+            party_index,
+            subset,
+        );
         let omega = lamda * share_private_key;
         let mut big_omega_map = HashMap::new();
         let _big_omega_vec = subset
@@ -152,7 +157,13 @@ impl SignPhase {
                         .get(i)
                         .ok_or(MulEcdsaError::GetIndexFailed)
                         .ok()?;
-                    let ret = share_public_key * &vss_scheme.map_share_to_new_params(*i, subset);
+                    let ret = share_public_key
+                        * &(VerifiableSS::<GE>::map_share_to_new_params(
+                            &vss_scheme.parameters,
+                            *i,
+                            subset,
+                        ));
+                    //let ret = share_public_key * &vss_scheme.map_share_to_new_params(*i, subset);
                     big_omega_map.insert(*i, ret.clone());
                     Some(ret)
                 } else {
