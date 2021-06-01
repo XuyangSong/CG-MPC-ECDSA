@@ -16,3 +16,5 @@ multi_party_demo
 *.log
 .exclude_tar_file
 .test
+
+keygen_result*.json
