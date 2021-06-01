@@ -1,8 +1,8 @@
 use super::error::MulEcdsaError;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
-use curv::elliptic::curves::traits::*;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
+use curv::elliptic::curves::traits::*;
 use serde::{Deserialize, Serialize};
 use std::ops::Add;
 use zeroize::Zeroize;

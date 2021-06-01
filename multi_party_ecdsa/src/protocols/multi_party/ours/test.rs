@@ -4,9 +4,9 @@ use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::signature::Signature;
-use curv::elliptic::curves::traits::*;
-use curv::{BigInt};
 use curv::elliptic::curves::secp256_k1::{FE, GE};
+use curv::elliptic::curves::traits::*;
+use curv::BigInt;
 use std::collections::HashMap;
 
 use crate::utilities::class::update_class_group_by_p;
@@ -22,7 +22,7 @@ use curv::cryptographic_primitives::commitments::traits::Commitment;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::*;
-use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof};
+use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 
 #[derive(Clone, Debug)]
@@ -208,9 +208,11 @@ impl SignPhaseTest {
         assert!(party_num > params.threshold);
         assert_eq!(vss_scheme_map.len(), params.share_count);
         assert_eq!(share_public_key_map.len(), params.share_count);
-        let lamda =  VerifiableSS::<GE>::map_share_to_new_params(&vss_scheme_map
-            .get(&party_index)
-            .unwrap().parameters, party_index, subset);
+        let lamda = VerifiableSS::<GE>::map_share_to_new_params(
+            &vss_scheme_map.get(&party_index).unwrap().parameters,
+            party_index,
+            subset,
+        );
         let omega = lamda * x;
         let big_omega_vec = subset
             .iter()
@@ -218,7 +220,12 @@ impl SignPhaseTest {
                 if *i != party_index {
                     let share_public_key = share_public_key_map.get(i).unwrap();
                     let vss_scheme = vss_scheme_map.get(i).unwrap();
-                    let ret = share_public_key*&(VerifiableSS::<GE>::map_share_to_new_params(&vss_scheme.parameters, *i, subset));
+                    let ret = share_public_key
+                        * &(VerifiableSS::<GE>::map_share_to_new_params(
+                            &vss_scheme.parameters,
+                            *i,
+                            subset,
+                        ));
                     Some(ret)
                 } else {
                     None

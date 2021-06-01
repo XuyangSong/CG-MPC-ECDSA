@@ -5,9 +5,9 @@ use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
-use curv::elliptic::curves::traits::*;
-use curv::BigInt; 
 use curv::elliptic::curves::secp256_k1::GE;
+use curv::elliptic::curves::traits::*;
+use curv::BigInt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

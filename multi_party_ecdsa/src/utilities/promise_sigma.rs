@@ -9,9 +9,9 @@ use class_group::BinaryQF;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
-use curv::elliptic::curves::traits::*;
-use curv::BigInt; 
 use curv::elliptic::curves::secp256_k1::{FE, GE};
+use curv::elliptic::curves::traits::*;
+use curv::BigInt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

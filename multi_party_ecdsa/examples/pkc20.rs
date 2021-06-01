@@ -1,8 +1,8 @@
-use curv::arithmetic::Converter;
 use class_group::primitives::cl_dl_public_setup::CLGroup;
-use curv::elliptic::curves::traits::*;
-use curv::{BigInt};
+use curv::arithmetic::Converter;
 use curv::elliptic::curves::secp256_k1::FE;
+use curv::elliptic::curves::traits::*;
+use curv::BigInt;
 use multi_party_ecdsa::protocols::multi_party::pkc20::party_i::*;
 use multi_party_ecdsa::utilities::signature::Signature;
 

@@ -1,10 +1,10 @@
 use std::cmp;
 
+use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
-use curv::elliptic::curves::traits::*;
 use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::secp256_k1::GE;
-use curv::arithmetic::traits::*;
+use curv::elliptic::curves::traits::*;
 use serde::{Deserialize, Serialize};
 
 use crate::utilities::class::update_class_group_by_p;

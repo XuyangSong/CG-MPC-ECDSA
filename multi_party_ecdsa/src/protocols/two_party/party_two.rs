@@ -8,12 +8,12 @@ use class_group::primitives::cl_dl_public_setup::{
 };
 use class_group::BinaryQF;
 use curv::arithmetic::traits::Samplable;
+use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
-use curv::elliptic::curves::traits::*;
-use curv::BigInt;
 use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::secp256_k1::GE;
-use curv::arithmetic::traits::*;
+use curv::elliptic::curves::traits::*;
+use curv::BigInt;
 use serde::{Deserialize, Serialize};
 
 //****************** Begin: Party Two structs ******************//

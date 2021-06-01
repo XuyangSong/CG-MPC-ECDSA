@@ -3,7 +3,7 @@ use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
 use class_group::primitives::cl_dl_public_setup::{Ciphertext as CLCiphertext, PK};
 use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
-use curv::elliptic::curves::secp256_k1::{FE,GE};
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

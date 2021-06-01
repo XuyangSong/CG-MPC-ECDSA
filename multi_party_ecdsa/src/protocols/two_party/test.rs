@@ -1,9 +1,9 @@
 use super::*;
 use class_group::primitives::cl_dl_public_setup::CLGroup;
+use curv::arithmetic::Converter;
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
-use curv::elliptic::curves::secp256_k1::{FE, GE};
-use curv::arithmetic::Converter;
 
 #[test]
 fn two_party_test() {

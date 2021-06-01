@@ -5,8 +5,8 @@ use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::HomoELGamalProof;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
-use curv::{BigInt};
 use curv::elliptic::curves::secp256_k1::{FE, GE};
+use curv::BigInt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

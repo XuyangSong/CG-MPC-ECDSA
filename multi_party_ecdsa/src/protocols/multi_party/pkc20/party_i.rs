@@ -16,11 +16,11 @@ use curv::cryptographic_primitives::commitments::traits::Commitment;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::*;
-use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof};
+use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
-use curv::elliptic::curves::traits::*;
-use curv::{BigInt}; 
 use curv::elliptic::curves::secp256_k1::{FE, GE};
+use curv::elliptic::curves::traits::*;
+use curv::BigInt;
 
 #[derive(Clone, Debug)]
 pub struct Parameters {
@@ -353,7 +353,7 @@ impl KeyGen {
 
         Ok(())
     }
-//TBD:generalize curv
+    //TBD:generalize curv
     pub fn phase_four_generate_vss(&self) -> (VerifiableSS<GE>, Vec<FE>, usize) {
         let (vss_scheme, secret_shares) = VerifiableSS::share(
             self.params.threshold as usize,
@@ -423,15 +423,26 @@ impl SignPhase {
         assert!(party_num > params.threshold);
         assert_eq!(vss_scheme_vec.len(), params.share_count);
         assert_eq!(share_public_key.len(), params.share_count);
-        let lamda =  VerifiableSS::<GE>::map_share_to_new_params(&vss_scheme_vec[party_index].parameters, party_index, subset);
+        let lamda = VerifiableSS::<GE>::map_share_to_new_params(
+            &vss_scheme_vec[party_index].parameters,
+            party_index,
+            subset,
+        );
         //let lamda = vss_scheme_vec[party_index].map_share_to_new_params(party_index, subset);
         let omega = lamda * x;
         let big_omega_vec = subset
             .iter()
             .filter_map(|&i| {
                 if i != party_index {
-                    Some(share_public_key[i] *VerifiableSS::<GE>::map_share_to_new_params(&vss_scheme_vec[i].parameters, i, subset))
-                    //Some(share_public_key[i] * vss_scheme_vec[i].map_share_to_new_params(i, subset))
+                    Some(
+                        share_public_key[i]
+                            * VerifiableSS::<GE>::map_share_to_new_params(
+                                &vss_scheme_vec[i].parameters,
+                                i,
+                                subset,
+                            ),
+                    )
+                //Some(share_public_key[i] * vss_scheme_vec[i].map_share_to_new_params(i, subset))
                 } else {
                     None
                 }

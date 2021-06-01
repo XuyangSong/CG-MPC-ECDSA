@@ -1,19 +1,18 @@
+use crate::communication::receiving_messages::ReceivingMessages;
+use crate::communication::sending_messages::SendingMessages;
+use crate::protocols::multi_party::ours::message::*;
+use crate::utilities::class::update_class_group_by_p;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, PK};
-
-use crate::communication::receiving_messages::ReceivingMessages;
-use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::update_class_group_by_p;
 use class_group::BinaryQF;
-use curv::cryptographic_primitives::proofs::sigma_dlog::{DLogProof};
+use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
-use curv::elliptic::curves::secp256_k1::{FE, GE};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -254,8 +253,8 @@ impl KeyGen {
         Ok(())
     }
 
-    fn generate_phase_five_msg(&mut self) -> KeyGenPhaseFiveMsg 
-    {//TBD:generalize curv
+    fn generate_phase_five_msg(&mut self) -> KeyGenPhaseFiveMsg {
+        //TBD:generalize curv
         let dl_proof = DLogProof::<GE>::prove(&self.share_private_key);
         self.share_public_key
             .insert(self.party_index, dl_proof.pk.clone());
