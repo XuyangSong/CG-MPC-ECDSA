@@ -1,5 +1,5 @@
-use super::error::MulEcdsaError;
-use super::SECURITY_PARAMETER;
+use crate::utilities::error::MulEcdsaError;
+use crate::utilities::SECURITY_PARAMETER;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, Ciphertext as CLCipher, PK};
 use class_group::BinaryQF;
 use curv::arithmetic::traits::*;

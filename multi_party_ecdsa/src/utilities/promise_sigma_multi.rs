@@ -2,9 +2,9 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use super::elgamal::ElgamalCipher;
-use super::error::MulEcdsaError;
-use super::SECURITY_PARAMETER;
+use crate::utilities::elgamal::ElgamalCipher;
+use crate::utilities::error::MulEcdsaError;
+use crate::utilities::SECURITY_PARAMETER;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, Ciphertext as CLCipher, PK, SK};
 use class_group::BinaryQF;
 use curv::arithmetic::traits::*;
@@ -72,8 +72,6 @@ impl PromiseProof {
         // First round
         let G: GE = GE::generator();
         let P = stat.ec_pub_key;
-        let cl_pub_key = &stat.cl_pub_key;
-        let (m, r1, r2) = (&wit.m, &wit.r1, &wit.r2);
 
         let s1: FE = FE::new_random();
         let s2: BigInt = BigInt::sample_below(
@@ -88,17 +86,17 @@ impl PromiseProof {
         let A2 = G * sm + P * s1;
         let a1 = group.gq.exp(&s2);
         let fr = BinaryQF::expo_f(&FE::q(), &group.delta_q, &sm.to_big_int());
-        let pkr1 = cl_pub_key.0.exp(&s2);
+        let pkr1 = &stat.cl_pub_key.0.exp(&s2);
         let a2 = fr.compose(&pkr1).reduce();
 
         // Second round: get challenge
         let e: BigInt = Self::challenge(&stat, &A1, &A2, &a1, &a2);
 
         // Third round
-        let z11 = BigInt::mod_add(&s1.to_big_int(), &(&e * r1.to_big_int()), &FE::q());
+        let z11 = BigInt::mod_add(&s1.to_big_int(), &(&e * &wit.r1.to_big_int()), &FE::q());
         let z1 = ECScalar::from(&z11);
-        let z2 = s2 + &e * &r2.0;
-        let zm1 = BigInt::mod_add(&sm.to_big_int(), &(&e * m.to_big_int()), &FE::q());
+        let z2 = s2 + &e * &wit.r2.0;
+        let zm1 = BigInt::mod_add(&sm.to_big_int(), &(&e * &wit.m.to_big_int()), &FE::q());
         let zm = ECScalar::from(&zm1);
 
         Self {
@@ -135,9 +133,6 @@ impl PromiseProof {
     }
 
     pub fn verify(&self, group: &CLGroup, stat: &PromiseState) -> Result<(), MulEcdsaError> {
-        let (A1, A2, a1, a2, z1, z2, zm) = (
-            &self.A1, &self.A2, &self.a1, &self.a2, &self.z1, &self.z2, &self.zm,
-        );
         let (C1, C2, c1, c2) = (
             &stat.cipher.ec_cipher.c1,
             &stat.cipher.ec_cipher.c2,
@@ -147,20 +142,20 @@ impl PromiseProof {
         let G: GE = GE::generator();
         let P = &stat.ec_pub_key;
         let cl_pub_key = &stat.cl_pub_key;
-        let e: BigInt = Self::challenge(&stat, &A1, &A2, &a1, &a2);
+        let e: BigInt = Self::challenge(&stat, &self.A1, &self.A2, &self.a1, &self.a2);
         let e_fe: FE = ECScalar::from(&e);
-        let r1_left = G * z1;
-        let r1_right = A1 + &(C1 * &e_fe);
-        let r2_left = group.gq.exp(&z2);
+        let r1_left = G * &self.z1;
+        let r1_right = &self.A1 + &(C1 * &e_fe);
+        let r2_left = group.gq.exp(&self.z2);
         let c1k = c1.exp(&e);
-        let r2_right = a1.compose(&c1k).reduce();
-        let m_ec_left = G * zm + P * z1;
-        let m_ec_right = A2 + &(C2 * &e_fe);
-        let pkz2 = cl_pub_key.0.exp(&z2);
-        let fz3 = BinaryQF::expo_f(&FE::q(), &group.delta_q, &zm.to_big_int());
+        let r2_right = self.a1.compose(&c1k).reduce();
+        let m_ec_left = G * &self.zm + P * &self.z1;
+        let m_ec_right = &self.A2 + &(C2 * &e_fe);
+        let pkz2 = cl_pub_key.0.exp(&self.z2);
+        let fz3 = BinaryQF::expo_f(&FE::q(), &group.delta_q, &&self.zm.to_big_int());
         let m_cl_left = pkz2.compose(&fz3).reduce();
         let c2k = c2.exp(&e);
-        let m_cl_right = a2.compose(&c2k).reduce();
+        let m_cl_right = self.a2.compose(&c2k).reduce();
         if r1_left == r1_right
             && r2_left == r2_right
             && m_cl_left == m_cl_right
