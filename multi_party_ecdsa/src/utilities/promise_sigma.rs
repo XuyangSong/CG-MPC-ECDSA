@@ -2,8 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use super::error::MulEcdsaError;
-use super::SECURITY_PARAMETER;
+use crate::utilities::error::MulEcdsaError;
+use crate::utilities::SECURITY_PARAMETER;
 use class_group::primitives::cl_dl_public_setup::{CLGroup, Ciphertext as CLCipher, PK, SK};
 use class_group::BinaryQF;
 use curv::arithmetic::traits::*;

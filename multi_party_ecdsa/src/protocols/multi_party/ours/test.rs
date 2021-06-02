@@ -10,7 +10,7 @@ use curv::BigInt;
 use std::collections::HashMap;
 
 use crate::utilities::class::update_class_group_by_p;
-use crate::utilities::promise_sigma::*;
+use crate::utilities::promise_sigma_multi::*;
 use crate::utilities::SECURITY_BITS;
 use class_group::primitives::cl_dl_public_setup::{
     decrypt, encrypt_without_r, CLGroup, Ciphertext as CLCipher, PK as CLPK, SK as CLSK,
@@ -37,6 +37,7 @@ pub struct KeyGenTest {
     pub party_index: usize,
     pub params: Parameters,
     pub cl_keypair: ClKeyPair,
+    pub ec_keypair: EcKeyPair,
     pub h_caret: CLPK,
     pub private_signing_key: EcKeyPair,       // (u_i, u_iP)
     pub public_signing_key: GE,               // Q
@@ -85,6 +86,7 @@ impl KeyGenTest {
             party_index,
             params,
             cl_keypair,
+            ec_keypair: EcKeyPair::new(),
             h_caret,
             private_signing_key,
             public_signing_key,
@@ -259,19 +261,27 @@ impl SignPhaseTest {
     pub fn phase_one_generate_promise_sigma_and_com(
         &mut self,
         cl_keypair: &ClKeyPair,
+        ec_keypair: &EcKeyPair,
     ) -> (SignPhaseOneMsg, SignPhaseFourMsg) {
         // Generate promise sigma
         self.k = FE::new_random();
 
-        let cipher = PromiseCipher::encrypt(&self.cl_group, cl_keypair.get_public_key(), &self.k);
+        let cipher = PromiseCipher::encrypt(
+            &self.cl_group,
+            cl_keypair.get_public_key(),
+            ec_keypair.get_public_key(),
+            &self.k,
+        );
 
         let promise_state = PromiseState {
-            cipher: cipher.0.clone(),
+            cipher: cipher.0,
+            ec_pub_key: ec_keypair.public_share.clone(),
             cl_pub_key: cl_keypair.cl_pub_key.clone(),
         };
         let promise_wit = PromiseWit {
             m: self.k,
-            r: cipher.1,
+            r1: cipher.1,
+            r2: cipher.2,
         };
         let proof = PromiseProof::prove(&self.cl_group, &promise_state, &promise_wit);
 
@@ -774,7 +784,12 @@ fn test_sign(params: &Parameters, key_gen_vec: Vec<KeyGenTest>) {
     // Sign phase 1
     let sign_phase_one_start = time::now();
     let phase_one_result_vec = (0..party_num)
-        .map(|i| sign_vec[i].phase_one_generate_promise_sigma_and_com(&key_gen_vec[i].cl_keypair))
+        .map(|i| {
+            sign_vec[i].phase_one_generate_promise_sigma_and_com(
+                &key_gen_vec[i].cl_keypair,
+                &key_gen_vec[i].ec_keypair,
+            )
+        })
         .collect::<Vec<_>>();
     let sign_phase_one_time = (time::now() - sign_phase_one_start) / t_i32;
     println!("sign_phase_one_time: {:?}", sign_phase_one_time);

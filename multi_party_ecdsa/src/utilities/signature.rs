@@ -1,4 +1,4 @@
-use super::error::MulEcdsaError;
+use crate::utilities::error::MulEcdsaError;
 use curv::arithmetic::traits::*;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;

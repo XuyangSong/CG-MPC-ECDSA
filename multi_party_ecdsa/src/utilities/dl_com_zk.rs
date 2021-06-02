@@ -1,6 +1,6 @@
-use super::eckeypair::EcKeyPair;
-use super::error::MulEcdsaError;
-use super::SECURITY_BITS;
+use crate::utilities::eckeypair::EcKeyPair;
+use crate::utilities::error::MulEcdsaError;
+use crate::utilities::SECURITY_BITS;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;

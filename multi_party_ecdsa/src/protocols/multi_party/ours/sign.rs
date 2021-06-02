@@ -2,7 +2,7 @@ use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
-use crate::utilities::promise_sigma::*;
+use crate::utilities::promise_sigma_multi::*;
 use crate::utilities::signature::Signature;
 use crate::utilities::SECURITY_BITS;
 use class_group::primitives::cl_dl_public_setup::{
@@ -49,6 +49,7 @@ pub struct SignPhase {
     pub party_num: usize,
     pub params: Parameters,
     pub subset: Vec<usize>,
+    pub ec_keypair: EcKeyPair,
     pub cl_keypair: ClKeyPair,
     pub public_signing_key: GE,
     pub message: FE,
@@ -108,12 +109,14 @@ impl SignPhase {
 
         let (
             cl_keypair,
+            ec_keypair,
             public_signing_key,
             share_private_key,
             share_public_key_map,
             vss_scheme_map,
         ): (
             ClKeyPair,
+            EcKeyPair,
             GE,
             FE,
             HashMap<usize, GE>,
@@ -178,6 +181,7 @@ impl SignPhase {
             party_num,
             params,
             subset: subset.to_vec(),
+            ec_keypair,
             cl_keypair,
             public_signing_key,
             message,
@@ -210,6 +214,7 @@ impl SignPhase {
             party_num: 0,
             params,
             subset: Vec::new(),
+            ec_keypair: EcKeyPair::new(),
             cl_keypair,
             public_signing_key: GE::generator(),
             message: FE::zero(),
@@ -242,15 +247,22 @@ impl SignPhase {
         // Generate promise sigma
         self.k = FE::new_random();
 
-        let cipher = PromiseCipher::encrypt(&self.group, self.cl_keypair.get_public_key(), &self.k);
+        let cipher = PromiseCipher::encrypt(
+            &self.group,
+            self.cl_keypair.get_public_key(),
+            self.ec_keypair.get_public_key(),
+            &self.k,
+        );
 
         let promise_state = PromiseState {
-            cipher: cipher.0.clone(),
+            cipher: cipher.0,
+            ec_pub_key: self.ec_keypair.public_share.clone(),
             cl_pub_key: self.cl_keypair.cl_pub_key.clone(),
         };
         let promise_wit = PromiseWit {
             m: self.k,
-            r: cipher.1,
+            r1: cipher.1,
+            r2: cipher.2,
         };
         let proof = PromiseProof::prove(&self.group, &promise_state, &promise_wit);
 

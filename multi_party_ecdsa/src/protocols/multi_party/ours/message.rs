@@ -1,5 +1,5 @@
 use crate::utilities::dl_com_zk::*;
-use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
+use crate::utilities::promise_sigma_multi::{PromiseProof, PromiseState};
 use class_group::primitives::cl_dl_public_setup::{Ciphertext as CLCipher, PK};
 use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::HomoELGamalProof;
@@ -22,6 +22,7 @@ pub struct KeyGenMsgs {
 pub struct KeyGenPhaseOneTwoMsg {
     pub h_caret: PK,
     pub h: PK,
+    pub ec_pk: GE,
     pub gp: BinaryQF,
     pub commitment: BigInt,
 }

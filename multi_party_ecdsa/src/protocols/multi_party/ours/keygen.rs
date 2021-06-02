@@ -37,6 +37,7 @@ pub struct KeyGen {
     group: CLGroup,
     pub party_index: usize,
     pub params: Parameters,
+    pub ec_keypair: EcKeyPair,
     pub cl_keypair: ClKeyPair,
     pub h_caret: PK,
     pub private_signing_key: EcKeyPair,       // (u_i, u_iP)
@@ -74,6 +75,9 @@ impl KeyGen {
         let h_caret = cl_keypair.get_public_key().clone();
         cl_keypair.update_pk_exp_p();
 
+        //Generate elgamal keypair
+        let ec_keypair = EcKeyPair::new();
+
         // Update gp
         let new_class_group = update_class_group_by_p(&group);
 
@@ -92,6 +96,7 @@ impl KeyGen {
         let msg_1_2 = KeyGenPhaseOneTwoMsg {
             h_caret: h_caret.clone(),
             h: cl_keypair.get_public_key().clone(),
+            ec_pk: ec_keypair.get_public_key().clone(),
             gp: new_class_group.gq.clone(),
             commitment: dlog_com.commitment,
         };
@@ -117,6 +122,7 @@ impl KeyGen {
             group: new_class_group,
             party_index,
             params,
+            ec_keypair,
             cl_keypair,
             h_caret,
             private_signing_key,
@@ -359,6 +365,7 @@ impl KeyGen {
                     let keygen_path = Path::new(&file_name);
                     let keygen_json = serde_json::to_string(&(
                         self.cl_keypair.clone(),
+                        self.ec_keypair.clone(),
                         self.public_signing_key.clone(),
                         self.share_private_key.clone(),
                         self.share_public_key.clone(),
