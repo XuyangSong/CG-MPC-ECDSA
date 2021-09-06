@@ -56,5 +56,8 @@ name = "multi_party_keygen_demo"
 [[example]]
 name = "multi_party_sign_demo"
 
+# [[example]]
+# name = "mpc_ecdsa_web"
+
 [[example]]
 name = "server"
