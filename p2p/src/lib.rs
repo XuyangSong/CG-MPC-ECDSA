@@ -6,7 +6,9 @@ extern crate tokio;
 
 mod codec;
 pub mod cybershake;
+pub mod errors;
 mod message;
+pub mod mpc_io;
 mod node;
 mod peer;
 mod priority;

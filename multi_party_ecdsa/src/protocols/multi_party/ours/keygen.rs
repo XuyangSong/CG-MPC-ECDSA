@@ -164,7 +164,6 @@ impl KeyGen {
         index: usize,
         msg: &KeyGenPhaseThreeMsg,
     ) -> Result<(), MulEcdsaError> {
-        println!("index: {}", index);
         let commitment = self
             .msgs
             .phase_one_two_msgs
