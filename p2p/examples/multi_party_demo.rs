@@ -1,9 +1,6 @@
+use std::collections::HashMap;
 use curv::arithmetic::Converter;
 use curve25519_dalek::scalar::Scalar;
-use p2p::mpc_io::node_init;
-use p2p::mpc_io::receive_;
-use p2p::mpc_io::MsgProcess;
-use p2p::mpc_io::ProcessMessage;
 use rand::thread_rng;
 use std::net::IpAddr;
 
@@ -12,7 +9,7 @@ use tokio::prelude::*;
 use tokio::task;
 
 use p2p::cybershake;
-use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
+use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID, MsgProcess, ProcessMessage};
 
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -128,14 +125,12 @@ impl InitMessage {
         let json_config_file = env::args().nth(2).unwrap();
         let json_config_internal = JsonConfigInternal::init_with(party_id, json_config_file);
         let json_config = json_config_internal.clone();
-        let json_config1 = json_config_internal.clone();
-        let json_config2 = json_config_internal.clone();
-
         let party_index = json_config.my_info.index;
         let params = Parameters {
             threshold: json_config.threshold,
             share_count: json_config.share_count,
         };
+      
         let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
         ).unwrap();
@@ -151,8 +146,8 @@ impl InitMessage {
 
         // TBD: add a new func, init it latter.
         let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone()).unwrap();
-        let subset = json_config.subset;
-        let message = json_config.message;
+        let subset = json_config.subset.clone();
+        let message = json_config.message.clone();
         let mut sign = SignPhase::new(
             &seed,
             &qtilde,
@@ -166,9 +161,9 @@ impl InitMessage {
         let init_messages = InitMessage {
             party_id: party_id,
             party_index: party_index,
-            json_config: json_config2,
-            ip: json_config1.my_info.ip.parse().unwrap(),
-            port: json_config1.my_info.port,
+            ip: json_config.my_info.ip.parse().unwrap(),
+            port: json_config.my_info.port,
+            json_config: json_config,
             params: params,
             keygen: keygen,
             subset: subset,
@@ -183,8 +178,8 @@ struct MultiParty {
     party_index: usize,
 }
 
-impl MsgProcess for MultiParty {
-    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage {
+impl MsgProcess<Message> for MultiParty {
+    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
         let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
         let sending_msg = match received_msg {
             ReceivingMessages::MultiKeyGenMessage(msg) => {
@@ -198,8 +193,13 @@ impl MsgProcess for MultiParty {
                 return ProcessMessage::SendMessage(index, Message(msg))
             }
             SendingMessages::P2pMessage(msgs) => {
-                return ProcessMessage::SendMultiMessage(msgs);
-                //println!("Sending p2p msg");
+                //TBD: handle vector to Message
+                let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
+                for (key, value) in msgs{
+                    msgs_to_send.insert(key, Message(value));
+                }
+                return ProcessMessage::SendMultiMessage(msgs_to_send);
+            //println!("Sending p2p msg");
             }
             SendingMessages::BroadcastMessage(msg) => {
                 return ProcessMessage::BroadcastMessage(Message(msg));
@@ -223,7 +223,7 @@ impl MsgProcess for MultiParty {
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 if self.party_index == 0 {}
-                println!("keygen Success! {}", res);
+                println!("keygen Success!");
                 return ProcessMessage::Default();
             }
             SendingMessages::SignSuccessWithResult(res) => {
@@ -252,19 +252,18 @@ fn main() {
     local
         .block_on(&mut rt, async move {
             // Creating a random private key instead of reading from a file.
-            let (mut node_handle, mut notifications_channel) = node_init(
+            let (mut node_handle, mut notifications_channel) = Node::<Message>::node_init(
                 init_messages.party_index,
                 init_messages.ip,
                 init_messages.port,
             )
             .await;
             let mut node_handle_clone = node_handle.clone();
-            let init_messages_clone = init_messages.clone();
             // Begin the UI.
             let interactive_loop = Console::spawn(
                 node_handle,
-                init_messages_clone.json_config.peers_info,
-                init_messages_clone.subset.clone(),
+                init_messages.json_config.peers_info.clone(),
+                init_messages.subset.clone(),
             );
 
             // Spawn the notifications loop
@@ -275,8 +274,7 @@ fn main() {
                         sign: init_messages.sign,
                         party_index: init_messages.party_index,
                     };
-                    receive_(
-                        &mut node_handle_clone,
+                    node_handle_clone.receive_(
                         notifications_channel,
                         &mut message_process,
                     )

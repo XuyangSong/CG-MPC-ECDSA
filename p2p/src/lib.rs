@@ -8,14 +8,13 @@ mod codec;
 pub mod cybershake;
 pub mod errors;
 mod message;
-pub mod mpc_io;
 mod node;
 mod peer;
 mod priority;
 
 pub use self::message::Message;
 pub use self::node::{
-    Direction, Node, NodeConfig, NodeHandle, NodeMessage, NodeNotification, PeerInfo,
+    Direction, Node, NodeConfig, NodeHandle, NodeMessage, NodeNotification, PeerInfo, MsgProcess, ProcessMessage
 };
 pub use self::peer::{PeerID, PeerLink, PeerMessage, PeerNotification};
 pub use self::priority::Priority;

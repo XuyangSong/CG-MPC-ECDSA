@@ -9,8 +9,7 @@ use tokio::prelude::*;
 use tokio::task;
 
 use p2p::cybershake;
-use p2p::mpc_io::*;
-use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
+use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID, MsgProcess, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
@@ -162,8 +161,8 @@ struct TwoParty {
     party_one_sign: party_one::SignPhase,
     party_two_sign: party_two::SignPhase,
 }
-impl MsgProcess for TwoParty {
-    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage {
+impl MsgProcess<Message> for TwoParty {
+    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
         let received_msg: TwoPartyMsg = bincode::deserialize(&msg).unwrap();
         match received_msg {
             TwoPartyMsg::KegGenBegin => {
@@ -371,17 +370,16 @@ fn main() {
     local
         .block_on(&mut rt, async move {
             //Setup a node
-            let (mut node_handle, mut notifications_channel) = node_init(
+            let (mut node_handle, mut notifications_channel) = Node::<Message>::node_init(
                 init_messages.party_index,
                 init_messages.ip,
                 init_messages.port,
             )
             .await;
             let mut node_handle_clone = node_handle.clone();
-            let init_messages_clone = init_messages.clone();
             // Begin the UI.
             let interactive_loop: task::JoinHandle<Result<(), String>> =
-                Console::spawn(node_handle, init_messages_clone.json_config.peer_info);
+                Console::spawn(node_handle, init_messages.json_config.peer_info.clone());
 
             // Spawn the notifications loop
             let notifications_loop = {
@@ -394,8 +392,7 @@ fn main() {
                         party_one_sign: init_messages.party_one_sign,
                         party_two_sign: init_messages.party_two_sign,
                     };
-                    receive_(
-                        &mut node_handle_clone,
+                    node_handle_clone.receive_(
                         notifications_channel,
                         &mut message_process,
                     )

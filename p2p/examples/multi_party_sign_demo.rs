@@ -1,9 +1,6 @@
+use std::collections::HashMap;
 use curv::arithmetic::Converter;
 use curve25519_dalek::scalar::Scalar;
-use p2p::mpc_io::node_init;
-use p2p::mpc_io::receive_;
-use p2p::mpc_io::MsgProcess;
-use p2p::mpc_io::ProcessMessage;
 use rand::thread_rng;
 use std::net::IpAddr;
 
@@ -12,7 +9,7 @@ use tokio::prelude::*;
 use tokio::task;
 
 use p2p::cybershake;
-use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
+use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID, MsgProcess, ProcessMessage};
 
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -130,13 +127,13 @@ impl InitMessage {
         let json_config_file = env::args().nth(2).unwrap();
         let json_config_internal = JsonConfigInternal::init_with(party_id, json_config_file);
         let json_config = json_config_internal.clone();
-        let json_config1 = json_config_internal.clone();
-        let json_config2 = json_config_internal.clone();
+        //let json_config1 = json_config_internal.clone();
+        //let json_config2 = json_config_internal.clone();
 
         let party_index = json_config.my_info.index;
         let params = Parameters {
-            threshold: json_config.threshold,
-            share_count: json_config.share_count,
+            threshold: json_config.threshold.clone(),
+            share_count: json_config.share_count.clone(),
         };
         let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
@@ -145,8 +142,8 @@ impl InitMessage {
         // discriminant: 1348, lambda: 112
         let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
 
-        let subset = json_config.subset;
-        let message = json_config.message;
+        let subset = json_config.subset.clone();
+        let message = json_config.message.clone();
         let mut sign = SignPhase::new(
             &seed,
             &qtilde,
@@ -160,9 +157,9 @@ impl InitMessage {
         let init_messages = InitMessage {
             party_id: party_id,
             party_index: party_index,
-            json_config: json_config2,
-            ip: json_config1.my_info.ip.parse().unwrap(),
-            port: json_config1.my_info.port,
+            ip: json_config.my_info.ip.parse().unwrap(),
+            port: json_config.my_info.port,
+            json_config: json_config,
             params: params,
             subset: subset,
             sign: sign,
@@ -174,8 +171,8 @@ struct MultiPartySign {
     sign: SignPhase,
     party_index: usize,
 }
-impl MsgProcess for MultiPartySign {
-    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage {
+impl MsgProcess<Message> for MultiPartySign {
+    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
         // Decode msg
         let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
 
@@ -189,7 +186,14 @@ impl MsgProcess for MultiPartySign {
             SendingMessages::NormalMessage(index, msg) => {
                 return ProcessMessage::SendMessage(index, Message(msg))
             }
-            SendingMessages::P2pMessage(msgs) => return ProcessMessage::SendMultiMessage(msgs),
+            SendingMessages::P2pMessage(msgs) => {
+                //TBD: handle vector to Message
+                let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
+                for (key, value) in msgs{
+                    msgs_to_send.insert(key, Message(value));
+                }
+                return ProcessMessage::SendMultiMessage(msgs_to_send);
+            }
             SendingMessages::BroadcastMessage(msg) => {
                 return ProcessMessage::BroadcastMessage(Message(msg))
             }
@@ -210,7 +214,7 @@ impl MsgProcess for MultiPartySign {
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 if self.party_index == 0 {}
-                println!("keygen Success! {}", res);
+                println!("keygen Success! ");
                 return ProcessMessage::Default();
             }
             SendingMessages::SignSuccessWithResult(res) => {
@@ -237,7 +241,7 @@ fn main() {
     local
         .block_on(&mut rt, async move {
             // Creating a random private key instead of reading from a file.
-            let (mut node_handle, mut notifications_channel) = node_init(
+            let (mut node_handle, mut notifications_channel) = Node::<Message>::node_init(
                 init_messages.party_index,
                 init_messages.ip,
                 init_messages.port,
@@ -267,8 +271,7 @@ fn main() {
                         sign: init_messages.sign,
                         party_index: init_messages.party_index,
                     };
-                    receive_(
-                        &mut node_handle_clone,
+                    node_handle_clone.receive_(
                         notifications_channel,
                         &mut message_process,
                     )
@@ -358,14 +361,14 @@ impl Console {
                 return Err("Command::Exit".into());
             }
             UserCommand::MultiKeyGenConnect => {
-                // for peer_info in self.peers_info.iter() {
-                //     self.node
-                //         .connect_to_peer(&peer_info.address, None, peer_info.index)
-                //         .await
-                //         .map_err(|e| {
-                //             format!("Handshake error with {}. {:?}", peer_info.address, e)
-                //         })?;
-                // }
+                for peer_info in self.peers_info.iter() {
+                    self.node
+                        .connect_to_peer(&peer_info.address, None, peer_info.index)
+                        .await
+                        .map_err(|e| {
+                            format!("Handshake error with {}. {:?}", peer_info.address, e)
+                        })?;
+                }
             }
             UserCommand::MultiSignConnect => {
                 for peer_info in self.peers_info.iter() {
