@@ -168,7 +168,7 @@ impl DLComZK {
             return Err(MulEcdsaError::OpenDLCommFailed);
         }
 
-        // // Verify the commitment of proof
+        // Verify the commitment of proof
         if HashCommitment::create_commitment_with_user_defined_randomness(
             &witness
                 .d_log_proof

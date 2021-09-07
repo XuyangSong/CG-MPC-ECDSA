@@ -5,7 +5,7 @@ use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::{Message, Node, NodeHandle, PeerID, MsgProcess, ProcessMessage};
+use p2p::{Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
@@ -386,11 +386,9 @@ fn main() {
                         party_one_sign: init_messages.party_one_sign,
                         party_two_sign: init_messages.party_two_sign,
                     };
-                    node_handle_clone.receive_(
-                        notifications_channel,
-                        &mut message_process,
-                    )
-                    .await;
+                    node_handle_clone
+                        .receive_(notifications_channel, &mut message_process)
+                        .await;
                     Result::<(), String>::Ok(())
                 })
             };

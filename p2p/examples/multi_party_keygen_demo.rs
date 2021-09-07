@@ -1,12 +1,12 @@
 use curv::arithmetic::Converter;
-use std::net::IpAddr;
 use std::collections::HashMap;
+use std::net::IpAddr;
 
 use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::{Message, Node,  NodeHandle,  PeerID, MsgProcess, ProcessMessage};
+use p2p::{Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -169,7 +169,7 @@ impl MsgProcess<Message> for MultiPartyKeygen {
             SendingMessages::P2pMessage(msgs) => {
                 //TBD: handle vector to Message
                 let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
-                for (key, value) in msgs{
+                for (key, value) in msgs {
                     msgs_to_send.insert(key, Message(value));
                 }
                 return ProcessMessage::SendMultiMessage(msgs_to_send);
@@ -245,11 +245,9 @@ fn main() {
                         keygen: init_messages.keygen,
                         party_index: init_messages.party_index,
                     };
-                    node_handle_clone.receive_(
-                        notifications_channel,
-                        &mut message_process,
-                    )
-                    .await;
+                    node_handle_clone
+                        .receive_(notifications_channel, &mut message_process)
+                        .await;
                     Result::<(), String>::Ok(())
                 })
             };

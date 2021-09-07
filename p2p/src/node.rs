@@ -1,6 +1,6 @@
 //! Node manages its own state and the state of its peers, and orchestrates messages between them.
-use curve25519_dalek::scalar::Scalar;
 use core::time::Duration;
+use curve25519_dalek::scalar::Scalar;
 use std::collections::HashMap;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -16,7 +16,7 @@ use tokio::task;
 use tokio::time;
 
 use rand::thread_rng;
-use std::{thread};
+use std::thread;
 
 use crate::codec::{MessageDecoder, MessageEncoder};
 use crate::cybershake;
@@ -28,7 +28,7 @@ use crate::errors::MpcIOError;
 type Reply<T> = sync::oneshot::Sender<T>;
 
 #[derive(Clone, Debug)]
-pub enum ProcessMessage <Custom: Codable> {
+pub enum ProcessMessage<Custom: Codable> {
     BroadcastMessage(Custom),
     SendMessage(usize, Custom),
     SendMultiMessage(HashMap<usize, Custom>),
@@ -36,7 +36,7 @@ pub enum ProcessMessage <Custom: Codable> {
     Default(),
 }
 
-pub trait MsgProcess <Custom: Codable> {
+pub trait MsgProcess<Custom: Codable> {
     fn process(&mut self, index: usize, msg: Custom) -> ProcessMessage<Custom>;
 }
 
@@ -137,82 +137,82 @@ where
     /// Creates a node and returns a handle for communicating with it.
     /// TODO: add the listening loop and avoid doing .accept when we are out of inbound slots.
     pub async fn spawn(
-    cybershake_identity: cybershake::PrivateKey,
-    config: NodeConfig,
-) -> Result<
-    (
-        NodeHandle<Custom>,
-        sync::mpsc::Receiver<NodeNotification<Custom>>,
-    ),
-    io::Error,
-> {
-    // Prepare listening socket.
-    let listener = net::TcpListener::bind(config.listen_addr()).await?;
-    let mut local_addr = listener.local_addr()?;
-    if local_addr.ip().is_unspecified() {
-        local_addr.set_ip(Ipv4Addr::LOCALHOST.into());
-    }
-
-    let inbound_semaphore = sync::Semaphore::new(config.inbound_limit);
-
-    let (cmd_sender, mut cmd_receiver) = sync::mpsc::channel::<NodeMessage<Custom>>(100);
-    let (peer_sender, mut peer_receiver) = sync::mpsc::channel::<PeerNotification<Custom>>(100);
-    let (notif_sender, notif_receiver) = sync::mpsc::channel::<NodeNotification<Custom>>(100);
-
-    let mut node = Node {
-        index: config.index,
-        cybershake_identity,
-        peer_notification_channel: peer_sender,
-        peers: HashMap::new(),
-        index_peer: HashMap::new(),
-        listener,
-        config,
-        inbound_semaphore,
-        peer_priorities: PriorityTable::new(1000),
-        notifications_channel: notif_sender,
-    };
-
-    let node_handle = NodeHandle {
-        peer_id: node.peer_id(),
-        channel: cmd_sender,
-        socket_address: local_addr,
-    };
-
-    task::spawn_local(async move {
-        let mut heartbeat =
-            time::interval(Duration::from_secs(node.config.heartbeat_interval_sec));
-        loop {
-            select! {
-                maybe_cmd = cmd_receiver.next().fuse() => {
-                    if let Some(cmd) = maybe_cmd {
-                        match cmd {
-                            NodeMessage::Exit => break,
-                            _ => node.handle_command(cmd).await,
-                        }
-                    } else {
-                        // node handle wasnotifications_channel dropped, shut down the node.
-                        break;
-                    }
-                },
-                maybe_peer_notif = peer_receiver.next().fuse() => {
-                    if let Some(notif) = maybe_peer_notif {
-                        node.handle_peer_notification(notif).await;
-                    } else {
-                        // Never happens until shutdown because Node holds one copy of the sender
-                        // for spawning new peers from within.
-                    }
-                },
-                _ = heartbeat.tick().fuse() => {
-                    node.heartbeat_tick().await
-                },
-                _ = node.try_accept().fuse() => {}
-            }
+        cybershake_identity: cybershake::PrivateKey,
+        config: NodeConfig,
+    ) -> Result<
+        (
+            NodeHandle<Custom>,
+            sync::mpsc::Receiver<NodeNotification<Custom>>,
+        ),
+        io::Error,
+    > {
+        // Prepare listening socket.
+        let listener = net::TcpListener::bind(config.listen_addr()).await?;
+        let mut local_addr = listener.local_addr()?;
+        if local_addr.ip().is_unspecified() {
+            local_addr.set_ip(Ipv4Addr::LOCALHOST.into());
         }
-        node.notify(NodeNotification::Shutdown).await
-    });
 
-    Ok((node_handle, notif_receiver))
-}
+        let inbound_semaphore = sync::Semaphore::new(config.inbound_limit);
+
+        let (cmd_sender, mut cmd_receiver) = sync::mpsc::channel::<NodeMessage<Custom>>(100);
+        let (peer_sender, mut peer_receiver) = sync::mpsc::channel::<PeerNotification<Custom>>(100);
+        let (notif_sender, notif_receiver) = sync::mpsc::channel::<NodeNotification<Custom>>(100);
+
+        let mut node = Node {
+            index: config.index,
+            cybershake_identity,
+            peer_notification_channel: peer_sender,
+            peers: HashMap::new(),
+            index_peer: HashMap::new(),
+            listener,
+            config,
+            inbound_semaphore,
+            peer_priorities: PriorityTable::new(1000),
+            notifications_channel: notif_sender,
+        };
+
+        let node_handle = NodeHandle {
+            peer_id: node.peer_id(),
+            channel: cmd_sender,
+            socket_address: local_addr,
+        };
+
+        task::spawn_local(async move {
+            let mut heartbeat =
+                time::interval(Duration::from_secs(node.config.heartbeat_interval_sec));
+            loop {
+                select! {
+                    maybe_cmd = cmd_receiver.next().fuse() => {
+                        if let Some(cmd) = maybe_cmd {
+                            match cmd {
+                                NodeMessage::Exit => break,
+                                _ => node.handle_command(cmd).await,
+                            }
+                        } else {
+                            // node handle wasnotifications_channel dropped, shut down the node.
+                            break;
+                        }
+                    },
+                    maybe_peer_notif = peer_receiver.next().fuse() => {
+                        if let Some(notif) = maybe_peer_notif {
+                            node.handle_peer_notification(notif).await;
+                        } else {
+                            // Never happens until shutdown because Node holds one copy of the sender
+                            // for spawning new peers from within.
+                        }
+                    },
+                    _ = heartbeat.tick().fuse() => {
+                        node.heartbeat_tick().await
+                    },
+                    _ = node.try_accept().fuse() => {}
+                }
+            }
+            node.notify(NodeNotification::Shutdown).await
+        });
+
+        Ok((node_handle, notif_receiver))
+    }
     pub async fn node_init(
         index: usize,
         ip: IpAddr,
@@ -336,7 +336,7 @@ impl<Custom: Codable> NodeHandle<Custom> {
     }
 }
 
-impl<Custom: Codable> NodeHandle<Custom>{
+impl<Custom: Codable> NodeHandle<Custom> {
     pub async fn connect_(&mut self, address: String, index: usize) {
         let mut count: usize = 0;
         loop {
@@ -369,7 +369,7 @@ impl<Custom: Codable> NodeHandle<Custom>{
     pub async fn receive_(
         &mut self,
         mut notifications_channel: sync::mpsc::Receiver<NodeNotification<Custom>>,
-        message_process: &mut  impl MsgProcess<Custom>,
+        message_process: &mut impl MsgProcess<Custom>,
     ) {
         while let Some(notif) = notifications_channel.recv().await {
             match notif {
@@ -383,14 +383,16 @@ impl<Custom: Codable> NodeHandle<Custom>{
                     let result = message_process.process(index, msg);
                     match result {
                         ProcessMessage::BroadcastMessage(msg) => self.broadcast(msg).await,
-                        ProcessMessage::SendMessage(index, msg) => self.send_by_msg_(index, msg).await,
+                        ProcessMessage::SendMessage(index, msg) => {
+                            self.send_by_msg_(index, msg).await
+                        }
                         ProcessMessage::SendMultiMessage(send_list) => {
                             for (index, msg) in send_list {
                                 self.send_by_msg_(index, msg).await;
                             }
-                        },
+                        }
                         ProcessMessage::Quit() => self.exit().await,
-                        ProcessMessage::Default() => {},
+                        ProcessMessage::Default() => {}
                     }
                 }
                 NodeNotification::InboundConnectionFailure(err) => {
@@ -402,7 +404,7 @@ impl<Custom: Codable> NodeHandle<Custom>{
                 NodeNotification::Shutdown => {
                     println!("\n=> Node did shutdown.");
                     break;
-                },
+                }
             }
         }
     }
@@ -590,7 +592,6 @@ where
             )
             .await
         }
-
     }
 
     async fn remove_peer(&mut self, peer_id: &PeerID) {

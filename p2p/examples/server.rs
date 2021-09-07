@@ -1,5 +1,5 @@
-use p2p::{MsgProcess, ProcessMessage, Node};
 use p2p::Message;
+use p2p::{MsgProcess, Node, ProcessMessage};
 use tokio::task;
 struct TestReceive {}
 impl MsgProcess<Message> for TestReceive {
@@ -18,14 +18,13 @@ fn main() {
         let port = 64000;
 
         //Init a node as server
-        let (mut node_handle, notifications_channel) = Node::<Message>::node_init(index, ip, port).await;
+        let (mut node_handle, notifications_channel) =
+            Node::<Message>::node_init(index, ip, port).await;
 
         let mut message_process = TestReceive {};
         //Receive messages
-        node_handle.receive_(
-            notifications_channel,
-            &mut message_process,
-        )
-        .await;
+        node_handle
+            .receive_(notifications_channel, &mut message_process)
+            .await;
     })
 }
