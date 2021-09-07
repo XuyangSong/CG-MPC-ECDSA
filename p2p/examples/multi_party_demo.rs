@@ -1,12 +1,12 @@
-use std::collections::HashMap;
 use curv::arithmetic::Converter;
+use std::collections::HashMap;
 use std::net::IpAddr;
 
 use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::{Message, Node, NodeHandle, PeerID, MsgProcess, ProcessMessage};
+use p2p::{Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -127,7 +127,7 @@ impl InitMessage {
             threshold: json_config.threshold,
             share_count: json_config.share_count,
         };
-      
+
         let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
         ).unwrap();
@@ -192,11 +192,11 @@ impl MsgProcess<Message> for MultiParty {
             SendingMessages::P2pMessage(msgs) => {
                 //TBD: handle vector to Message
                 let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
-                for (key, value) in msgs{
+                for (key, value) in msgs {
                     msgs_to_send.insert(key, Message(value));
                 }
                 return ProcessMessage::SendMultiMessage(msgs_to_send);
-            //println!("Sending p2p msg");
+                //println!("Sending p2p msg");
             }
             SendingMessages::BroadcastMessage(msg) => {
                 return ProcessMessage::BroadcastMessage(Message(msg));
@@ -220,7 +220,7 @@ impl MsgProcess<Message> for MultiParty {
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 if self.party_index == 0 {}
-                println!("keygen Success! {}",res);
+                println!("keygen Success! {}", res);
                 return ProcessMessage::Default();
             }
             SendingMessages::SignSuccessWithResult(res) => {
@@ -271,11 +271,9 @@ fn main() {
                         sign: init_messages.sign,
                         party_index: init_messages.party_index,
                     };
-                    node_handle_clone.receive_(
-                        notifications_channel,
-                        &mut message_process,
-                    )
-                    .await;
+                    node_handle_clone
+                        .receive_(notifications_channel, &mut message_process)
+                        .await;
                     Result::<(), String>::Ok(())
                 })
             };

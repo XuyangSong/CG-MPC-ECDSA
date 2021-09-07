@@ -14,7 +14,8 @@ mod priority;
 
 pub use self::message::Message;
 pub use self::node::{
-    Direction, Node, NodeConfig, NodeHandle, NodeMessage, NodeNotification, PeerInfo, MsgProcess, ProcessMessage
+    Direction, MsgProcess, Node, NodeConfig, NodeHandle, NodeMessage, NodeNotification, PeerInfo,
+    ProcessMessage,
 };
 pub use self::peer::{PeerID, PeerLink, PeerMessage, PeerNotification};
 pub use self::priority::Priority;

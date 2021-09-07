@@ -1,11 +1,11 @@
 use curv::arithmetic::Converter;
-use std::net::IpAddr;
+// use std::net::IpAddr;
 
 use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::{Message, Node, NodeHandle, PeerID, MsgProcess, ProcessMessage};
+use p2p::{Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
@@ -35,12 +35,8 @@ pub struct MyInfo {
     pub port: u16,
 }
 impl MyInfo {
-    pub fn new(index_: usize, ip_: String, port_: u16) -> Self {
-        Self {
-            index: index_,
-            ip: ip_,
-            port: port_,
-        }
+    pub fn new(index: usize, ip: String, port: u16) -> Self {
+        Self { index, ip, port }
     }
 }
 
@@ -50,16 +46,12 @@ pub struct PeerInfo {
     pub address: String,
 }
 impl PeerInfo {
-    pub fn new(index_: usize, address_: String) -> Self {
-        Self {
-            index: index_,
-            address: address_,
-        }
+    pub fn new(index: usize, address: String) -> Self {
+        Self { index, address }
     }
 }
 #[derive(Debug, Deserialize, Clone)]
 pub struct JsonConfigInternal {
-    pub http_port: u16,
     pub my_info: MyInfo,
     pub peer_info: PeerInfo,
     pub message: String,
@@ -88,39 +80,33 @@ impl JsonConfigInternal {
         }
 
         Self {
-            http_port: 8000,
             my_info: MyInfo::new(index_, ip_, port_),
             peer_info: peers_info_,
             message: json_config.message,
         }
     }
 }
-#[derive(Debug, Deserialize, Clone)]
+
 pub struct InitMessage {
-    party_id: usize,
-    party_index: usize,
-    json_config: JsonConfigInternal,
-    ip: IpAddr,
-    port: u16,
-    message_to_sign: FE,
-    party_one_keygen: party_one::KeyGenInit,
-    party_two_keygen: party_two::KeyGenInit,
-    party_one_sign: party_one::SignPhase,
-    party_two_sign: party_two::SignPhase,
+    my_info: MyInfo,
+    peer_info: PeerInfo,
+    two_party_info: TwoParty,
 }
 impl InitMessage {
     pub fn init_message() -> Self {
         let party_id_str: String = env::args().nth(1).unwrap();
         let party_id: usize = party_id_str.parse::<usize>().unwrap();
         let json_config_file: String = env::args().nth(2).unwrap();
-        let json_config_internal: JsonConfigInternal =
+
+        // Load config from file
+        let json_config: JsonConfigInternal =
             JsonConfigInternal::init_with(party_id, json_config_file);
-        let json_config: JsonConfigInternal = json_config_internal.clone();
-        let party_index: usize = json_config.my_info.index;
-        let ip: IpAddr = json_config.my_info.ip.parse().unwrap();
-        let port: u16 = json_config.my_info.port;
+
+        // Get msg hash
         let message_hash: BigInt = HSha256::create_hash_from_slice(json_config.message.as_bytes());
         let message_to_sign: FE = ECScalar::from(&message_hash);
+
+        // Init group params
         let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
         ).unwrap();
@@ -128,25 +114,25 @@ impl InitMessage {
         let group = CLGroup::new_from_qtilde(&seed, &qtilde);
         // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
+        // Init two party info
         let party_one_keygen = party_one::KeyGenInit::new(&group);
         let party_two_keygen = party_two::KeyGenInit::new(&group);
-
         let new_class_group = update_class_group_by_p(&group);
         let party_one_sign = party_one::SignPhase::new(new_class_group.clone());
         let party_two_sign = party_two::SignPhase::new(new_class_group, &message_to_sign);
-        let init_message = InitMessage {
-            party_id: party_id,
-            party_index: party_index,
-            json_config: json_config,
-            ip: ip,
-            port: port,
-            message_to_sign: message_to_sign,
-            party_one_keygen: party_one_keygen,
-            party_two_keygen: party_two_keygen,
-            party_one_sign: party_one_sign,
-            party_two_sign: party_two_sign,
+        let two_party_info = TwoParty {
+            party_index: json_config.my_info.index,
+            party_one_keygen,
+            party_two_keygen,
+            party_one_sign,
+            party_two_sign,
         };
-        return init_message;
+
+        InitMessage {
+            my_info: json_config.my_info,
+            peer_info: json_config.peer_info,
+            two_party_info,
+        }
     }
 }
 struct TwoParty {
@@ -365,32 +351,24 @@ fn main() {
     local
         .block_on(&mut rt, async move {
             //Setup a node
-            let (node_handle, notifications_channel) = Node::<Message>::node_init(
-                init_messages.party_index,
-                init_messages.ip,
-                init_messages.port,
+            let (mut node_handle, notifications_channel) = Node::<Message>::node_init(
+                init_messages.my_info.index,
+                init_messages.my_info.ip.parse().unwrap(),
+                init_messages.my_info.port,
             )
             .await;
-            let mut node_handle_clone = node_handle.clone();
+
             // Begin the UI.
             let interactive_loop: task::JoinHandle<Result<(), String>> =
-                Console::spawn(node_handle, init_messages.json_config.peer_info.clone());
+                Console::spawn(node_handle.clone(), init_messages.peer_info);
 
             // Spawn the notifications loop
+            let mut message_process = init_messages.two_party_info;
             let notifications_loop = {
                 task::spawn_local(async move {
-                    let mut message_process = TwoParty {
-                        party_index: init_messages.party_index,
-                        party_one_keygen: init_messages.party_one_keygen,
-                        party_two_keygen: init_messages.party_two_keygen,
-                        party_one_sign: init_messages.party_one_sign,
-                        party_two_sign: init_messages.party_two_sign,
-                    };
-                    node_handle_clone.receive_(
-                        notifications_channel,
-                        &mut message_process,
-                    )
-                    .await;
+                    node_handle
+                        .receive_(notifications_channel, &mut message_process)
+                        .await;
                     Result::<(), String>::Ok(())
                 })
             };
