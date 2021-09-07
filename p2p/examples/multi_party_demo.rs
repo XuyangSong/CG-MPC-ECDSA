@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 use curv::arithmetic::Converter;
-use curve25519_dalek::scalar::Scalar;
-use rand::thread_rng;
 use std::net::IpAddr;
 
 use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::cybershake;
-use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID, MsgProcess, ProcessMessage};
+use p2p::{Message, Node, NodeHandle, PeerID, MsgProcess, ProcessMessage};
 
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -119,7 +116,7 @@ pub struct InitMessage {
     sign: SignPhase,
 }
 impl InitMessage {
-    pub fn Init_message() -> Self {
+    pub fn init_message() -> Self {
         let party_id_str = env::args().nth(1).unwrap();
         let party_id = party_id_str.parse::<usize>().unwrap();
         let json_config_file = env::args().nth(2).unwrap();
@@ -145,7 +142,7 @@ impl InitMessage {
         // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
         // TBD: add a new func, init it latter.
-        let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone()).unwrap();
+        let keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone()).unwrap();
         let subset = json_config.subset.clone();
         let message = json_config.message.clone();
         let mut sign = SignPhase::new(
@@ -223,7 +220,7 @@ impl MsgProcess<Message> for MultiParty {
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 if self.party_index == 0 {}
-                println!("keygen Success!");
+                println!("keygen Success! {}",res);
                 return ProcessMessage::Default();
             }
             SendingMessages::SignSuccessWithResult(res) => {
@@ -244,7 +241,7 @@ fn main() {
         panic!("Need Config File")
     }
 
-    let init_messages = InitMessage::Init_message();
+    let init_messages = InitMessage::init_message();
 
     // Create the runtime.
     let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
@@ -252,7 +249,7 @@ fn main() {
     local
         .block_on(&mut rt, async move {
             // Creating a random private key instead of reading from a file.
-            let (mut node_handle, mut notifications_channel) = Node::<Message>::node_init(
+            let (node_handle, notifications_channel) = Node::<Message>::node_init(
                 init_messages.party_index,
                 init_messages.ip,
                 init_messages.port,

@@ -4,7 +4,7 @@ use tokio::task;
 struct TestReceive {}
 impl MsgProcess<Message> for TestReceive {
     fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
-        let msg = ProcessMessage::SendMessage(1, msg);
+        let msg = ProcessMessage::SendMessage(index, msg);
         return msg;
     }
 }

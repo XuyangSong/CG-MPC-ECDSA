@@ -1,5 +1,4 @@
 //! Node manages its own state and the state of its peers, and orchestrates messages between them.
-use crate::Message;
 use curve25519_dalek::scalar::Scalar;
 use core::time::Duration;
 use std::collections::HashMap;
@@ -391,8 +390,7 @@ impl<Custom: Codable> NodeHandle<Custom>{
                             }
                         },
                         ProcessMessage::Quit() => self.exit().await,
-                        ProcessMessage::Default() => {}
-                        _ => println!("Unsupported parse Received MessageType"),
+                        ProcessMessage::Default() => {},
                     }
                 }
                 NodeNotification::InboundConnectionFailure(err) => {
@@ -404,8 +402,7 @@ impl<Custom: Codable> NodeHandle<Custom>{
                 NodeNotification::Shutdown => {
                     println!("\n=> Node did shutdown.");
                     break;
-                }
-                _ => println!("Unsupported parse NodeNotification"),
+                },
             }
         }
     }

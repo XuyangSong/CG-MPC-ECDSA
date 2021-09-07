@@ -1,15 +1,11 @@
-use crate::party_one::KeyGenInit;
 use curv::arithmetic::Converter;
-use curve25519_dalek::scalar::Scalar;
-use rand::thread_rng;
 use std::net::IpAddr;
 
 use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::cybershake;
-use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID, MsgProcess, ProcessMessage};
+use p2p::{Message, Node, NodeHandle, PeerID, MsgProcess, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
@@ -113,7 +109,7 @@ pub struct InitMessage {
     party_two_sign: party_two::SignPhase,
 }
 impl InitMessage {
-    pub fn Init_message() -> Self {
+    pub fn init_message() -> Self {
         let party_id_str: String = env::args().nth(1).unwrap();
         let party_id: usize = party_id_str.parse::<usize>().unwrap();
         let json_config_file: String = env::args().nth(2).unwrap();
@@ -132,12 +128,12 @@ impl InitMessage {
         let group = CLGroup::new_from_qtilde(&seed, &qtilde);
         // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
-        let mut party_one_keygen = party_one::KeyGenInit::new(&group);
-        let mut party_two_keygen = party_two::KeyGenInit::new(&group);
+        let party_one_keygen = party_one::KeyGenInit::new(&group);
+        let party_two_keygen = party_two::KeyGenInit::new(&group);
 
         let new_class_group = update_class_group_by_p(&group);
-        let mut party_one_sign = party_one::SignPhase::new(new_class_group.clone());
-        let mut party_two_sign = party_two::SignPhase::new(new_class_group, &message_to_sign);
+        let party_one_sign = party_one::SignPhase::new(new_class_group.clone());
+        let party_two_sign = party_two::SignPhase::new(new_class_group, &message_to_sign);
         let init_message = InitMessage {
             party_id: party_id,
             party_index: party_index,
@@ -154,7 +150,6 @@ impl InitMessage {
     }
 }
 struct TwoParty {
-    message_to_sign: FE,
     party_index: usize,
     party_one_keygen: party_one::KeyGenInit,
     party_two_keygen: party_two::KeyGenInit,
@@ -361,7 +356,7 @@ fn main() {
         );
         panic!("Need Config File")
     }
-    let init_messages = InitMessage::Init_message();
+    let init_messages = InitMessage::init_message();
 
     // Create the runtime.
     let mut rt: tokio::runtime::Runtime =
@@ -370,7 +365,7 @@ fn main() {
     local
         .block_on(&mut rt, async move {
             //Setup a node
-            let (mut node_handle, mut notifications_channel) = Node::<Message>::node_init(
+            let (node_handle, notifications_channel) = Node::<Message>::node_init(
                 init_messages.party_index,
                 init_messages.ip,
                 init_messages.port,
@@ -385,7 +380,6 @@ fn main() {
             let notifications_loop = {
                 task::spawn_local(async move {
                     let mut message_process = TwoParty {
-                        message_to_sign: init_messages.message_to_sign,
                         party_index: init_messages.party_index,
                         party_one_keygen: init_messages.party_one_keygen,
                         party_two_keygen: init_messages.party_two_keygen,
