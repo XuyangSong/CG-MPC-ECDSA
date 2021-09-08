@@ -1,6 +1,5 @@
 use curv::arithmetic::Converter;
 use std::collections::HashMap;
-use std::net::IpAddr;
 
 use tokio::io;
 use tokio::prelude::*;
@@ -13,7 +12,6 @@ use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use multi_party_ecdsa::protocols::multi_party::ours::message::MultiKeyGenMessage;
-// use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use serde::Deserialize;
 use std::path::Path;
 use std::{env, fs};
@@ -34,12 +32,8 @@ pub struct MyInfo {
     pub port: u16,
 }
 impl MyInfo {
-    pub fn new(index_: usize, ip_: String, port_: u16) -> Self {
-        Self {
-            index: index_,
-            ip: ip_,
-            port: port_,
-        }
+    pub fn new(index: usize, ip: String, port: u16) -> Self {
+        Self { index, ip, port }
     }
 }
 
@@ -49,17 +43,13 @@ pub struct PeerInfo {
     pub address: String,
 }
 impl PeerInfo {
-    pub fn new(index_: usize, address_: String) -> Self {
-        Self {
-            index: index_,
-            address: address_,
-        }
+    pub fn new(index: usize, address: String) -> Self {
+        Self { index, address }
     }
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct JsonConfigInternal {
-    pub http_port: u16,
     pub share_count: usize,
     pub threshold: usize,
     pub my_info: MyInfo,
@@ -91,7 +81,6 @@ impl JsonConfigInternal {
         }
 
         Self {
-            http_port: 8000,
             share_count: json_config.share_count,
             threshold: json_config.threshold,
             my_info: MyInfo::new(index_, ip_, port_),
@@ -102,58 +91,46 @@ impl JsonConfigInternal {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct InitMessage {
-    party_id: usize,
-    party_index: usize,
-    json_config: JsonConfigInternal,
-    ip: IpAddr,
-    port: u16,
-    params: Parameters,
-    keygen: KeyGen,
+    my_info: MyInfo,
+    peers_info: Vec<PeerInfo>,
+    multi_party_keygen_info: MultiPartyKeygen,
 }
 impl InitMessage {
     pub fn init_message() -> Self {
         let party_id_str = env::args().nth(1).unwrap();
         let party_id = party_id_str.parse::<usize>().unwrap();
         let json_config_file = env::args().nth(2).unwrap();
-        let json_config_internal = JsonConfigInternal::init_with(party_id, json_config_file);
-        let json_config = json_config_internal.clone();
-        let party_index = json_config.my_info.index;
+
+        //Load config from file
+        let json_config = JsonConfigInternal::init_with(party_id, json_config_file);
+
         let params = Parameters {
             threshold: json_config.threshold,
             share_count: json_config.share_count,
         };
+        //Init group params
         let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
         ).unwrap();
-
         // discriminant: 1348, lambda: 112
         let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
 
-        // discriminant: 1827, lambda: 128
-        // let qtilde: BigInt = str::parse("23134629277267369792843354241183585965289672542849276532207430015120455980466994354663282525744929223097771940566085692607836906398587331469747248600524817812682304621106507179764371100444437141969242248158429617082063052414988242667563996070192147160738941577591048902446543474661282744240565430969463246910793975505673398580796242020117195767211576704240148858827298420892993584245717232048052900060035847264121684747571088249105643535567823029086931610261875021794804631").unwrap();
-
-        // let group = CLGroup::new_from_qtilde(&seed, &qtilde);
-        // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
-
         // TBD: add a new func, init it latter.
-        let keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone()).unwrap();
+        //Init multi party info
+        let keygen =
+            KeyGen::init(&seed, &qtilde, json_config.my_info.index, params.clone()).unwrap();
+        let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
-            party_id: party_id,
-            party_index: party_index,
-            ip: json_config.my_info.ip.parse().unwrap(),
-            port: json_config.my_info.port,
-            json_config: json_config,
-            params: params,
-            keygen: keygen,
+            my_info: json_config.my_info,
+            peers_info: json_config.peers_info,
+            multi_party_keygen_info: multi_party_keygen_info,
         };
         return init_messages;
     }
 }
 struct MultiPartyKeygen {
     keygen: KeyGen,
-    party_index: usize,
 }
 impl MsgProcess<Message> for MultiPartyKeygen {
     fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
@@ -180,14 +157,10 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 //println!("Sending broadcast msg");
             }
             SendingMessages::KeyGenSuccess => {
-                if self.party_index == 0 {}
-
                 println!("keygen Success!");
                 return ProcessMessage::Default();
             }
             SendingMessages::SignSuccess => {
-                if self.party_index == 0 {}
-
                 println!("Sign Success!");
                 return ProcessMessage::Default();
             }
@@ -196,13 +169,10 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 return ProcessMessage::Default();
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
-                if self.party_index == 0 {}
                 println!("keygen Success! {}", res);
                 return ProcessMessage::Default();
             }
             SendingMessages::SignSuccessWithResult(res) => {
-                if self.party_index == 0 {}
-
                 println!("Sign Success! {}", res);
                 return ProcessMessage::Default();
             }
@@ -226,26 +196,21 @@ fn main() {
     let local = task::LocalSet::new();
     local
         .block_on(&mut rt, async move {
-            let (node_handle, notifications_channel) = Node::<Message>::node_init(
-                init_messages.party_index,
-                init_messages.ip,
-                init_messages.port,
+            let (mut node_handle, notifications_channel) = Node::<Message>::node_init(
+                init_messages.my_info.index,
+                init_messages.my_info.ip.parse().unwrap(),
+                init_messages.my_info.port,
             )
             .await;
 
-            let mut node_handle_clone = node_handle.clone();
             // Begin the UI.
-            let interactive_loop =
-                Console::spawn(node_handle, init_messages.json_config.peers_info.clone());
+            let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
 
             // Spawn the notifications loop
+            let mut message_process = init_messages.multi_party_keygen_info;
             let notifications_loop = {
                 task::spawn_local(async move {
-                    let mut message_process = MultiPartyKeygen {
-                        keygen: init_messages.keygen,
-                        party_index: init_messages.party_index,
-                    };
-                    node_handle_clone
+                    node_handle
                         .receive_(notifications_channel, &mut message_process)
                         .await;
                     Result::<(), String>::Ok(())
