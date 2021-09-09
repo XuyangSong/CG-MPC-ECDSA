@@ -34,30 +34,12 @@ pub struct JsonConfigInternal {
     pub message: String,
 }
 
-impl JsonConfigInternal {
-    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
-        let file_path = Path::new(&json_config_file);
-        let json_str = fs::read_to_string(file_path).unwrap();
-        let json_config: JsonConfig =
-            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
-
-        let index_ = party_id;
-        let mut my_info_: Info = Info::new(0, " ".to_string());
-        let mut peers_info_: Info = Info::new(0, " ".to_string());
-        for info in json_config.infos.iter() {
-            if info.index == index_ {
-                my_info_ = Info::new(info.index, info.address.clone());
-            } else {
-                peers_info_ = Info::new(info.index, info.address.clone());
-            }
-        }
-
-        Self {
-            my_info: my_info_,
-            peer_info: peers_info_,
-            message: json_config.message,
-        }
-    }
+struct TwoParty {
+    party_index: usize,
+    party_one_keygen: party_one::KeyGenInit,
+    party_two_keygen: party_two::KeyGenInit,
+    party_one_sign: party_one::SignPhase,
+    party_two_sign: party_two::SignPhase,
 }
 
 pub struct InitMessage {
@@ -65,6 +47,51 @@ pub struct InitMessage {
     peer_info: Info,
     two_party_info: TwoParty,
 }
+
+enum UserCommand {
+    Nop,
+    Connect,
+    KeyGen,
+    Sign,
+    Broadcast(String),
+    SendMsg(PeerID, String),
+    Disconnect(PeerID), // peer id
+    ListPeers,
+    Exit,
+}
+
+pub struct Console {
+    node: NodeHandle<Message>,
+    peer_info: Info,
+}
+
+impl JsonConfigInternal {
+    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
+        let file_path = Path::new(&json_config_file);
+        let json_str = fs::read_to_string(file_path).unwrap();
+        let json_config: JsonConfig =
+            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
+
+        // TBD: handle unwrap, return a error.
+        let my_info_ = json_config
+            .infos
+            .iter()
+            .find(|e| e.index == party_id)
+            .unwrap();
+        let peer_info_ = json_config
+            .infos
+            .iter()
+            .find(|e| e.index != party_id)
+            .unwrap();
+
+        Self {
+            my_info: my_info_.clone(),
+            peer_info: peer_info_.clone(),
+            message: json_config.message,
+        }
+    }
+}
+
 impl InitMessage {
     pub fn init_message() -> Self {
         let party_id_str: String = env::args().nth(1).unwrap();
@@ -108,13 +135,7 @@ impl InitMessage {
         }
     }
 }
-struct TwoParty {
-    party_index: usize,
-    party_one_keygen: party_one::KeyGenInit,
-    party_two_keygen: party_two::KeyGenInit,
-    party_one_sign: party_one::SignPhase,
-    party_two_sign: party_two::SignPhase,
-}
+
 impl MsgProcess<Message> for TwoParty {
     fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
         let received_msg: TwoPartyMsg = bincode::deserialize(&msg).unwrap();
@@ -351,23 +372,6 @@ fn main() {
             interactive_loop.await.expect("panic on JoinError")
         })
         .unwrap()
-}
-
-enum UserCommand {
-    Nop,
-    Connect,
-    KeyGen,
-    Sign,
-    Broadcast(String),
-    SendMsg(PeerID, String),
-    Disconnect(PeerID), // peer id
-    ListPeers,
-    Exit,
-}
-
-pub struct Console {
-    node: NodeHandle<Message>,
-    peer_info: Info,
 }
 
 impl Console {

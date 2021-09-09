@@ -39,6 +39,15 @@ impl Info {
     }
 }
 
+impl Default for Info {
+    fn default() -> Info {
+        Info {
+            index: 0,
+            address: String::default(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ProcessMessage<Custom: Codable> {
     BroadcastMessage(Custom),
