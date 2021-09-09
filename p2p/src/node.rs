@@ -1,6 +1,7 @@
 //! Node manages its own state and the state of its peers, and orchestrates messages between them.
 use core::time::Duration;
 use curve25519_dalek::scalar::Scalar;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -26,6 +27,17 @@ use readerwriter::Codable;
 
 use crate::errors::MpcIOError;
 type Reply<T> = sync::oneshot::Sender<T>;
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Info {
+    pub index: usize,
+    pub address: String,
+}
+impl Info {
+    pub fn new(index: usize, address: String) -> Self {
+        Self { index, address }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum ProcessMessage<Custom: Codable> {

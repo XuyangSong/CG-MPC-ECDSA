@@ -4,7 +4,7 @@ use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::{Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
+use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
@@ -23,36 +23,14 @@ use std::{env, fs};
 
 #[derive(Debug, Deserialize)]
 struct JsonConfig {
-    pub infos: Vec<PeerInfo>,
+    pub infos: Vec<Info>,
     pub message: String, // message to sign
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct MyInfo {
-    pub index: usize,
-    pub ip: String,
-    pub port: u16,
-}
-impl MyInfo {
-    pub fn new(index: usize, ip: String, port: u16) -> Self {
-        Self { index, ip, port }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct PeerInfo {
-    pub index: usize,
-    pub address: String,
-}
-impl PeerInfo {
-    pub fn new(index: usize, address: String) -> Self {
-        Self { index, address }
-    }
-}
-#[derive(Debug, Deserialize, Clone)]
 pub struct JsonConfigInternal {
-    pub my_info: MyInfo,
-    pub peer_info: PeerInfo,
+    pub my_info: Info,
+    pub peer_info: Info,
     pub message: String,
 }
 
@@ -64,22 +42,18 @@ impl JsonConfigInternal {
             serde_json::from_str(&json_str).expect("JSON was not well-formatted");
 
         let index_ = party_id;
-        let mut ip_: String = String::new();
-        let mut port_: u16 = 8888;
-        let mut peers_info_: PeerInfo = PeerInfo::new(0, " ".to_string());
+        let mut my_info_: Info = Info::new(0, " ".to_string());
+        let mut peers_info_: Info = Info::new(0, " ".to_string());
         for info in json_config.infos.iter() {
             if info.index == index_ {
-                let s = info.address.clone();
-                let vs: Vec<&str> = s.splitn(2, ":").collect();
-                ip_ = vs[0].to_string();
-                port_ = vs[1].to_string().parse::<u16>().unwrap();
+                my_info_ = Info::new(info.index, info.address.clone());
             } else {
-                peers_info_ = PeerInfo::new(info.index, info.address.clone());
+                peers_info_ = Info::new(info.index, info.address.clone());
             }
         }
 
         Self {
-            my_info: MyInfo::new(index_, ip_, port_),
+            my_info: my_info_,
             peer_info: peers_info_,
             message: json_config.message,
         }
@@ -87,8 +61,8 @@ impl JsonConfigInternal {
 }
 
 pub struct InitMessage {
-    my_info: MyInfo,
-    peer_info: PeerInfo,
+    my_info: Info,
+    peer_info: Info,
     two_party_info: TwoParty,
 }
 impl InitMessage {
@@ -350,10 +324,11 @@ fn main() {
     local
         .block_on(&mut rt, async move {
             //Setup a node
+            let vs: Vec<&str> = init_messages.my_info.address.splitn(2, ":").collect();
             let (mut node_handle, notifications_channel) = Node::<Message>::node_init(
                 init_messages.my_info.index,
-                init_messages.my_info.ip.parse().unwrap(),
-                init_messages.my_info.port,
+                vs[0].parse().unwrap(),
+                vs[1].to_string().parse::<u16>().unwrap(),
             )
             .await;
 
@@ -392,13 +367,13 @@ enum UserCommand {
 
 pub struct Console {
     node: NodeHandle<Message>,
-    peer_info: PeerInfo,
+    peer_info: Info,
 }
 
 impl Console {
     pub fn spawn(
         node: NodeHandle<Message>,
-        peer_info: PeerInfo,
+        peer_info: Info,
     ) -> task::JoinHandle<Result<(), String>> {
         task::spawn_local(async move {
             let mut stdin = io::BufReader::new(io::stdin());
