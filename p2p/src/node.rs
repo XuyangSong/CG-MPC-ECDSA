@@ -1,5 +1,7 @@
 //! Node manages its own state and the state of its peers, and orchestrates messages between them.
 use core::time::Duration;
+use curve25519_dalek::scalar::Scalar;
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -15,6 +17,7 @@ use tokio::task;
 use tokio::time;
 
 use rand::thread_rng;
+use std::thread;
 
 use crate::codec::{MessageDecoder, MessageEncoder};
 use crate::cybershake;
@@ -22,7 +25,41 @@ use crate::peer::{PeerAddr, PeerID, PeerLink, PeerMessage, PeerNotification};
 use crate::priority::{Priority, PriorityTable, HIGH_PRIORITY, LOW_PRIORITY};
 use readerwriter::Codable;
 
+use crate::errors::MpcIOError;
 type Reply<T> = sync::oneshot::Sender<T>;
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Info {
+    pub index: usize,
+    pub address: String,
+}
+impl Info {
+    pub fn new(index: usize, address: String) -> Self {
+        Self { index, address }
+    }
+}
+
+impl Default for Info {
+    fn default() -> Info {
+        Info {
+            index: 0,
+            address: String::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum ProcessMessage<Custom: Codable> {
+    BroadcastMessage(Custom),
+    SendMessage(usize, Custom),
+    SendMultiMessage(HashMap<usize, Custom>),
+    Quit(),
+    Default(),
+}
+
+pub trait MsgProcess<Custom: Codable> {
+    fn process(&mut self, index: usize, msg: Custom) -> ProcessMessage<Custom>;
+}
 
 /// State of the node.
 /// This is a handle that can be copied to send messages to the node from different tasks.
@@ -49,6 +86,7 @@ pub struct Node<Custom: Codable> {
     cybershake_identity: cybershake::PrivateKey,
     peer_notification_channel: sync::mpsc::Sender<PeerNotification<Custom>>,
     peers: HashMap<PeerID, PeerState<Custom>>,
+    index_peer: HashMap<usize, PeerID>,
     config: NodeConfig,
     inbound_semaphore: sync::Semaphore,
     peer_priorities: PriorityTable<PeerID>, // priorities of peers
@@ -80,11 +118,7 @@ pub enum NodeNotification<Custom: Codable> {
     MessageReceived(usize, Custom),
     InboundConnectionFailure(io::Error),
     OutboundConnectionFailure(io::Error),
-    KeyGen,
-    Sign,
     Shutdown,
-    KeyGenInit,
-    SignInit,
 }
 
 #[derive(Debug)]
@@ -106,10 +140,8 @@ pub enum NodeMessage<Custom: Codable> {
     SendMsgByIndex(usize, Custom),
     CountPeers(Reply<usize>),
     ListPeers(Reply<Vec<PeerInfo>>),
-    KeyGen(Custom),
-    Sign(Custom),
-    KeyGenInit,
-    SignInit,
+    SendSelf(Custom),
+    Indextoidpeer(usize, Reply<PeerID>),
     Exit,
 }
 
@@ -153,6 +185,7 @@ where
             cybershake_identity,
             peer_notification_channel: peer_sender,
             peers: HashMap::new(),
+            index_peer: HashMap::new(),
             listener,
             config,
             inbound_semaphore,
@@ -178,7 +211,7 @@ where
                                 _ => node.handle_command(cmd).await,
                             }
                         } else {
-                            // node handle was dropped, shut down the node.
+                            // node handle wasnotifications_channel dropped, shut down the node.
                             break;
                         }
                     },
@@ -200,6 +233,42 @@ where
         });
 
         Ok((node_handle, notif_receiver))
+    }
+
+    pub async fn node_init(
+        my_info: &Info,
+    ) -> (
+        NodeHandle<Custom>,
+        sync::mpsc::Receiver<NodeNotification<Custom>>,
+    ) {
+        let vs: Vec<&str> = my_info.address.splitn(2, ":").collect();
+
+        // TBD: handle the unwrap, return a error.
+        let ip = vs[0].parse().unwrap();
+        let port = vs[1].to_string().parse::<u16>().unwrap();
+
+        let config = NodeConfig {
+            index: my_info.index,
+            listen_ip: ip,
+            listen_port: port,
+            inbound_limit: 100,
+            outbound_limit: 100,
+            heartbeat_interval_sec: 3600,
+        };
+
+        let host_privkey = cybershake::PrivateKey::from(Scalar::random(&mut thread_rng()));
+
+        let (node_handle, notifications_channel) = Node::<Custom>::spawn(host_privkey, config)
+            .await
+            .expect("Should bind normally.");
+        println!(
+            "Listening on {} with peer ID: {} with index: {}",
+            node_handle.socket_address(),
+            node_handle.id(),
+            my_info.index,
+        );
+
+        return (node_handle, notifications_channel);
     }
 }
 
@@ -257,21 +326,9 @@ impl<Custom: Codable> NodeHandle<Custom> {
             .await
     }
 
-    pub async fn keygen_init(&mut self) {
-        self.send_internal(NodeMessage::KeyGenInit).await
-    }
-    pub async fn sign_init(&mut self) {
-        self.send_internal(NodeMessage::SignInit).await
-    }
-
-    /// KeyGen begin.
-    pub async fn keygen(&mut self, msg: Custom) {
-        self.send_internal(NodeMessage::KeyGen(msg)).await
-    }
-
-    /// Sign begin.
-    pub async fn sign(&mut self, msg: Custom) {
-        self.send_internal(NodeMessage::Sign(msg)).await
+    //Send msg to self notification channel
+    pub async fn sendself(&mut self, msg: Custom) {
+        self.send_internal(NodeMessage::SendSelf(msg)).await;
     }
 
     pub async fn list_peers(&mut self) -> Vec<PeerInfo> {
@@ -296,6 +353,87 @@ impl<Custom: Codable> NodeHandle<Custom> {
         // so we will never have an error condition here.
         self.channel.send(msg).await.unwrap_or(())
     }
+
+    pub async fn indexidpeer(&mut self, index: usize) -> PeerID {
+        let (tx, rx) = sync::oneshot::channel::<PeerID>();
+        self.send_internal(NodeMessage::Indextoidpeer(index, tx))
+            .await;
+        rx.await.expect("can not obtain peerid")
+    }
+}
+
+impl<Custom: Codable> NodeHandle<Custom> {
+    pub async fn connect_(&mut self, address: String, index: usize) {
+        let mut count: usize = 0;
+        loop {
+            let result = self.connect_to_peer(&address, None, index).await;
+            match result {
+                Ok(()) => {
+                    println!("Connect Succeed!");
+                    break;
+                }
+                Err(_e) => {
+                    //TBD output e
+                    println!("{}", _e);
+                    let ten_millis = time::Duration::from_millis(100);
+                    thread::sleep(ten_millis);
+                }
+            }
+            count += 1;
+            if count == 3 {
+                println!("Connect Failed, Please make sure node has been init ");
+                //TBD return error
+                assert!(false);
+                //break;
+            }
+        }
+    }
+    pub async fn send_by_msg_(&mut self, index: usize, msg: Custom) {
+        let pid = self.indexidpeer(index).await;
+        self.sendmsg(pid, msg).await;
+    }
+    pub async fn receive_(
+        &mut self,
+        mut notifications_channel: sync::mpsc::Receiver<NodeNotification<Custom>>,
+        message_process: &mut impl MsgProcess<Custom>,
+    ) {
+        while let Some(notif) = notifications_channel.recv().await {
+            match notif {
+                NodeNotification::PeerAdded(_pid, index) => {
+                    println!("\n=> Peer connected to index: {}\n", index)
+                }
+                NodeNotification::PeerDisconnected(pid, index) => {
+                    println!("\n=> Peer disconnected pid: {} index: {}", pid, index)
+                }
+                NodeNotification::MessageReceived(index, msg) => {
+                    let result = message_process.process(index, msg);
+                    match result {
+                        ProcessMessage::BroadcastMessage(msg) => self.broadcast(msg).await,
+                        ProcessMessage::SendMessage(index, msg) => {
+                            self.send_by_msg_(index, msg).await
+                        }
+                        ProcessMessage::SendMultiMessage(send_list) => {
+                            for (index, msg) in send_list {
+                                self.send_by_msg_(index, msg).await;
+                            }
+                        }
+                        ProcessMessage::Quit() => self.exit().await,
+                        ProcessMessage::Default() => {}
+                    }
+                }
+                NodeNotification::InboundConnectionFailure(err) => {
+                    println!("\n=> Inbound connection failure: {:?}", err)
+                }
+                NodeNotification::OutboundConnectionFailure(err) => {
+                    println!("\n=> Outbound connection failure: {:?}", err)
+                }
+                NodeNotification::Shutdown => {
+                    println!("\n=> Node did shutdown.");
+                    break;
+                }
+            }
+        }
+    }
 }
 
 impl<Custom> Node<Custom>
@@ -318,10 +456,8 @@ where
             }
             NodeMessage::CountPeers(reply) => self.count_peers(reply).await,
             NodeMessage::ListPeers(reply) => self.list_peers(reply).await,
-            NodeMessage::KeyGen(msg) => self.keygen(msg).await,
-            NodeMessage::Sign(msg) => self.sign(msg).await,
-            NodeMessage::KeyGenInit => self.keygen_init().await,
-            NodeMessage::SignInit => self.sign_init().await,
+            NodeMessage::SendSelf(msg) => self.send_to_self(msg).await,
+            NodeMessage::Indextoidpeer(index, reply) => self.index_to_peer(index, reply),
             NodeMessage::Exit => {}
         }
     }
@@ -345,9 +481,7 @@ where
     async fn try_accept(&mut self) {
         let result = async {
             let permit = self.inbound_semaphore.acquire().await;
-
             let (stream, addr) = self.listener.accept().await?;
-
             let peer_link = PeerLink::spawn(
                 &self.cybershake_identity,
                 None,
@@ -358,14 +492,13 @@ where
                 MessageDecoder::new(),
             )
             .await?;
-
             // If the handshake did not fail, forget the semaphore permit,
             // so it's consumed until the peer disconnects. When we get about actually
             // removing the peer, then we'll add a new permit to the semaphore.
             permit.forget();
 
             // TBD: fake index, No ues
-            let peer_index = 0;
+            let peer_index = 1;
 
             self.register_peer(
                 peer_link,
@@ -405,7 +538,6 @@ where
         peer_index: usize,
     ) -> Result<(), io::Error> {
         let addr = stream.peer_addr()?;
-
         let peer_link = PeerLink::spawn(
             &self.cybershake_identity,
             expected_pid,
@@ -428,23 +560,6 @@ where
 
         Ok(())
     }
-
-    // async fn connect_to_peer_addr(&mut self, peer_addr: &PeerAddr, peer_index: usize) -> Result<(), io::Error> {
-    //     let ip = peer_addr.addr.ip();
-    //     if ip.is_unspecified() {
-    //         return Err(io::Error::new(
-    //             io::ErrorKind::Other,
-    //             format!("{} is unspecified.", ip),
-    //         ));
-    //     }
-    //     // TODO: add short timeout to avoid hanging for too long waiting to be accepted.
-    //     let stream = net::TcpStream::connect(&peer_addr.addr).await?;
-
-    //     // We are connecting to some discovered address, so minimum priority is zero,
-    //     // so we don't bump up whatever known priority is there.
-    //     self.connect_peer(stream, Some(peer_addr.id), LOW_PRIORITY, peer_index)
-    //         .await
-    // }
 
     async fn register_peer(
         &mut self,
@@ -488,6 +603,9 @@ where
         };
         // The peer did not exist - simply add it.
         let _ = self.peers.insert(id, peer);
+        if direction == Direction::Outbound {
+            self.index_peer.insert(peer_index, id);
+        }
 
         // If this is an outbound connection, tell our port.
         if direction == Direction::Outbound {
@@ -500,10 +618,6 @@ where
             )
             .await
         }
-
-        // Then, tell about our surrounding peers.
-        // self.send_to_peer(&id, PeerMessage::Peers(self.sorted_peers()))
-        //     .await
     }
 
     async fn remove_peer(&mut self, peer_id: &PeerID) {
@@ -529,13 +643,6 @@ where
 
         // self.connect_to_more_peers_if_needed().await;
     }
-
-    // fn count_peers_with_direction(&self, direction: Direction) -> usize {
-    //     self.peers
-    //         .iter()
-    //         .filter(|(_pid, peer)| peer.direction == direction)
-    //         .count()
-    // }
 
     async fn broadcast(&mut self, msg: Custom) {
         for (_id, peer_link) in self.peers.iter_mut() {
@@ -565,25 +672,10 @@ where
         }
     }
 
-    async fn keygen_init(&mut self) {
-        self.notify(NodeNotification::KeyGenInit).await;
-    }
-    async fn sign_init(&mut self) {
-        self.notify(NodeNotification::SignInit).await;
-    }
-
-    async fn keygen(&mut self, msg: Custom) {
+    async fn send_to_self(&mut self, msg: Custom) {
         let index = self.index;
-        self.notify(NodeNotification::KeyGen).await;
         self.notify(NodeNotification::MessageReceived(index, msg))
-            .await
-    }
-
-    async fn sign(&mut self, msg: Custom) {
-        let index = self.index;
-        self.notify(NodeNotification::Sign).await;
-        self.notify(NodeNotification::MessageReceived(index, msg))
-            .await
+            .await;
     }
 
     async fn handle_peer_notification(&mut self, notif: PeerNotification<Custom>) {
@@ -602,6 +694,7 @@ where
                     addr.set_port(port);
                     peer.listening_addr = Some(addr);
                     peer.index = index;
+                    self.index_peer.insert(index, id);
                     println!("\n=>    Peer connected from: index: {}", index);
                     self.notify(NodeNotification::PeerAdded(id, index)).await;
                 }
@@ -619,100 +712,9 @@ where
                 self.peers.get_mut(&id).map(|peer| {
                     peer.peer_addrs = list;
                 });
-
-                // self.recompute_priorities();
-
-                // self.connect_to_more_peers_if_needed().await;
             }
         }
     }
-
-    // async fn connect_to_more_peers_if_needed(&mut self) {
-    //     let outbound_count = self.count_peers_with_direction(Direction::Outbound);
-    //     if outbound_count >= self.config.outbound_limit {
-    //         return;
-    //     }
-    //     let self_pid = self.peer_id();
-
-    //     // Find all addresses, sorted by priority
-    //     let mut list = self
-    //         .peers
-    //         .iter()
-    //         .flat_map(|(_pid, peer_state)| {
-    //             peer_state
-    //                 .peer_addrs
-    //                 .iter()
-    //                 .filter(|peer_addr| {
-    //                     // ignore all addresses to which we are already connected.
-    //                     self.peers.get(&peer_addr.id).is_none() && peer_addr.id != self_pid
-    //                 })
-    //                 .map(|peer_addr| {
-    //                     let priority = self
-    //                         .peer_priorities
-    //                         .get(&peer_addr.id)
-    //                         .unwrap_or(LOW_PRIORITY);
-    //                     (peer_addr.clone(), priority)
-    //                 })
-    //         })
-    //         .collect::<Vec<_>>();
-    //     // Note: we do not remove duplicates before sorting by priority,
-    //     // because different peers may specify bogus addresses or bogus peer IDs that
-    //     // would erase good entries during deduplication.
-    //     list.sort_by_key(|&(_, priority)| priority);
-
-    //     let mut slots_available = self.config.outbound_limit - outbound_count;
-    //     for (peer_addr, _) in list.iter() {
-    //         if slots_available == 0 {
-    //             return;
-    //         }
-
-    //         if self.peers.get(&peer_addr.id).is_some() {
-    //             continue;
-    //         }
-
-    //         match self.connect_to_peer_addr(&peer_addr).await {
-    //             Ok(_) => {
-    //                 slots_available -= 1;
-    //             }
-    //             Err(_) => {
-    //                 // Probably shouldn't send a noisy notification
-    //                 // that we failed to reach out to some random node.
-    //                 // OTOH, would be good to learn if we are failing on many nodes,
-    //                 // maybe someone is spamming us, or the network is bad.
-    //                 /*  ¯\_(ツ)_/¯ */
-    //             }
-    //         }
-    //     }
-    // }
-
-    // fn recompute_priorities(&mut self) {
-    //     // We will do a naïve version for now.
-
-    //     // FIXME: there's a problem that we need to fix:
-    //     // If some trusted node temporarily was connected to very small number of their own trusted nodes,
-    //     // some bad inbound nodes might appear high on their list and therefore get high priority on our side.
-    //     // And current implementation is sticky: once a node gets high priority, we don't deprioritize it later,
-    //     // when all high-priority nodes list it in the end.
-
-    //     // Do at most 5 full cycles - not 100% precise, but won't be too long if we somehow have a large dataset.
-    //     for _ in 0..5 {
-    //         let mut updated = false;
-
-    //         for (pid, peerstate) in self.peers.iter() {
-    //             self.peer_priorities.batch(|priorities| {
-    //                 let priority = priorities.get(&pid).unwrap_or(LOW_PRIORITY);
-    //                 for (i, paddr) in peerstate.peer_addrs.iter().enumerate() {
-    //                     updated =
-    //                         updated || priorities.insert(paddr.id, priority + (i as Priority) + 1);
-    //                 }
-    //             });
-    //         }
-
-    //         if !updated {
-    //             return;
-    //         }
-    //     }
-    // }
 
     async fn notify_on_error<E>(
         &mut self,
@@ -727,33 +729,6 @@ where
     async fn notify(&mut self, notif: NodeNotification<Custom>) {
         let _ = self.notifications_channel.send(notif).await.unwrap_or(());
     }
-
-    // fn sorted_peers(&self) -> Vec<PeerAddr> {
-    //     let mut list = self
-    //         .peers
-    //         .iter()
-    //         .filter_map(|(pid, peer)| {
-    //             peer.listening_addr.map(|addr| PeerAddr {
-    //                 id: *pid,
-    //                 addr: addr,
-    //             })
-    //         })
-    //         .map(|pa| {
-    //             let priority = self.peer_priorities.get(&pa.id).unwrap_or(LOW_PRIORITY);
-    //             (pa, priority)
-    //         })
-    //         .collect::<Vec<_>>();
-
-    //     if list.len() == 0 {
-    //         return Vec::new();
-    //     }
-
-    //     list.sort_by_key(|&(_, priority)| priority);
-    //     list.into_iter()
-    //         .take(self.peer_list_limit())
-    //         .map(|(peer_addr, _priority)| peer_addr)
-    //         .collect::<Vec<_>>()
-    // }
 
     /// Inspectable list of peers for debugging.
     fn peer_infos(&self) -> Vec<PeerInfo> {
@@ -777,6 +752,15 @@ where
 
     fn peer_id(&self) -> PeerID {
         PeerID::from(self.cybershake_identity.to_public_key())
+    }
+
+    fn index_to_peer(&self, index: usize, reply: Reply<PeerID>) {
+        let peerid = self
+            .index_peer
+            .get(&index)
+            .ok_or(MpcIOError::ObtainValueFailed)
+            .unwrap();
+        reply.send(*peerid).unwrap_or(())
     }
 }
 

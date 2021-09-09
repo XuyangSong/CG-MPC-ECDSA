@@ -92,10 +92,8 @@ impl<Custom: Codable + 'static> PeerLink<Custom> {
         let (r, w) = io::split(socket);
         let r = Box::pin(io::BufReader::new(r));
         let w = Box::pin(io::BufWriter::new(w));
-
         let (id_pubkey, outgoing, incoming) =
             cybershake::cybershake(host_identity, r, w, rng).await?;
-
         let mut outgoing = FramedWrite::new(outgoing, encoder);
         let incoming = FramedRead::new(incoming, decoder);
 

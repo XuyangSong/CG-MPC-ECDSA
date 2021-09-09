@@ -1,22 +1,17 @@
 use curv::arithmetic::Converter;
-use curve25519_dalek::scalar::Scalar;
-use rand::thread_rng;
+use std::collections::HashMap;
 
 use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::cybershake;
-use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
+use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
-use multi_party_ecdsa::protocols::multi_party::ours::message::{
-    MultiKeyGenMessage, MultiSignMessage,
-};
-// use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
+use multi_party_ecdsa::protocols::multi_party::ours::message::MultiKeyGenMessage;
 use serde::Deserialize;
 use std::path::Path;
 use std::{env, fs};
@@ -25,293 +20,29 @@ use std::{env, fs};
 struct JsonConfig {
     pub share_count: usize,
     pub threshold: usize,
-    pub infos: Vec<PeerInfo>,
+    pub infos: Vec<Info>,
     pub message: String,    // message to sign
     pub subset: Vec<usize>, // sign parties
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct MyInfo {
-    pub index: usize,
-    pub ip: String,
-    pub port: u16,
-}
-impl MyInfo {
-    pub fn new(index_: usize, ip_: String, port_: u16) -> Self {
-        Self {
-            index: index_,
-            ip: ip_,
-            port: port_,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct PeerInfo {
-    pub index: usize,
-    pub address: String,
-}
-impl PeerInfo {
-    pub fn new(index_: usize, address_: String) -> Self {
-        Self {
-            index: index_,
-            address: address_,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct JsonConfigInternal {
-    pub http_port: u16,
     pub share_count: usize,
     pub threshold: usize,
-    pub my_info: MyInfo,
-    pub peers_info: Vec<PeerInfo>,
+    pub my_info: Info,
+    pub peers_info: Vec<Info>,
     pub message: String,
     pub subset: Vec<usize>,
 }
 
-impl JsonConfigInternal {
-    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
-        let file_path = Path::new(&json_config_file);
-        let json_str = fs::read_to_string(file_path).unwrap();
-        let json_config: JsonConfig =
-            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
-
-        let index_ = party_id;
-        let mut ip_: String = String::new();
-        let mut port_: u16 = 8888;
-        let mut peers_info_: Vec<PeerInfo> = Vec::new();
-        for info in json_config.infos.iter() {
-            if info.index == index_ {
-                let s = info.address.clone();
-                let vs: Vec<&str> = s.splitn(2, ":").collect();
-                ip_ = vs[0].to_string();
-                port_ = vs[1].to_string().parse::<u16>().unwrap();
-            } else {
-                peers_info_.push(PeerInfo::new(info.index, info.address.clone()));
-            }
-        }
-
-        Self {
-            http_port: 8000,
-            share_count: json_config.share_count,
-            threshold: json_config.threshold,
-            my_info: MyInfo::new(index_, ip_, port_),
-            peers_info: peers_info_,
-            message: json_config.message,
-            subset: json_config.subset,
-        }
-    }
+pub struct InitMessage {
+    my_info: Info,
+    peers_info: Vec<Info>,
+    multi_party_keygen_info: MultiPartyKeygen,
 }
 
-fn main() {
-    if env::args().count() < 3 {
-        println!(
-            "Usage:\n\t{} <parties> <party-id> <port> <config-file>",
-            env::args().nth(0).unwrap()
-        );
-        panic!("Need Config File")
-    }
-
-    let party_id_str = env::args().nth(1).unwrap();
-    //let port_str = env::args().nth(2).unwrap();
-    //let port = port_str.parse::<u16>().unwrap();
-    let party_id = party_id_str.parse::<usize>().unwrap();
-    let json_config_file = env::args().nth(2).unwrap();
-    let json_config_internal = JsonConfigInternal::init_with(party_id, json_config_file);
-    //json_config_internal.http_port = port;
-    let json_config = json_config_internal.clone();
-
-    // Create the runtime.
-    let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
-    let local = task::LocalSet::new();
-    local
-        .block_on(&mut rt, async move {
-            // Creating a random private key instead of reading from a file.
-            let host_privkey = cybershake::PrivateKey::from(Scalar::random(&mut thread_rng()));
-
-            // Read config info from file
-            let party_index = json_config.my_info.index;
-            let params = Parameters {
-                threshold: json_config.threshold,
-                share_count: json_config.share_count,
-            };
-            // let subset = json_config.subset;
-            // let message = json_config.message;
-
-            let config = NodeConfig {
-                index: party_index,
-                listen_ip: json_config.my_info.ip.parse().unwrap(),
-                listen_port: json_config.my_info.port,
-                inbound_limit: 100,
-                outbound_limit: 100,
-                heartbeat_interval_sec: 3600,
-            };
-
-            let (node, mut notifications_channel) = Node::<Message>::spawn(host_privkey, config)
-                .await
-                .expect("Should bind normally.");
-
-            println!(
-                "Listening on {} with peer ID: {} with index: {}",
-                node.socket_address(),
-                node.id(),
-                party_index,
-            );
-
-            let mut node2 = node.clone();
-
-            // Connect, just for performance test
-            // for peer_info in json_config.peers_info.iter() {
-            //     if peer_info.index > party_index {
-            //         node2
-            //         .connect_to_peer(&peer_info.address, None, peer_info.index)
-            //         .await;
-            //     }
-            // }
-
-            // Begin the UI.
-            let interactive_loop = Console::spawn(node, json_config.peers_info);
-
-            // Spawn the notifications loop
-            let notifications_loop = {
-                task::spawn_local(async move {
-                    let seed: BigInt = BigInt::from_hex(
-                        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-                    ).unwrap();
-
-                    // discriminant: 1348, lambda: 112
-                    let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
-
-                    // discriminant: 1827, lambda: 128
-                    // let qtilde: BigInt = str::parse("23134629277267369792843354241183585965289672542849276532207430015120455980466994354663282525744929223097771940566085692607836906398587331469747248600524817812682304621106507179764371100444437141969242248158429617082063052414988242667563996070192147160738941577591048902446543474661282744240565430969463246910793975505673398580796242020117195767211576704240148858827298420892993584245717232048052900060035847264121684747571088249105643535567823029086931610261875021794804631").unwrap();
-
-                    // let group = CLGroup::new_from_qtilde(&seed, &qtilde);
-                    // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
-
-                    // TBD: add a new func, init it latter.
-                    let mut keygen = KeyGen::init(&seed, &qtilde, party_index, params.clone()).unwrap();
-                    // let mut sign = SignPhase::new(&seed, &qtilde, party_index, params.clone(), &subset, &message);
-                    // sign.init();
-
-                    let mut time = time::now();
-
-                    while let Some(notif) = notifications_channel.recv().await {
-                        match notif {
-                            NodeNotification::PeerAdded(_pid, index) => {
-                                println!("\n=>    Peer connected to index: {}", index)
-                            }
-                            NodeNotification::PeerDisconnected(pid, index) => {
-                                println!("\n=> Peer disconnected pid: {} index: {}", pid, index)
-                            }
-                            NodeNotification::MessageReceived(index, msg) => {
-                                println!("\n=> Receiving message from {}", index);
-
-                                // Decode msg
-                                let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
-
-                                let mut sending_msg = SendingMessages::EmptyMsg;
-                                if let ReceivingMessages::MultiKeyGenMessage(msg) = received_msg {
-                                    sending_msg = keygen.msg_handler(index, &msg).unwrap();
-                                }
-                                // let sending_msg = match received_msg {
-                                //     ReceivingMessages::MultiKeyGenMessage(msg) => {
-                                //         keygen.msg_handler(index, &msg)
-                                //     }
-                                //     ReceivingMessages::MultiSignMessage(msg) => {
-                                //         // sign.msg_handler(index, &msg)
-                                //     }
-                                // };
-
-                                match sending_msg {
-                                    SendingMessages::NormalMessage(index, msg) => {
-                                        node2.sendmsgbyindex(index, Message(msg)).await;
-                                    }
-                                    SendingMessages::P2pMessage(msgs) => {
-                                        for (index, msg) in msgs.iter() {
-                                            node2.sendmsgbyindex(*index, Message(msg.to_vec())).await;
-                                        }
-                                        println!("Sending p2p msg");
-                                    }
-                                    SendingMessages::BroadcastMessage(msg) => {
-                                        node2.broadcast(Message(msg)).await;
-                                        println!("Sending broadcast msg");
-                                    }
-                                    SendingMessages::KeyGenSuccess => {
-                                        if party_index == 0 {
-                                            println!("KeyGen time: {:?}", time::now() - time);
-                                        }
-
-                                        println!("keygen Success!");
-                                    }
-                                    SendingMessages::SignSuccess => {
-                                        if party_index == 0 {
-                                            println!("Sign time: {:?}", time::now() - time);
-                                        }
-
-                                        println!("Sign Success!");
-                                    }
-                                    SendingMessages::EmptyMsg => {
-                                        println!("no msg to send");
-                                    }
-                                    SendingMessages::KeyGenSuccessWithResult(res) => {
-                                        if party_index == 0 {
-                                            println!("KeyGen time: {:?}", time::now() - time);
-                                        }
-                                        println!("keygen Success! {}", res);
-                                    }
-                                    SendingMessages::SignSuccessWithResult(res) => {
-                                        if party_index == 0 {
-                                            println!("Sign time: {:?}", time::now() - time);
-                                        }
-
-                                        println!("Sign Success! {}", res);
-                                    }
-                                }
-                                println!("\n")
-                            }
-                            NodeNotification::KeyGen => {
-                                if party_index == 0 {
-                                    time = time::now();
-                                    let sending_msg = ReceivingMessages::MultiKeyGenMessage(MultiKeyGenMessage::KeyGenBegin);
-                                    let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
-                                    node2.broadcast(Message(sending_msg_bytes)).await;
-                                    println!("KeyGen...")
-                                } else {
-                                    println!("Only index 0 can start keygen!")
-                                }
-                            }
-                            NodeNotification::Sign => {
-                                time = time::now();
-                                let sending_msg = ReceivingMessages::MultiSignMessage(MultiSignMessage::SignBegin);
-                                let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
-                                node2.broadcast(Message(sending_msg_bytes)).await;
-                                println!("Sign...")
-                            }
-                            NodeNotification::InboundConnectionFailure(err) => {
-                                println!("\n=> Inbound connection failure: {:?}", err)
-                            }
-                            NodeNotification::OutboundConnectionFailure(err) => {
-                                println!("\n=> Outbound connection failure: {:?}", err)
-                            }
-                            NodeNotification::Shutdown => {
-                                println!("\n=> Node did shutdown.");
-                                break;
-                            }
-                            _=>{
-                                println!("Unsupported parse NodeNotification")
-                            }
-                        }
-                    }
-                    Result::<(), String>::Ok(())
-                })
-            };
-
-            notifications_loop.await.expect("panic on JoinError")?;
-            interactive_loop.await.expect("panic on JoinError")
-        })
-        .unwrap()
+struct MultiPartyKeygen {
+    keygen: KeyGen,
 }
 
 enum UserCommand {
@@ -329,14 +60,167 @@ enum UserCommand {
 
 pub struct Console {
     node: NodeHandle<Message>,
-    peers_info: Vec<PeerInfo>,
+    peers_info: Vec<Info>,
     // subset: Vec<usize>,
+}
+
+impl JsonConfigInternal {
+    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
+        let file_path = Path::new(&json_config_file);
+        let json_str = fs::read_to_string(file_path).unwrap();
+        let json_config: JsonConfig =
+            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
+
+        // TBD: handle unwrap, return a error.
+        let my_info = json_config
+            .infos
+            .iter()
+            .find(|e| e.index == party_id)
+            .unwrap()
+            .clone();
+        let peers_info: Vec<Info> = json_config
+            .infos
+            .into_iter()
+            .filter(|e| e.index != party_id)
+            .collect();
+
+        Self {
+            share_count: json_config.share_count,
+            threshold: json_config.threshold,
+            my_info,
+            peers_info,
+            message: json_config.message,
+            subset: json_config.subset,
+        }
+    }
+}
+
+impl InitMessage {
+    pub fn init_message() -> Self {
+        let party_id_str = env::args().nth(1).unwrap();
+        let party_id = party_id_str.parse::<usize>().unwrap();
+        let json_config_file = env::args().nth(2).unwrap();
+
+        //Load config from file
+        let json_config = JsonConfigInternal::init_with(party_id, json_config_file);
+
+        let params = Parameters {
+            threshold: json_config.threshold,
+            share_count: json_config.share_count,
+        };
+        //Init group params
+        let seed: BigInt = BigInt::from_hex(
+            "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
+        ).unwrap();
+        // discriminant: 1348, lambda: 112
+        let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
+
+        // TBD: add a new func, init it latter.
+        //Init multi party info
+        let keygen =
+            KeyGen::init(&seed, &qtilde, json_config.my_info.index, params.clone()).unwrap();
+        let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
+        let init_messages = InitMessage {
+            my_info: json_config.my_info,
+            peers_info: json_config.peers_info,
+            multi_party_keygen_info: multi_party_keygen_info,
+        };
+        return init_messages;
+    }
+}
+
+impl MsgProcess<Message> for MultiPartyKeygen {
+    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
+        let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
+        let mut sending_msg = SendingMessages::EmptyMsg;
+        if let ReceivingMessages::MultiKeyGenMessage(msg) = received_msg {
+            sending_msg = self.keygen.msg_handler(index, &msg).unwrap();
+        }
+        match sending_msg {
+            SendingMessages::NormalMessage(index, msg) => {
+                return ProcessMessage::SendMessage(index, Message(msg))
+            }
+            SendingMessages::P2pMessage(msgs) => {
+                //TBD: handle vector to Message
+                let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
+                for (key, value) in msgs {
+                    msgs_to_send.insert(key, Message(value));
+                }
+                return ProcessMessage::SendMultiMessage(msgs_to_send);
+                //println!("Sending p2p msg");
+            }
+            SendingMessages::BroadcastMessage(msg) => {
+                return ProcessMessage::BroadcastMessage(Message(msg));
+                //println!("Sending broadcast msg");
+            }
+            SendingMessages::KeyGenSuccess => {
+                println!("keygen Success!");
+                return ProcessMessage::Default();
+            }
+            SendingMessages::SignSuccess => {
+                println!("Sign Success!");
+                return ProcessMessage::Default();
+            }
+            SendingMessages::EmptyMsg => {
+                println!("no msg to send");
+                return ProcessMessage::Default();
+            }
+            SendingMessages::KeyGenSuccessWithResult(res) => {
+                println!("keygen Success! {}", res);
+                return ProcessMessage::Default();
+            }
+            SendingMessages::SignSuccessWithResult(res) => {
+                println!("Sign Success! {}", res);
+                return ProcessMessage::Default();
+            }
+        }
+    }
+}
+
+fn main() {
+    if env::args().count() < 3 {
+        println!(
+            "Usage:\n\t{} <parties> <party-id> <port> <config-file>",
+            env::args().nth(0).unwrap()
+        );
+        panic!("Need Config File")
+    }
+
+    let init_messages = InitMessage::init_message();
+
+    // Create the runtime.
+    let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
+    let local = task::LocalSet::new();
+    local
+        .block_on(&mut rt, async move {
+            // Setup a node
+            let (mut node_handle, notifications_channel) =
+                Node::<Message>::node_init(&init_messages.my_info).await;
+
+            // Begin the UI.
+            let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
+
+            // Spawn the notifications loop
+            let mut message_process = init_messages.multi_party_keygen_info;
+            let notifications_loop = {
+                task::spawn_local(async move {
+                    node_handle
+                        .receive_(notifications_channel, &mut message_process)
+                        .await;
+                    Result::<(), String>::Ok(())
+                })
+            };
+
+            notifications_loop.await.expect("panic on JoinError")?;
+            interactive_loop.await.expect("panic on JoinError")
+        })
+        .unwrap()
 }
 
 impl Console {
     pub fn spawn(
         node: NodeHandle<Message>,
-        peers_info: Vec<PeerInfo>,
+        peers_info: Vec<Info>,
         // subset: Vec<usize>,
     ) -> task::JoinHandle<Result<(), String>> {
         task::spawn_local(async move {
@@ -436,7 +320,9 @@ impl Console {
                     MultiKeyGenMessage::KeyGenBegin,
                 ))
                 .unwrap();
-                self.node.keygen(Message(msg)).await;
+                let msg_clone = msg.clone();
+                self.node.broadcast(Message(msg)).await;
+                self.node.sendself(Message(msg_clone)).await;
             }
             UserCommand::Sign => {
                 // println!("=> Signature Begin...");
