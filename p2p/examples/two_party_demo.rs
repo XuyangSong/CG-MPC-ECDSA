@@ -73,20 +73,21 @@ impl JsonConfigInternal {
             serde_json::from_str(&json_str).expect("JSON was not well-formatted");
 
         // TBD: handle unwrap, return a error.
-        let my_info_ = json_config
+        let my_info = json_config
             .infos
             .iter()
             .find(|e| e.index == party_id)
-            .unwrap();
-        let peer_info_ = json_config
+            .unwrap()
+            .clone();
+        let peer_info = json_config
             .infos
-            .iter()
+            .into_iter()
             .find(|e| e.index != party_id)
             .unwrap();
 
         Self {
-            my_info: my_info_.clone(),
-            peer_info: peer_info_.clone(),
+            my_info,
+            peer_info,
             message: json_config.message,
         }
     }

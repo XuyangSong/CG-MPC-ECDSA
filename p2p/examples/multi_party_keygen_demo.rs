@@ -35,6 +35,35 @@ pub struct JsonConfigInternal {
     pub subset: Vec<usize>,
 }
 
+pub struct InitMessage {
+    my_info: Info,
+    peers_info: Vec<Info>,
+    multi_party_keygen_info: MultiPartyKeygen,
+}
+
+struct MultiPartyKeygen {
+    keygen: KeyGen,
+}
+
+enum UserCommand {
+    Nop,
+    MultiKeyGenConnect,
+    MultiSignConnect,
+    KeyGen,
+    Sign,
+    Broadcast(String),
+    SendMsg(PeerID, String),
+    Disconnect(PeerID), // peer id
+    ListPeers,
+    Exit,
+}
+
+pub struct Console {
+    node: NodeHandle<Message>,
+    peers_info: Vec<Info>,
+    // subset: Vec<usize>,
+}
+
 impl JsonConfigInternal {
     pub fn init_with(party_id: usize, json_config_file: String) -> Self {
         let file_path = Path::new(&json_config_file);
@@ -42,33 +71,30 @@ impl JsonConfigInternal {
         let json_config: JsonConfig =
             serde_json::from_str(&json_str).expect("JSON was not well-formatted");
 
-        let index_ = party_id;
-        let mut my_info_: Info = Info::new(0, " ".to_string());
-        let mut peers_info_: Vec<Info> = Vec::new();
-        for info in json_config.infos.iter() {
-            if info.index == index_ {
-                my_info_ = Info::new(info.index, info.address.clone());
-            } else {
-                peers_info_.push(Info::new(info.index, info.address.clone()));
-            }
-        }
+        // TBD: handle unwrap, return a error.
+        let my_info = json_config
+            .infos
+            .iter()
+            .find(|e| e.index == party_id)
+            .unwrap()
+            .clone();
+        let peers_info: Vec<Info> = json_config
+            .infos
+            .into_iter()
+            .filter(|e| e.index != party_id)
+            .collect();
 
         Self {
             share_count: json_config.share_count,
             threshold: json_config.threshold,
-            my_info: my_info_,
-            peers_info: peers_info_,
+            my_info,
+            peers_info,
             message: json_config.message,
             subset: json_config.subset,
         }
     }
 }
 
-pub struct InitMessage {
-    my_info: Info,
-    peers_info: Vec<Info>,
-    multi_party_keygen_info: MultiPartyKeygen,
-}
 impl InitMessage {
     pub fn init_message() -> Self {
         let party_id_str = env::args().nth(1).unwrap();
@@ -102,9 +128,7 @@ impl InitMessage {
         return init_messages;
     }
 }
-struct MultiPartyKeygen {
-    keygen: KeyGen,
-}
+
 impl MsgProcess<Message> for MultiPartyKeygen {
     fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
         let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
@@ -195,25 +219,6 @@ fn main() {
             interactive_loop.await.expect("panic on JoinError")
         })
         .unwrap()
-}
-
-enum UserCommand {
-    Nop,
-    MultiKeyGenConnect,
-    MultiSignConnect,
-    KeyGen,
-    Sign,
-    Broadcast(String),
-    SendMsg(PeerID, String),
-    Disconnect(PeerID), // peer id
-    ListPeers,
-    Exit,
-}
-
-pub struct Console {
-    node: NodeHandle<Message>,
-    peers_info: Vec<Info>,
-    // subset: Vec<usize>,
 }
 
 impl Console {

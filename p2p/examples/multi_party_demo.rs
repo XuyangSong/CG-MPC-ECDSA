@@ -45,22 +45,24 @@ impl JsonConfigInternal {
         let json_config: JsonConfig =
             serde_json::from_str(&json_str).expect("JSON was not well-formatted");
 
-        let index_ = party_id;
-        let mut my_info_: Info = Info::new(0, " ".to_string());
-        let mut peers_info_: Vec<Info> = Vec::new();
-        for info in json_config.infos.iter() {
-            if info.index == index_ {
-                my_info_ = Info::new(info.index, info.address.clone());
-            } else {
-                peers_info_.push(Info::new(info.index, info.address.clone()));
-            }
-        }
+        // TBD: handle unwrap, return a error.
+        let my_info = json_config
+            .infos
+            .iter()
+            .find(|e| e.index == party_id)
+            .unwrap()
+            .clone();
+        let peers_info: Vec<Info> = json_config
+            .infos
+            .into_iter()
+            .filter(|e| e.index != party_id)
+            .collect();
 
         Self {
             share_count: json_config.share_count,
             threshold: json_config.threshold,
-            my_info: my_info_,
-            peers_info: peers_info_,
+            my_info,
+            peers_info,
             message: json_config.message,
             subset: json_config.subset,
         }
