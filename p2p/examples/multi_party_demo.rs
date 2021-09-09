@@ -196,13 +196,9 @@ fn main() {
     let local = task::LocalSet::new();
     local
         .block_on(&mut rt, async move {
-            let vs: Vec<&str> = init_messages.my_info.address.splitn(2, ":").collect();
-            let (mut node_handle, notifications_channel) = Node::<Message>::node_init(
-                init_messages.my_info.index,
-                vs[0].parse().unwrap(),
-                vs[1].to_string().parse::<u16>().unwrap(),
-            )
-            .await;
+            // Setup a node
+            let (mut node_handle, notifications_channel) =
+                Node::<Message>::node_init(&init_messages.my_info).await;
 
             // Begin the UI.
             let interactive_loop = Console::spawn(

@@ -234,16 +234,21 @@ where
 
         Ok((node_handle, notif_receiver))
     }
+
     pub async fn node_init(
-        index: usize,
-        ip: IpAddr,
-        port: u16,
+        my_info: &Info,
     ) -> (
         NodeHandle<Custom>,
         sync::mpsc::Receiver<NodeNotification<Custom>>,
     ) {
+        let vs: Vec<&str> = my_info.address.splitn(2, ":").collect();
+
+        // TBD: handle the unwrap, return a error.
+        let ip = vs[0].parse().unwrap();
+        let port = vs[1].to_string().parse::<u16>().unwrap();
+
         let config = NodeConfig {
-            index: index,
+            index: my_info.index,
             listen_ip: ip,
             listen_port: port,
             inbound_limit: 100,
@@ -260,7 +265,7 @@ where
             "Listening on {} with peer ID: {} with index: {}",
             node_handle.socket_address(),
             node_handle.id(),
-            index,
+            my_info.index,
         );
 
         return (node_handle, notifications_channel);
