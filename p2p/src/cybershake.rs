@@ -33,7 +33,8 @@
 
 use byteorder::{ByteOrder, LittleEndian};
 use core::marker::Unpin;
-use miscreant::{generic_array::GenericArray, Aes128PmacSiv};
+use aes_siv::aead::generic_array::GenericArray;
+use aes_siv::siv::*;
 use rand_core::{CryptoRng, RngCore};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
