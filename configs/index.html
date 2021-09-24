@@ -25,6 +25,15 @@
         </div>
       </div>
     </form>
+    <form class="form-horizontal" id="form-signconnect" role="form" onsubmit="return false;">
+      <!-- todo -->
+      <div class="form-group">
+        <div class="col-sm-offset-2 col-sm-10">
+          <button type="submit" class="btn btn-default" value="signconnect" name="signconnect"
+            id="btn-signconnect">signconnect</button>
+        </div>
+      </div>
+    </form>
   </div>
 
   <hr />
@@ -156,6 +165,23 @@
           },
           success: function (msg) {
             $("#btn-connect").attr("disabled", false);
+            $("#text-resp").text(msg);
+          }
+        });
+      });
+      $("#form-signconnect").submit(function () {
+        var postData = $("#form-signconnect").serialize();
+        console.log(postData);
+        $.ajax({
+          type: "POST",
+          url: "/signconnect",
+          data: postData,
+          beforeSend: function () {
+            $("#btn-signconnect").attr("disabled", true);
+            $("#text-resp").text("please wait ...");
+          },
+          success: function (msg) {
+            $("#btn-signconnect").attr("disabled", false);
             $("#text-resp").text(msg);
           }
         });

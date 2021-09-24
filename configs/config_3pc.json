@@ -1,6 +1,6 @@
 {
     "share_count": 3,
-    "threshold": 2,
+    "threshold": 1,
     "infos": [
         {
             "index": 0,
@@ -18,7 +18,6 @@
     "message": "xxxxxxxxxxxx",
     "subset": [
         0,
-        1,
         2
     ]
 }

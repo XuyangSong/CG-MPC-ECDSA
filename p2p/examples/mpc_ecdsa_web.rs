@@ -11,6 +11,7 @@ use p2p::cybershake;
 use p2p::{Message, Node, NodeConfig, NodeHandle, NodeNotification, PeerID};
 
 // multi party
+use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
@@ -29,8 +30,8 @@ use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::traits::*;
-use curv::BigInt;
-
+// use curv::{BigInt, FE};
+// use curv::FE;
 use curv::elliptic::curves::secp256_k1::FE;
 use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
@@ -262,7 +263,7 @@ async fn http_handler(
     // let subset = json_config.subset.clone();
     let uri = req.uri().path();
     if !(uri == "/" || uri == "/getkey" || uri == "/getsignature") {
-        println!("before request uri:{} state:{}", uri, get_states());
+        println!("test before request uri:{} state:{}", uri, get_states());
     }
     if uri == "/" {
         return simple_file_send("index.html", parties, index).await;
@@ -270,9 +271,9 @@ async fn http_handler(
 
     let mut node = nodex.clone();
     match (req.method(), req.uri().path()) {
-        (&Method::GET, "/getstate") => unsafe {
-            simple_response!(0, "GetState", G_KEY_RESP.clone().as_str())
-        },
+        (&Method::GET, "/getstate") => {
+            simple_response!(0, "GetState", &get_states().as_str())
+        }
         (&Method::GET, "/getkey") => unsafe {
             simple_response!(0, "GetKey", G_KEY_RESP.clone().as_str())
         },
@@ -287,9 +288,6 @@ async fn http_handler(
 
             println!("=> Request Connect Begin ...");
             for peer_info in json_config.peers_info.iter() {
-                // todo: only for sign
-                // if parties > 2 && subset.contains(&peer_info.index) {
-                // }
                 let _ = node
                     .connect_to_peer(&peer_info.address, None, peer_info.index)
                     .await
@@ -301,6 +299,32 @@ async fn http_handler(
             }
 
             simple_response!(0, "Connecting")
+        }
+
+        (&Method::GET, "/signconnect") | (&Method::POST, "/signconnect") => {
+            unsafe {
+                STATE_CONNECTS[index] = KMSState::Connecting;
+            }
+
+            println!("=> Request Connect Begin ...");
+            for peer_info in json_config.peers_info.iter() {
+                if parties > 2 && !json_config.subset.contains(&index) {
+                    continue;
+                }
+                let _ = node
+                    .connect_to_peer(&peer_info.address, None, peer_info.index)
+                    .await
+                    .map_err(|e| format!("Handshake error with {}. {:?}", peer_info.address, e));
+            }
+
+            unsafe {
+                STATE_CONNECTS[index] = KMSState::Connected;
+                for i in 0..parties {
+                    STATE_KEYGENS[i] = KMSState::KeyGenerated;
+                }
+            }
+
+            simple_response!(0, "SignConnecting")
         }
 
         (&Method::GET, "/disconnect") | (&Method::POST, "/disconnect") => {
@@ -334,7 +358,6 @@ async fn http_handler(
                         return simple_response!(2, "KeyGenIniting|KeyGenerating ...");
                     }
                 }
-
                 for s in STATE_SIGNS.iter() {
                     if let KMSState::SignIniting | KMSState::Signing = s {
                         return simple_response!(2, "SignIniting|Signing ...");
@@ -418,14 +441,24 @@ async fn http_handler(
         }
 
         (&Method::GET, "/signinit") | (&Method::POST, "/signinit") => {
+            if parties == 3 && !json_config.subset.contains(&index) {
+                return simple_response!(2, "Not in subset...");
+            }
+
             unsafe {
-                for s in STATE_KEYGENS.iter() {
+                for (i, s) in STATE_KEYGENS.iter().enumerate() {
+                    if !json_config.subset.contains(&i) {
+                        continue;
+                    }
                     if let KMSState::KeyGenIniting | KMSState::KeyGenerating = s {
                         return simple_response!(2, "KeyGenIniting|KeyGenerating ...");
                     }
                 }
 
-                for s in STATE_SIGNS.iter() {
+                for (i, s) in STATE_SIGNS.iter().enumerate() {
+                    if !json_config.subset.contains(&i) {
+                        continue;
+                    }
                     if let KMSState::SignIniting | KMSState::Signing = s {
                         return simple_response!(2, "SignIniting|Signing ...");
                     }
@@ -462,20 +495,34 @@ async fn http_handler(
             if parties == 2 && index != 0 {
                 return simple_response!(2, "Only index 0 can sign!");
             }
+
+            if !json_config.subset.contains(&index) {
+                return simple_response!(2, "Not in subset. Not supportted...");
+            }
+
             unsafe {
-                for s in STATE_SIGNS.iter() {
+                for (i, s) in STATE_SIGNS.iter().enumerate() {
+                    if !json_config.subset.contains(&i) {
+                        continue;
+                    }
                     if let KMSState::Signed = s {
                         return simple_response!(2, "call sign init first");
                     }
                 }
 
-                for s in STATE_KEYGENS.iter() {
+                for (i, s) in STATE_KEYGENS.iter().enumerate() {
+                    if !json_config.subset.contains(&i) {
+                        continue;
+                    }
                     if let KMSState::KeyGenIniting | KMSState::KeyGenerating = s {
                         return simple_response!(2, "KeyGenIniting|KeyGenerating ...");
                     }
                 }
 
-                for s in STATE_SIGNS.iter() {
+                for (i, s) in STATE_SIGNS.iter().enumerate() {
+                    if !json_config.subset.contains(&i) {
+                        continue;
+                    }
                     if let KMSState::SignIniting | KMSState::Signing = s {
                         return simple_response!(2, "SignIniting|Signing ...");
                     }
@@ -504,7 +551,10 @@ async fn http_handler(
             for _ in 0..loops {
                 unsafe {
                     let mut ok = true;
-                    for s in STATE_SIGNS.iter() {
+                    for (i, s) in STATE_SIGNS.iter().enumerate() {
+                        if !json_config.subset.contains(&i) {
+                            continue;
+                        }
                         if let KMSState::Signed = s {
                         } else {
                             ok &= false;
@@ -533,9 +583,9 @@ impl HTTPServer {
     pub fn spawn_monitor(json_config: JsonConfigInternal) -> task::JoinHandle<Result<(), String>> {
         //todo
         task::spawn(async move {
-            for i in 0..1000 {
+            for i in 0..10000000 {
                 println!("index:{} -->i:{} ", json_config.my_info.index, i);
-                let d = std::time::Duration::from_secs(3);
+                let d = std::time::Duration::from_secs(5);
                 thread::sleep(d);
             }
             Ok(())
@@ -607,9 +657,7 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
     let notifications_loop = {
         task::spawn_local(async move {
             /////////////////////////////
-            let seed: BigInt = BigInt::from_hex(
-        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-    ).unwrap();
+            let seed: BigInt = BigInt::from_hex("314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848").unwrap();
             let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
             let group = CLGroup::new_from_qtilde(&seed, &qtilde);
             // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
@@ -997,9 +1045,7 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
     // Spawn the notifications loop
     let notifications_loop = {
         task::spawn_local(async move {
-            let seed: BigInt = BigInt::from_hex(
-                "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-            ).unwrap();
+            let seed: BigInt = BigInt::from_hex("314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848").unwrap();
 
             // discriminant: 1348, lambda: 112
             let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
