@@ -43,6 +43,7 @@ pub struct InitMessage {
 
 struct MultiPartyKeygen {
     keygen: KeyGen,
+    subset: Vec<usize>
 }
 
 enum UserCommand {
@@ -119,7 +120,10 @@ impl InitMessage {
         //Init multi party info
         let keygen =
             KeyGen::init(&seed, &qtilde, json_config.my_info.index, params.clone()).unwrap();
-        let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
+        let multi_party_keygen_info = MultiPartyKeygen { 
+            keygen: keygen,
+            subset: json_config.subset, 
+        };
         let init_messages = InitMessage {
             my_info: json_config.my_info,
             peers_info: json_config.peers_info,
@@ -152,6 +156,15 @@ impl MsgProcess<Message> for MultiPartyKeygen {
             SendingMessages::BroadcastMessage(msg) => {
                 return ProcessMessage::BroadcastMessage(Message(msg));
                 //println!("Sending broadcast msg");
+            }
+            SendingMessages::SubsetMessage(msg) => {
+                let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
+                for index in self.subset.iter() {
+                    if index != &self.keygen.party_index{
+                        msgs_to_send.insert(*index, Message(msg.clone()));
+                    }
+                }
+                return ProcessMessage::SendMultiMessage(msgs_to_send);
             }
             SendingMessages::KeyGenSuccess => {
                 println!("keygen Success!");

@@ -137,7 +137,7 @@ impl MsgProcess<Message> for MultiParty {
             ReceivingMessages::MultiKeyGenMessage(msg) => {
                 self.keygen.msg_handler(index, &msg).unwrap()
             }
-            ReceivingMessages::MultiSignMessage(msg) => self.sign.msg_handler(index, &msg).unwrap(),
+            ReceivingMessages::MultiSignMessage(msg) => self.sign.msg_handler(index, &msg, self.sign.subset.clone()).unwrap(),
             _ => SendingMessages::EmptyMsg,
         };
         match sending_msg {
@@ -156,6 +156,15 @@ impl MsgProcess<Message> for MultiParty {
             SendingMessages::BroadcastMessage(msg) => {
                 return ProcessMessage::BroadcastMessage(Message(msg));
                 //println!("Sending broadcast msg");
+            }
+            SendingMessages::SubsetMessage(msg) => {
+                let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
+                for index in self.sign.subset.iter() {
+                    if index != &self.sign.party_index{
+                        msgs_to_send.insert(*index, Message(msg.clone()));
+                    }
+                }
+                return ProcessMessage::SendMultiMessage(msgs_to_send);
             }
             SendingMessages::KeyGenSuccess => {
                 println!("keygen Success!");
