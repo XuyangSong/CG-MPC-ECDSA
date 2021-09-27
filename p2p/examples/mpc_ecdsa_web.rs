@@ -1148,7 +1148,7 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                                 unsafe {
                                     STATE_SIGNS[index] = KMSState::Signing;
                                 }
-                                sign.msg_handler(index, &msg).unwrap()
+                                sign.msg_handler(index, &msg, subset.clone()).unwrap()
                             }
                         };
 
@@ -1162,6 +1162,12 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                                 }
                                 println!("Sending p2p msg");
                             }
+                            SendingMessages::SubsetMessage(msg) => {
+                                for index in subset.iter() {
+                                    node2.sendmsgbyindex(*index, Message(msg.clone())).await;
+                                    println!("Sending subset msg");
+                                }
+                            }
                             SendingMessages::BroadcastMessage(msg) => {
                                 node2.broadcast(Message(msg)).await;
                                 println!("Sending broadcast msg");
@@ -1170,7 +1176,6 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                                 if my_index == 0 {
                                     println!("KeyGen time: {:?}", time::now() - time);
                                 }
-
                                 println!("KeyGen Success!");
                             }
                             SendingMessages::SignSuccess => {
@@ -1225,7 +1230,12 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                         let sending_msg =
                             ReceivingMessages::MultiSignMessage(MultiSignMessage::SignBegin);
                         let sending_msg_bytes = bincode::serialize(&sending_msg).unwrap();
-                        node2.broadcast(Message(sending_msg_bytes)).await;
+                        // node2.broadcast(Message(sending_msg_bytes)).await;
+                        for index in subset.iter() {
+                            node2
+                                .sendmsgbyindex(*index, Message(sending_msg_bytes.clone()))
+                                .await;
+                        }
                         println!("Sign...")
                     }
                     NodeNotification::InboundConnectionFailure(err) => {
