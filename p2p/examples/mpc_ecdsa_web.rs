@@ -32,7 +32,7 @@ use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::traits::*;
 // use curv::{BigInt, FE};
 // use curv::FE;
-use curv::elliptic::curves::secp256_k1::FE;
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
 use multi_party_ecdsa::protocols::two_party::party_two;
@@ -790,6 +790,7 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
                                 let keygen_json = serde_json::to_string(&(
                                     party_one_keygen.cl_keypair.get_secret_key().clone(),
                                     party_one_keygen.keypair.get_secret_key().clone(),
+                                    party_one_keygen.public_signing_key,
                                 ))
                                 .unwrap();
                                 unsafe {
@@ -931,7 +932,7 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
                                 // read key file
                                 let data = fs::read_to_string("./keygen_result.json")
                                     .expect("Unable to load keys, did you run keygen first? ");
-                                let (cl_sk, secret_key): (SK, FE) =
+                                let (cl_sk, secret_key, public_signing_key): (SK, FE, GE) =
                                     serde_json::from_str(&data).unwrap();
 
                                 let ephemeral_public_share = party_one_sign
@@ -945,7 +946,7 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
                                         &t_p,
                                     )
                                     .unwrap();
-
+                                party_one::SignPhase::verify(&signature.clone(), &public_signing_key, &message_to_sign).unwrap();
                                 let mut _res = String::new();
                                 {
                                     // Save signature to file

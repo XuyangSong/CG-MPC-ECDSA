@@ -42,7 +42,7 @@ pub struct SignPhase {
     pub received_msg: DLogProof<GE>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Signature {
     pub s: FE,
     pub r: FE,
