@@ -946,7 +946,12 @@ async fn two_party_f(json_config: JsonConfigInternal) -> Result<(), std::string:
                                         &t_p,
                                     )
                                     .unwrap();
-                                party_one::SignPhase::verify(&signature.clone(), &public_signing_key, &message_to_sign).unwrap();
+                                party_one::SignPhase::verify(
+                                    &signature.clone(),
+                                    &public_signing_key,
+                                    &message_to_sign,
+                                )
+                                .unwrap();
                                 let mut _res = String::new();
                                 {
                                     // Save signature to file
@@ -1149,7 +1154,7 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                                 unsafe {
                                     STATE_SIGNS[index] = KMSState::Signing;
                                 }
-                                sign.msg_handler(index, &msg, subset.clone()).unwrap()
+                                sign.msg_handler(index, &msg).unwrap()
                             }
                         };
 

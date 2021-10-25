@@ -147,7 +147,7 @@ impl MsgProcess<Message> for MultiPartySign {
 
         let mut sending_msg = SendingMessages::EmptyMsg;
         if let ReceivingMessages::MultiSignMessage(msg) = received_msg {
-            sending_msg = self.sign.msg_handler(index, &msg, self.sign.subset.clone()).unwrap();
+            sending_msg = self.sign.msg_handler(index, &msg).unwrap();
         } else {
             // return some error
         }

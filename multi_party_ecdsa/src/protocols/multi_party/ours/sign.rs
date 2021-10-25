@@ -694,8 +694,7 @@ impl SignPhase {
     pub fn msg_handler(
         &mut self,
         index: usize,
-        msg_received: &MultiSignMessage,
-        subset: Vec<usize>
+        msg_received: &MultiSignMessage
     ) -> Result<SendingMessages, MulEcdsaError> {
         // println!("handle receiving msg: {:?}", msg_received);
         match msg_received {
@@ -710,11 +709,11 @@ impl SignPhase {
                 if self.msgs.phase_one_msgs.get(&index).is_some() {
                     return Ok(SendingMessages::EmptyMsg);
                 }
-
                 // Handle the msg and generate the reply msg
-                if subset.contains(&index){
-                    self.msgs.phase_one_msgs.insert(index, msg.clone());
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
                 }
+                self.msgs.phase_one_msgs.insert(index, msg.clone());
                 let msg = self
                     .handle_phase_one_msg(index, &msg)
                     .map_err(|_| MulEcdsaError::HandleSignPhaseOneMsgFailed)?;
@@ -729,10 +728,10 @@ impl SignPhase {
                 // Handle the msg
                 self.handle_phase_two_msg(index, &msg)
                     .map_err(|_| MulEcdsaError::HandleSignPhaseTwoMsgFailed)?;
-                if subset.contains(&index){
-                    self.msgs.phase_two_msgs.insert(index, msg.clone());
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
                 }
-                
+                self.msgs.phase_two_msgs.insert(index, msg.clone());
                 // Generate the next msg
                 if self.msgs.phase_two_msgs.len() == (self.party_num - 1) {
                     let msg_three = SignPhaseThreeMsg {
@@ -750,9 +749,10 @@ impl SignPhase {
                 }
             }
             MultiSignMessage::PhaseThreeMsg(msg) => {
-                if subset.contains(&index){
-                   self.msgs.phase_three_msgs.insert(index, msg.clone());
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
                 }
+                self.msgs.phase_three_msgs.insert(index, msg.clone());
                 if self.msgs.phase_three_msgs.len() == self.party_num {
                     self.phase_two_compute_delta_sum_msg()
                         .map_err(|_| MulEcdsaError::ComputeDeltaSumFailed)?;
@@ -778,10 +778,10 @@ impl SignPhase {
                 // Handle the msg
                 self.handle_phase_four_msg(index, &msg)
                     .map_err(|_| MulEcdsaError::HandleSignPhaseFourMsgFailed)?;
-                if subset.contains(&index){
-                    self.msgs.phase_four_msgs.insert(index, msg.clone());
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
                 }
-
+                self.msgs.phase_four_msgs.insert(index, msg.clone());
                 // Generate the next msg
                 if self.msgs.phase_four_msgs.len() == self.party_num {
                     self.compute_r_x()
@@ -796,11 +796,12 @@ impl SignPhase {
                 }
             }
             MultiSignMessage::PhaseFiveStepOneMsg(msg) => {
-                if subset.contains(&index){
-                    self.msgs
-                        .phase_five_step_one_msgs
-                        .insert(index, msg.clone());
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
                 }
+                self.msgs
+                    .phase_five_step_one_msgs
+                    .insert(index, msg.clone());
                 if self.msgs.phase_five_step_one_msgs.len() == self.party_num {
                     let msg_five_two = self
                         .msgs
@@ -824,12 +825,12 @@ impl SignPhase {
                 // Handle the msg
                 self.handle_phase_five_step_two_msg(index, &msg)
                     .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepTwoMsgFailed)?;
-                if subset.contains(&index){
-                    self.msgs
-                        .phase_five_step_two_msgs
-                        .insert(index, msg.clone());
-                    }
-
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
+                }
+                self.msgs
+                    .phase_five_step_two_msgs
+                    .insert(index, msg.clone());
                 // Generate the next msg
                 if self.msgs.phase_five_step_two_msgs.len() == self.party_num {
                     let msg_five_four = self
@@ -844,11 +845,12 @@ impl SignPhase {
                 }
             }
             MultiSignMessage::PhaseFiveStepFourMsg(msg) => {
-                if subset.contains(&index){
-                    self.msgs
-                        .phase_five_step_four_msgs
-                        .insert(index, msg.clone());
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
                 }
+                self.msgs
+                    .phase_five_step_four_msgs
+                    .insert(index, msg.clone());
                 if self.msgs.phase_five_step_four_msgs.len() == self.party_num {
                     let msg_five_five = self
                         .msgs
@@ -872,12 +874,12 @@ impl SignPhase {
                 // Handle the msg
                 self.handle_phase_five_step_five_msg(index, &msg)
                     .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepFiveMsgFailed)?;
-                if subset.contains(&index){
-                    self.msgs
-                        .phase_five_step_five_msgs
-                        .insert(index, msg.clone());
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
                 }
-
+                self.msgs
+                    .phase_five_step_five_msgs
+                    .insert(index, msg.clone());
                 // Generate the next msg
                 if self.msgs.phase_five_step_five_msgs.len() == self.party_num {
                     self.phase_five_step_six_check_sum_a_t()
@@ -896,11 +898,12 @@ impl SignPhase {
                 }
             }
             MultiSignMessage::PhaseFiveStepSevenMsg(msg) => {
-                if subset.contains(&index){
-                    self.msgs
-                        .phase_five_step_seven_msgs
-                        .insert(index, msg.clone());
+                if !self.subset.contains(&index) {
+                    return Ok(SendingMessages::EmptyMsg);
                 }
+                self.msgs
+                    .phase_five_step_seven_msgs
+                    .insert(index, msg.clone());
                 if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
                     let signature = self
                         .phase_five_step_eight_generate_signature_msg()

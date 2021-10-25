@@ -137,7 +137,7 @@ impl MsgProcess<Message> for MultiParty {
             ReceivingMessages::MultiKeyGenMessage(msg) => {
                 self.keygen.msg_handler(index, &msg).unwrap()
             }
-            ReceivingMessages::MultiSignMessage(msg) => self.sign.msg_handler(index, &msg, self.sign.subset.clone()).unwrap(),
+            ReceivingMessages::MultiSignMessage(msg) => self.sign.msg_handler(index, &msg).unwrap(),
             _ => SendingMessages::EmptyMsg,
         };
         match sending_msg {
