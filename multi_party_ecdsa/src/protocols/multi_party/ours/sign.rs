@@ -697,228 +697,209 @@ impl SignPhase {
         msg_received: &MultiSignMessage
     ) -> Result<SendingMessages, MulEcdsaError> {
         // println!("handle receiving msg: {:?}", msg_received);
-        match msg_received {
-            MultiSignMessage::SignBegin => {
-                let msg = self
-                    .get_phase_one_msg()
-                    .map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
-                return Ok(SendingMessages::SubsetMessage(msg));
-            }
-            MultiSignMessage::PhaseOneMsg(msg) => {
-                // Already received the msg
-                if self.msgs.phase_one_msgs.get(&index).is_some() {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                // Handle the msg and generate the reply msg
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                self.msgs.phase_one_msgs.insert(index, msg.clone());
-                let msg = self
-                    .handle_phase_one_msg(index, &msg)
-                    .map_err(|_| MulEcdsaError::HandleSignPhaseOneMsgFailed)?;
-                return Ok(SendingMessages::NormalMessage(index, msg));
-            }
-            MultiSignMessage::PhaseTwoMsg(msg) => {
-                // Already received the msg
-                if self.msgs.phase_two_msgs.get(&index).is_some() {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
 
-                // Handle the msg
-                self.handle_phase_two_msg(index, &msg)
-                    .map_err(|_| MulEcdsaError::HandleSignPhaseTwoMsgFailed)?;
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
+        if self.subset.contains(&index) {
+            match msg_received {
+                MultiSignMessage::SignBegin => {
+                    let msg = self
+                        .get_phase_one_msg()
+                        .map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
+                    return Ok(SendingMessages::SubsetMessage(msg));
                 }
-                self.msgs.phase_two_msgs.insert(index, msg.clone());
-                // Generate the next msg
-                if self.msgs.phase_two_msgs.len() == (self.party_num - 1) {
-                    let msg_three = SignPhaseThreeMsg {
-                        delta: self.delta.clone(),
-                    };
+                MultiSignMessage::PhaseOneMsg(msg) => {
+                    // Already received the msg
+                    if self.msgs.phase_one_msgs.get(&index).is_some() {
+                        return Ok(SendingMessages::EmptyMsg);
+                    }
+                    // Handle the msg and generate the reply msg
+                    self.msgs.phase_one_msgs.insert(index, msg.clone());
+
+                    let msg = self
+                        .handle_phase_one_msg(index, &msg)
+                        .map_err(|_| MulEcdsaError::HandleSignPhaseOneMsgFailed)?;
+                    return Ok(SendingMessages::NormalMessage(index, msg));
+                }
+                MultiSignMessage::PhaseTwoMsg(msg) => {
+                    // Already received the msg
+                    if self.msgs.phase_two_msgs.get(&index).is_some() {
+                        return Ok(SendingMessages::EmptyMsg);
+                    }
+    
+                    // Handle the msg
+                    self.handle_phase_two_msg(index, &msg)
+                        .map_err(|_| MulEcdsaError::HandleSignPhaseTwoMsgFailed)?;
+
+                    self.msgs.phase_two_msgs.insert(index, msg.clone());
+                    // Generate the next msg
+                    if self.msgs.phase_two_msgs.len() == (self.party_num - 1) {
+                        let msg_three = SignPhaseThreeMsg {
+                            delta: self.delta.clone(),
+                        };
+                        self.msgs
+                            .phase_three_msgs
+                            .insert(self.party_index, msg_three.clone());
+                        let sending_msg = ReceivingMessages::MultiSignMessage(
+                            MultiSignMessage::PhaseThreeMsg(msg_three),
+                        );
+                        let sending_msg_bytes = bincode::serialize(&sending_msg)
+                            .map_err(|_| MulEcdsaError::SerializeFailed)?;
+                        return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                    }
+                }
+                MultiSignMessage::PhaseThreeMsg(msg) => {
+                    self.msgs.phase_three_msgs.insert(index, msg.clone());
+                    if self.msgs.phase_three_msgs.len() == self.party_num {
+                        self.phase_two_compute_delta_sum_msg()
+                            .map_err(|_| MulEcdsaError::ComputeDeltaSumFailed)?;
+                        let msg_four = self
+                            .msgs
+                            .phase_four_msgs
+                            .get(&self.party_index)
+                            .ok_or(MulEcdsaError::GetIndexFailed)?;
+                        let sending_msg = ReceivingMessages::MultiSignMessage(
+                            MultiSignMessage::PhaseFourMsg(msg_four.clone()),
+                        );
+                        let sending_msg_bytes = bincode::serialize(&sending_msg)
+                            .map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                        return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                    }
+                }
+                MultiSignMessage::PhaseFourMsg(msg) => {
+                    // Already received the msg
+                    if self.msgs.phase_four_msgs.get(&index).is_some() {
+                        return Ok(SendingMessages::EmptyMsg);
+                    }
+    
+                    // Handle the msg
+                    self.handle_phase_four_msg(index, &msg)
+                        .map_err(|_| MulEcdsaError::HandleSignPhaseFourMsgFailed)?;
+
+                    self.msgs.phase_four_msgs.insert(index, msg.clone());
+                    // Generate the next msg
+                    if self.msgs.phase_four_msgs.len() == self.party_num {
+                        self.compute_r_x()
+                            .map_err(|_| MulEcdsaError::ComputeRxFailed)?;
+                        let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
+                        let sending_msg = ReceivingMessages::MultiSignMessage(
+                            MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
+                        );
+                        let sending_msg_bytes = bincode::serialize(&sending_msg)
+                            .map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                        return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                    }
+                }
+                MultiSignMessage::PhaseFiveStepOneMsg(msg) => {
                     self.msgs
-                        .phase_three_msgs
-                        .insert(self.party_index, msg_three.clone());
-                    let sending_msg = ReceivingMessages::MultiSignMessage(
-                        MultiSignMessage::PhaseThreeMsg(msg_three),
-                    );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg)
-                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                        .phase_five_step_one_msgs
+                        .insert(index, msg.clone());
+                    if self.msgs.phase_five_step_one_msgs.len() == self.party_num {
+                        let msg_five_two = self
+                            .msgs
+                            .phase_five_step_two_msgs
+                            .get(&self.party_index)
+                            .ok_or(MulEcdsaError::GetIndexFailed)?;
+                        let sending_msg = ReceivingMessages::MultiSignMessage(
+                            MultiSignMessage::PhaseFiveStepTwoMsg(msg_five_two.clone()),
+                        );
+                        let sending_msg_bytes = bincode::serialize(&sending_msg)
+                            .map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                        return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                    }
                 }
-            }
-            MultiSignMessage::PhaseThreeMsg(msg) => {
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                self.msgs.phase_three_msgs.insert(index, msg.clone());
-                if self.msgs.phase_three_msgs.len() == self.party_num {
-                    self.phase_two_compute_delta_sum_msg()
-                        .map_err(|_| MulEcdsaError::ComputeDeltaSumFailed)?;
-                    let msg_four = self
-                        .msgs
-                        .phase_four_msgs
-                        .get(&self.party_index)
-                        .ok_or(MulEcdsaError::GetIndexFailed)?;
-                    let sending_msg = ReceivingMessages::MultiSignMessage(
-                        MultiSignMessage::PhaseFourMsg(msg_four.clone()),
-                    );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg)
-                        .map_err(|_| MulEcdsaError::GetIndexFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
-                }
-            }
-            MultiSignMessage::PhaseFourMsg(msg) => {
-                // Already received the msg
-                if self.msgs.phase_four_msgs.get(&index).is_some() {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
+                MultiSignMessage::PhaseFiveStepTwoMsg(msg) => {
+                    // Already received the msg
+                    if self.msgs.phase_five_step_two_msgs.get(&index).is_some() {
+                        return Ok(SendingMessages::EmptyMsg);
+                    }
+    
+                    // Handle the msg
+                    self.handle_phase_five_step_two_msg(index, &msg)
+                        .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepTwoMsgFailed)?;
 
-                // Handle the msg
-                self.handle_phase_four_msg(index, &msg)
-                    .map_err(|_| MulEcdsaError::HandleSignPhaseFourMsgFailed)?;
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                self.msgs.phase_four_msgs.insert(index, msg.clone());
-                // Generate the next msg
-                if self.msgs.phase_four_msgs.len() == self.party_num {
-                    self.compute_r_x()
-                        .map_err(|_| MulEcdsaError::ComputeRxFailed)?;
-                    let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
-                    let sending_msg = ReceivingMessages::MultiSignMessage(
-                        MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
-                    );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg)
-                        .map_err(|_| MulEcdsaError::GetIndexFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
-                }
-            }
-            MultiSignMessage::PhaseFiveStepOneMsg(msg) => {
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                self.msgs
-                    .phase_five_step_one_msgs
-                    .insert(index, msg.clone());
-                if self.msgs.phase_five_step_one_msgs.len() == self.party_num {
-                    let msg_five_two = self
-                        .msgs
+                    self.msgs
                         .phase_five_step_two_msgs
-                        .get(&self.party_index)
-                        .ok_or(MulEcdsaError::GetIndexFailed)?;
-                    let sending_msg = ReceivingMessages::MultiSignMessage(
-                        MultiSignMessage::PhaseFiveStepTwoMsg(msg_five_two.clone()),
-                    );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg)
-                        .map_err(|_| MulEcdsaError::GetIndexFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                        .insert(index, msg.clone());
+                    // Generate the next msg
+                    if self.msgs.phase_five_step_two_msgs.len() == self.party_num {
+                        let msg_five_four = self
+                            .generate_phase_five_step_four_msg()
+                            .map_err(|_| MulEcdsaError::GenerateSignPhaseFiveStepFourMsgFailed)?;
+                        let sending_msg = ReceivingMessages::MultiSignMessage(
+                            MultiSignMessage::PhaseFiveStepFourMsg(msg_five_four.clone()),
+                        );
+                        let sending_msg_bytes = bincode::serialize(&sending_msg)
+                            .map_err(|_| MulEcdsaError::SerializeFailed)?;
+                        return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                    }
                 }
-            }
-            MultiSignMessage::PhaseFiveStepTwoMsg(msg) => {
-                // Already received the msg
-                if self.msgs.phase_five_step_two_msgs.get(&index).is_some() {
-                    return Ok(SendingMessages::EmptyMsg);
+                MultiSignMessage::PhaseFiveStepFourMsg(msg) => {
+                    self.msgs
+                        .phase_five_step_four_msgs
+                        .insert(index, msg.clone());
+                    if self.msgs.phase_five_step_four_msgs.len() == self.party_num {
+                        let msg_five_five = self
+                            .msgs
+                            .phase_five_step_five_msgs
+                            .get(&self.party_index)
+                            .ok_or(MulEcdsaError::GetIndexFailed)?;
+                        let sending_msg = ReceivingMessages::MultiSignMessage(
+                            MultiSignMessage::PhaseFiveStepFiveMsg(msg_five_five.clone()),
+                        );
+                        let sending_msg_bytes = bincode::serialize(&sending_msg)
+                            .map_err(|_| MulEcdsaError::SerializeFailed)?;
+                        return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                    }
                 }
+                MultiSignMessage::PhaseFiveStepFiveMsg(msg) => {
+                    // Already received the msg
+                    if self.msgs.phase_five_step_five_msgs.get(&index).is_some() {
+                        return Ok(SendingMessages::EmptyMsg);
+                    }
+    
+                    // Handle the msg
+                    self.handle_phase_five_step_five_msg(index, &msg)
+                        .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepFiveMsgFailed)?;
 
-                // Handle the msg
-                self.handle_phase_five_step_two_msg(index, &msg)
-                    .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepTwoMsgFailed)?;
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                self.msgs
-                    .phase_five_step_two_msgs
-                    .insert(index, msg.clone());
-                // Generate the next msg
-                if self.msgs.phase_five_step_two_msgs.len() == self.party_num {
-                    let msg_five_four = self
-                        .generate_phase_five_step_four_msg()
-                        .map_err(|_| MulEcdsaError::GenerateSignPhaseFiveStepFourMsgFailed)?;
-                    let sending_msg = ReceivingMessages::MultiSignMessage(
-                        MultiSignMessage::PhaseFiveStepFourMsg(msg_five_four.clone()),
-                    );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg)
-                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
-                }
-            }
-            MultiSignMessage::PhaseFiveStepFourMsg(msg) => {
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                self.msgs
-                    .phase_five_step_four_msgs
-                    .insert(index, msg.clone());
-                if self.msgs.phase_five_step_four_msgs.len() == self.party_num {
-                    let msg_five_five = self
-                        .msgs
+                    self.msgs
                         .phase_five_step_five_msgs
-                        .get(&self.party_index)
-                        .ok_or(MulEcdsaError::GetIndexFailed)?;
-                    let sending_msg = ReceivingMessages::MultiSignMessage(
-                        MultiSignMessage::PhaseFiveStepFiveMsg(msg_five_five.clone()),
-                    );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg)
-                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                        .insert(index, msg.clone());
+                    // Generate the next msg
+                    if self.msgs.phase_five_step_five_msgs.len() == self.party_num {
+                        self.phase_five_step_six_check_sum_a_t()
+                            .map_err(|_| MulEcdsaError::VrfySumatFailed)?;
+                        let msg_seven = self
+                            .msgs
+                            .phase_five_step_seven_msgs
+                            .get(&self.party_index)
+                            .ok_or(MulEcdsaError::GetIndexFailed)?;
+                        let sending_msg = ReceivingMessages::MultiSignMessage(
+                            MultiSignMessage::PhaseFiveStepSevenMsg(msg_seven.clone()),
+                        );
+                        let sending_msg_bytes = bincode::serialize(&sending_msg)
+                            .map_err(|_| MulEcdsaError::SerializeFailed)?;
+                        return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                    }
                 }
-            }
-            MultiSignMessage::PhaseFiveStepFiveMsg(msg) => {
-                // Already received the msg
-                if self.msgs.phase_five_step_five_msgs.get(&index).is_some() {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-
-                // Handle the msg
-                self.handle_phase_five_step_five_msg(index, &msg)
-                    .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepFiveMsgFailed)?;
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                self.msgs
-                    .phase_five_step_five_msgs
-                    .insert(index, msg.clone());
-                // Generate the next msg
-                if self.msgs.phase_five_step_five_msgs.len() == self.party_num {
-                    self.phase_five_step_six_check_sum_a_t()
-                        .map_err(|_| MulEcdsaError::VrfySumatFailed)?;
-                    let msg_seven = self
-                        .msgs
+                MultiSignMessage::PhaseFiveStepSevenMsg(msg) => {
+                    self.msgs
                         .phase_five_step_seven_msgs
-                        .get(&self.party_index)
-                        .ok_or(MulEcdsaError::GetIndexFailed)?;
-                    let sending_msg = ReceivingMessages::MultiSignMessage(
-                        MultiSignMessage::PhaseFiveStepSevenMsg(msg_seven.clone()),
-                    );
-                    let sending_msg_bytes = bincode::serialize(&sending_msg)
-                        .map_err(|_| MulEcdsaError::SerializeFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
-                }
-            }
-            MultiSignMessage::PhaseFiveStepSevenMsg(msg) => {
-                if !self.subset.contains(&index) {
-                    return Ok(SendingMessages::EmptyMsg);
-                }
-                self.msgs
-                    .phase_five_step_seven_msgs
-                    .insert(index, msg.clone());
-                if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
-                    let signature = self
-                        .phase_five_step_eight_generate_signature_msg()
-                        .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
-                    println!("Signature: {:?}", signature);
-
-                    // Save signature to file
-                    let signature_path = Path::new("./sign_result.json");
-                    let signature_json = serde_json::to_string(&(signature,))
-                        .map_err(|_| MulEcdsaError::ToStringFailed)?;
-
-                    fs::write(signature_path, signature_json.clone())
-                        .map_err(|_| MulEcdsaError::FileWriteFailed)?;
-                    return Ok(SendingMessages::SignSuccessWithResult(signature_json));
-                    // return SendingMessages::SignSuccess;
+                        .insert(index, msg.clone());
+                    if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
+                        let signature = self
+                            .phase_five_step_eight_generate_signature_msg()
+                            .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
+                        println!("Signature: {:?}", signature);
+    
+                        // Save signature to file
+                        let signature_path = Path::new("./sign_result.json");
+                        let signature_json = serde_json::to_string(&(signature,))
+                            .map_err(|_| MulEcdsaError::ToStringFailed)?;
+    
+                        fs::write(signature_path, signature_json.clone())
+                            .map_err(|_| MulEcdsaError::FileWriteFailed)?;
+                        return Ok(SendingMessages::SignSuccessWithResult(signature_json));
+                        // return SendingMessages::SignSuccess;
+                    }
                 }
             }
         }
