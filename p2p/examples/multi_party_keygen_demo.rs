@@ -22,7 +22,6 @@ struct JsonConfig {
     pub threshold: usize,
     pub infos: Vec<Info>,
     pub message: String,    // message to sign
-    pub subset: Vec<usize>, // sign parties
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -32,7 +31,6 @@ pub struct JsonConfigInternal {
     pub my_info: Info,
     pub peers_info: Vec<Info>,
     pub message: String,
-    pub subset: Vec<usize>,
 }
 
 pub struct InitMessage {
@@ -42,8 +40,7 @@ pub struct InitMessage {
 }
 
 struct MultiPartyKeygen {
-    keygen: KeyGen,
-    subset: Vec<usize>
+    keygen: KeyGen
 }
 
 enum UserCommand {
@@ -62,7 +59,6 @@ enum UserCommand {
 pub struct Console {
     node: NodeHandle<Message>,
     peers_info: Vec<Info>,
-    // subset: Vec<usize>,
 }
 
 impl JsonConfigInternal {
@@ -91,7 +87,6 @@ impl JsonConfigInternal {
             my_info,
             peers_info,
             message: json_config.message,
-            subset: json_config.subset,
         }
     }
 }
@@ -121,8 +116,7 @@ impl InitMessage {
         let keygen =
             KeyGen::init(&seed, &qtilde, json_config.my_info.index, params.clone()).unwrap();
         let multi_party_keygen_info = MultiPartyKeygen { 
-            keygen: keygen,
-            subset: json_config.subset, 
+            keygen: keygen
         };
         let init_messages = InitMessage {
             my_info: json_config.my_info,
@@ -157,14 +151,8 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 return ProcessMessage::BroadcastMessage(Message(msg));
                 //println!("Sending broadcast msg");
             }
-            SendingMessages::SubsetMessage(msg) => {
-                let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
-                for index in self.subset.iter() {
-                    if index != &self.keygen.party_index{
-                        msgs_to_send.insert(*index, Message(msg.clone()));
-                    }
-                }
-                return ProcessMessage::SendMultiMessage(msgs_to_send);
+            SendingMessages::SubsetMessage(_msg) => {
+                return ProcessMessage::Default();
             }
             SendingMessages::KeyGenSuccess => {
                 println!("keygen Success!");
@@ -234,14 +222,12 @@ impl Console {
     pub fn spawn(
         node: NodeHandle<Message>,
         peers_info: Vec<Info>,
-        // subset: Vec<usize>,
     ) -> task::JoinHandle<Result<(), String>> {
         task::spawn_local(async move {
             let mut stdin = io::BufReader::new(io::stdin());
             let mut console = Console {
                 node,
                 peers_info,
-                // subset,
             };
             loop {
                 let mut line = String::new();
