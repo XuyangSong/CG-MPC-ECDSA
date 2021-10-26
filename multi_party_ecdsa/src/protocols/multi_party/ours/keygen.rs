@@ -373,7 +373,6 @@ impl KeyGen {
                     .map_err(|_| MulEcdsaError::ToStringFailed)?;
                     fs::write(keygen_path, keygen_json.clone()).expect("Unable to save !");
                     return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
-                    //return SendingMessages::KeyGenSuccess;
                 }
             }
         }

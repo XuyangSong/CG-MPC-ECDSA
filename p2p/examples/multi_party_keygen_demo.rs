@@ -157,14 +157,6 @@ impl MsgProcess<Message> for MultiPartyKeygen {
             SendingMessages::SubsetMessage(_msg) => {
                 return ProcessMessage::Default();
             }
-            SendingMessages::KeyGenSuccess => {
-                println!("keygen Success!");
-                return ProcessMessage::Default();
-            }
-            SendingMessages::SignSuccess => {
-                println!("Sign Success!");
-                return ProcessMessage::Default();
-            }
             SendingMessages::EmptyMsg => {
                 println!("no msg to send");
                 return ProcessMessage::Default();
