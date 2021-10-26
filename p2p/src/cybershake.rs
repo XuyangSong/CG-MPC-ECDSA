@@ -31,10 +31,10 @@
 //! * Add custom header to be sent in the first encrypted frame:
 //!   users can put the protocol version there, certificate info etc.
 
-use byteorder::{ByteOrder, LittleEndian};
-use core::marker::Unpin;
 use aes_siv::aead::generic_array::GenericArray;
 use aes_siv::siv::*;
+use byteorder::{ByteOrder, LittleEndian};
+use core::marker::Unpin;
 use rand_core::{CryptoRng, RngCore};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;

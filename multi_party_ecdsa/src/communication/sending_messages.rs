@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub enum SendingMessages {
     NormalMessage(usize, Vec<u8>),
     P2pMessage(HashMap<usize, Vec<u8>>),
+    SubsetMessage(Vec<u8>),
     BroadcastMessage(Vec<u8>),
     EmptyMsg,
     KeyGenSuccess,

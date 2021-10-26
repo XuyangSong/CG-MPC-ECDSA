@@ -102,6 +102,23 @@
 通用。
 
 
+### signconnect
+
+
+```
+/signconnect
+```
+
+初始化各节点之间的网络。(签名用，用于各 subset 中的节点)
+
+- REQUEST
+
+暂无。
+
+- RESPONSE
+
+通用。
+
 ### disconnect
 
 

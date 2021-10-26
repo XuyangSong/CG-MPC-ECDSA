@@ -157,6 +157,15 @@ impl MsgProcess<Message> for MultiParty {
                 return ProcessMessage::BroadcastMessage(Message(msg));
                 //println!("Sending broadcast msg");
             }
+            SendingMessages::SubsetMessage(msg) => {
+                let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
+                for index in self.sign.subset.iter() {
+                    if index != &self.sign.party_index{
+                        msgs_to_send.insert(*index, Message(msg.clone()));
+                    }
+                }
+                return ProcessMessage::SendMultiMessage(msgs_to_send);
+            }
             SendingMessages::KeyGenSuccess => {
                 println!("keygen Success!");
                 return ProcessMessage::Default();
