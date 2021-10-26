@@ -175,14 +175,6 @@ impl MsgProcess<Message> for MultiPartySign {
                 }
                 return ProcessMessage::SendMultiMessage(msgs_to_send);
             }
-            SendingMessages::KeyGenSuccess => {
-                println!("keygen Success!");
-                return ProcessMessage::Default();
-            }
-            SendingMessages::SignSuccess => {
-                println!("Sign Success!");
-                return ProcessMessage::Default();
-            }
             SendingMessages::EmptyMsg => {
                 println!("no msg to send");
                 return ProcessMessage::Default();

@@ -1178,19 +1178,6 @@ async fn multi_party_f(json_config: JsonConfigInternal) -> Result<(), std::strin
                                 node2.broadcast(Message(msg)).await;
                                 println!("Sending broadcast msg");
                             }
-                            SendingMessages::KeyGenSuccess => {
-                                if my_index == 0 {
-                                    println!("KeyGen time: {:?}", time::now() - time);
-                                }
-                                println!("KeyGen Success!");
-                            }
-                            SendingMessages::SignSuccess => {
-                                if my_index == 0 {
-                                    println!("Sign time: {:?}", time::now() - time);
-                                }
-
-                                println!("Sign Success!");
-                            }
                             SendingMessages::EmptyMsg => {
                                 println!("no msg to send");
                             }

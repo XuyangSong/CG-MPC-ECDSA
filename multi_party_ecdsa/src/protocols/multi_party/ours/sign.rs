@@ -898,7 +898,6 @@ impl SignPhase {
                         fs::write(signature_path, signature_json.clone())
                             .map_err(|_| MulEcdsaError::FileWriteFailed)?;
                         return Ok(SendingMessages::SignSuccessWithResult(signature_json));
-                        // return SendingMessages::SignSuccess;
                     }
                 }
             }
