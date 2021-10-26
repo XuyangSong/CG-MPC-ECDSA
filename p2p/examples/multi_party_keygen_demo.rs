@@ -22,6 +22,7 @@ struct JsonConfig {
     pub threshold: usize,
     pub infos: Vec<Info>,
     pub message: String,    // message to sign
+    pub subset: Vec<usize>, // sign parties
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -31,6 +32,7 @@ pub struct JsonConfigInternal {
     pub my_info: Info,
     pub peers_info: Vec<Info>,
     pub message: String,
+    pub subset: Vec<usize>,
 }
 
 pub struct InitMessage {
@@ -87,6 +89,7 @@ impl JsonConfigInternal {
             my_info,
             peers_info,
             message: json_config.message,
+            subset: json_config.subset,
         }
     }
 }
