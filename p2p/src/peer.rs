@@ -41,7 +41,6 @@ pub enum PeerMessage<T: Codable> {
 }
 
 /// Interface for communication with the peer.
-#[derive(Clone)]
 pub struct PeerLink<Custom: Codable> {
     peer_id: PeerID,
     channel: sync::mpsc::Sender<PeerMessage<Custom>>,

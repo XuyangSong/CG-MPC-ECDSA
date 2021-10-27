@@ -100,7 +100,6 @@ pub enum Direction {
 }
 
 /// State of the peer
-#[derive(Clone)]
 struct PeerState<T: Codable> {
     link: PeerLink<T>,
     listening_addr: Option<SocketAddr>,
@@ -654,9 +653,8 @@ where
     }
 
     async fn send_to_peer_by_index(&mut self, index: usize, msg: PeerMessage<Custom>) {
-        let peer_id = self.index_peer[&index];
-        let mut peer_link = self.peers[&peer_id].clone();
-        peer_link.link.send(msg).await;
+        let peer_id = self.index_peer.get(&index).unwrap();
+        self.peers.get_mut(peer_id).unwrap().link.send(msg).await;
     }
 
     async fn send_to_self(&mut self, msg: Custom) {
