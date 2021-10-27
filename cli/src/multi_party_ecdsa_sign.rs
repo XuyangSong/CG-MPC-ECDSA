@@ -1,41 +1,43 @@
+use cli::config::MultiPartyConfig;
 use curv::arithmetic::Converter;
-use std::collections::HashMap;
-
-use tokio::io;
-use tokio::prelude::*;
-use tokio::task;
-
-use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
-
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use multi_party_ecdsa::protocols::multi_party::ours::message::MultiSignMessage;
 use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
-use serde::Deserialize;
-use std::path::Path;
-use std::{env, fs};
+use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
+use std::collections::HashMap;
+use structopt::StructOpt;
+use tokio::io;
+use tokio::prelude::*;
+use tokio::task;
 
-#[derive(Debug, Deserialize)]
-struct JsonConfig {
-    pub share_count: usize,
-    pub threshold: usize,
-    pub infos: Vec<Info>,
-    pub message: String,    // message to sign
-    pub subset: Vec<usize>, // sign parties
+#[derive(StructOpt, Debug)]
+#[structopt(
+    name = "multi-ecdsa-sign",
+    author = "songxuyang",
+    rename_all = "snake_case"
+)]
+struct Opt {
+    /// My index
+    #[structopt(short, long)]
+    index: usize,
+
+    /// Message to sign
+    #[structopt(short, long)]
+    message: String,
+
+    /// Paticipants index
+    #[structopt(short, long)]
+    subset: Vec<usize>,
+
+    /// Config Path
+    #[structopt(short, long)]
+    config_path: String,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct JsonConfigInternal {
-    pub share_count: usize,
-    pub threshold: usize,
-    pub my_info: Info,
-    pub peers_info: Vec<Info>,
-    pub message: String,
-    pub subset: Vec<usize>,
-}
-
+// TBD: After resovled #19(Message), use SignPhase directly
 struct MultiPartySign {
     sign: SignPhase,
 }
@@ -66,51 +68,22 @@ pub struct Console {
     subset: Vec<usize>,
 }
 
-impl JsonConfigInternal {
-    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
-        let file_path = Path::new(&json_config_file);
-        let json_str = fs::read_to_string(file_path).unwrap();
-        let json_config: JsonConfig =
-            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
-
-        // TBD: handle unwrap, return a error.
-        let my_info = json_config
-            .infos
-            .iter()
-            .find(|e| e.index == party_id)
-            .unwrap()
-            .clone();
-        let peers_info: Vec<Info> = json_config
-            .infos
-            .into_iter()
-            .filter(|e| e.index != party_id)
-            .collect();
-
-        Self {
-            share_count: json_config.share_count,
-            threshold: json_config.threshold,
-            my_info,
-            peers_info,
-            message: json_config.message,
-            subset: json_config.subset,
-        }
-    }
-}
-
 impl InitMessage {
     pub fn init_message() -> Self {
-        let party_id_str = env::args().nth(1).unwrap();
-        let party_id = party_id_str.parse::<usize>().unwrap();
-        let json_config_file = env::args().nth(2).unwrap();
+        let opt = Opt::from_args();
+        let index = opt.index;
+        let subset = opt.subset;
+        let message = opt.message;
+        let config = MultiPartyConfig::new_from_file(&opt.config_path).unwrap();
+        assert!(subset.len() > config.threshold, "PartyLessThanThreshold");
 
-        //Load config from file
-        let json_config_internal = JsonConfigInternal::init_with(party_id, json_config_file);
-        let json_config = json_config_internal.clone();
-
+        let my_info = config.get_my_info(index);
+        let peers_info: Vec<Info> = config.get_peer_infos(index);
         let params = Parameters {
-            threshold: json_config.threshold.clone(),
-            share_count: json_config.share_count.clone(),
+            threshold: config.threshold,
+            share_count: config.share_count,
         };
+
         //Init group params
         let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
@@ -119,21 +92,13 @@ impl InitMessage {
         // discriminant: 1348, lambda: 112
         let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
 
-        let mut sign = SignPhase::new(
-            &seed,
-            &qtilde,
-            json_config.my_info.index,
-            params.clone(),
-            &json_config.subset,
-            &json_config.message,
-        )
-        .unwrap();
+        let mut sign = SignPhase::new(&seed, &qtilde, index, params, &subset, &message).unwrap();
         sign.init();
         let multi_party_sign_info = MultiPartySign { sign: sign };
         let init_messages = InitMessage {
-            my_info: json_config.my_info,
-            peers_info: json_config.peers_info,
-            subset: json_config.subset,
+            my_info,
+            peers_info,
+            subset,
             multi_party_sign_info: multi_party_sign_info,
         };
         return init_messages;
@@ -190,13 +155,6 @@ impl MsgProcess<Message> for MultiPartySign {
     }
 }
 fn main() {
-    if env::args().count() < 3 {
-        println!(
-            "Usage:\n\t{} <parties> <party-id> <port> <config-file>",
-            env::args().nth(0).unwrap()
-        );
-        panic!("Need Config File")
-    }
     let init_messages = InitMessage::init_message();
 
     // Create the runtime.

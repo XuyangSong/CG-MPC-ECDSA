@@ -1,9 +1,8 @@
 # Run ECDSA demo
 
 ## 1. Two party
-CONFIGFILE is the config json file. You can found the example file here: "configs/two_party_config.json".
-example
-```
+ You can found the example config file here: "configs/two_party_config.json".
+```json
 {
     "infos": [
         {
@@ -14,20 +13,39 @@ example
             "index": 1,
             "address": "127.0.0.1:64001"
         }
-    ],
-    "message": "xxxxxxxxxxxx"
+    ]
 }
 ```
-Specify the party_index 0 or 1.
+
+### 1.1 How to use two_party_ecdsa
+```shell
+$ ./two_party_ecdsa --help
+
+USAGE:
+    two_party_ecdsa --config_path <config_path> --index <index> --message <message>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -c, --config_path <config_path>    Config Path
+    -i, --index <index>                My index
+    -m, --message <message>            Message to sign
 ```
-$ cargo run --bin two_party_ecdsa <party_index> <CONFIGFILE>
+
+### 1.2 two_party_ecdsa cli example
+
+```shell
+$ ./target/debug/two_party_ecdsa --config_path ./configs/two_party_config.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
+
 *Please start all nodes before connect.
 
 ### (a) Step 1: connect
 
 Connect two parties.
-```
+```shell
 >> Connect
 ```
 
@@ -36,27 +54,27 @@ Connect two parties.
 KeyGen Begin
 
 * Please run keygen by party 0.
-```
+```shell
 >> keygen
 ```
 
 ### (c) Step 3: sign
 * Please run sign by party 0.
-```
+```shell
 >> sign
 ```
 
 ### (d) Step 4: Quit
 
 Disconnect peers.
-```
+```shell
 >> q
 ```
 
 ## 2. Multi party keygen
 
-CONFIGFILE is the config json file. You can found the example file here: "configs/config_3pc.json".
-```example
+You can found the example config file here: "configs/config_3pc.json".
+```json
 {
     "share_count": 3,
     "threshold": 2,
@@ -73,19 +91,31 @@ CONFIGFILE is the config json file. You can found the example file here: "config
             "index": 2,
             "address": "127.0.0.1:64002"
         }
-    ],
-    "message": "xxxxxxxxxxxx",
-    "subset": [
-        0,
-        1,
-        2
     ]
 }
 ```
 Specify the party_index, party_index should be less than the total share counts.
 
+### 2.1 How to use multi_party_ecdsa_keygen
+
+```shell
+$ ./multi_party_ecdsa_keygen --help
+
+USAGE:
+    multi_party_ecdsa_keygen --config_path <config_path> --index <index>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -c, --config_path <config_path>    Config Path
+    -i, --index <index>                My index
 ```
-$ cargo run --bin multi_party_ecdsa_keygen <party_index> <CONFIGFILE>
+
+### 2.2 keygen cli example
+```
+$ ./multi_party_ecdsa_keygen --config_path ./configs/config_3pc.json --index 0
 ```
 
 *Please start all nodes before connect.
@@ -115,9 +145,29 @@ Disconnect peers.
 
 ## 3. Multi party sign
 
-CONFIGFILE is the config json file. You can found the default file here: "p2p/examples/config.json".
+Use the same config file as keygen.
+
+### 3.1 How to use multi_party_ecdsa_sign
+```shell
+$ ./multi_party_ecdsa_sign --help
+
+USAGE:
+    multi_party_ecdsa_sign [OPTIONS] --config_path <config_path> --index <index> --message <message>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -c, --config_path <config_path>    Config Path
+    -i, --index <index>                My index
+    -m, --message <message>            Message to sign
+    -s, --subset <subset>...           Paticipants index
 ```
-$ cargo run --bin multi_party_ecdsa_sign <party_index> <CONFIGPATH>
+
+### 3.2 sign cli example
+```
+$ ./multi_party_ecdsa_sign --config_path ./configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1
 ```
 
 *Please start all nodes before connect.

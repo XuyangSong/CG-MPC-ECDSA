@@ -95,7 +95,7 @@ impl SignPhase {
         qtilde: &BigInt,
         party_index: usize,
         params: Parameters,
-        subset: &[usize],
+        subset: &Vec<usize>,
         message_str: &String,
     ) -> Result<Self, MulEcdsaError> {
         // Init CL group and update
