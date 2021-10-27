@@ -70,7 +70,7 @@ fn two_party_test() {
     let sign_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
-    let party_one_sign_new = party_one::SignPhase::new(party_one_key_gen_init.cl_group);
+    let party_one_sign_new = party_one::SignPhase::new(party_one_key_gen_init.cl_group, &sign_message);
     let party_one_sign_round_one_msg = party_one_sign_new.round_one_msg.clone();
 
     // Party two round 1: send party_two_key_gen_init.msg
@@ -117,9 +117,7 @@ fn two_party_test() {
 
     let sign_end = time::now();
 
-    let message_bigint = BigInt::from_hex("eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d").unwrap();
-    let message: FE = ECScalar::from(&message_bigint);
-    party_one::SignPhase::verify(&signature, &party_one_share_key, &message).unwrap();
+    party_one::SignPhase::verify(&signature, &party_one_share_key, &party_one_sign_new.message).unwrap();
 
     println!(
         "keygen_duration:{:?},sign_duration:{:?}",

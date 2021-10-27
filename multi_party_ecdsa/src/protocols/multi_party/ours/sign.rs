@@ -886,6 +886,8 @@ impl SignPhase {
                         let signature = self
                             .phase_five_step_eight_generate_signature_msg()
                             .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
+
+                        Signature::verify(&signature, &self.public_signing_key, &self.message).unwrap();
                         println!("Signature: {:?}", signature);
 
                         // Save signature to file
