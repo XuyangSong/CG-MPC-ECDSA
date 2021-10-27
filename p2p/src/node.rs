@@ -25,7 +25,6 @@ use crate::peer::{PeerAddr, PeerID, PeerLink, PeerMessage, PeerNotification};
 use crate::priority::{Priority, PriorityTable, HIGH_PRIORITY, LOW_PRIORITY};
 use readerwriter::Codable;
 
-use crate::errors::MpcIOError;
 type Reply<T> = sync::oneshot::Sender<T>;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -86,7 +85,6 @@ pub struct Node<Custom: Codable> {
     cybershake_identity: cybershake::PrivateKey,
     peer_notification_channel: sync::mpsc::Sender<PeerNotification<Custom>>,
     peers: HashMap<PeerID, PeerState<Custom>>,
-    index_peer: HashMap<usize, PeerID>,
     config: NodeConfig,
     inbound_semaphore: sync::Semaphore,
     peer_priorities: PriorityTable<PeerID>, // priorities of peers
@@ -141,7 +139,6 @@ pub enum NodeMessage<Custom: Codable> {
     CountPeers(Reply<usize>),
     ListPeers(Reply<Vec<PeerInfo>>),
     SendSelf(Custom),
-    Indextoidpeer(usize, Reply<PeerID>),
     Exit,
 }
 
@@ -185,7 +182,6 @@ where
             cybershake_identity,
             peer_notification_channel: peer_sender,
             peers: HashMap::new(),
-            index_peer: HashMap::new(),
             listener,
             config,
             inbound_semaphore,
@@ -354,12 +350,6 @@ impl<Custom: Codable> NodeHandle<Custom> {
         self.channel.send(msg).await.unwrap_or(())
     }
 
-    pub async fn indexidpeer(&mut self, index: usize) -> PeerID {
-        let (tx, rx) = sync::oneshot::channel::<PeerID>();
-        self.send_internal(NodeMessage::Indextoidpeer(index, tx))
-            .await;
-        rx.await.expect("can not obtain peerid")
-    }
 }
 
 impl<Custom: Codable> NodeHandle<Custom> {
@@ -388,10 +378,7 @@ impl<Custom: Codable> NodeHandle<Custom> {
             }
         }
     }
-    pub async fn send_by_msg_(&mut self, index: usize, msg: Custom) {
-        let pid = self.indexidpeer(index).await;
-        self.sendmsg(pid, msg).await;
-    }
+    
     pub async fn receive_(
         &mut self,
         mut notifications_channel: sync::mpsc::Receiver<NodeNotification<Custom>>,
@@ -410,11 +397,11 @@ impl<Custom: Codable> NodeHandle<Custom> {
                     match result {
                         ProcessMessage::BroadcastMessage(msg) => self.broadcast(msg).await,
                         ProcessMessage::SendMessage(index, msg) => {
-                            self.send_by_msg_(index, msg).await
+                            self.sendmsgbyindex(index, msg).await
                         }
                         ProcessMessage::SendMultiMessage(send_list) => {
                             for (index, msg) in send_list {
-                                self.send_by_msg_(index, msg).await;
+                                self.sendmsgbyindex(index, msg).await;
                             }
                         }
                         ProcessMessage::Quit() => self.exit().await,
@@ -457,7 +444,6 @@ where
             NodeMessage::CountPeers(reply) => self.count_peers(reply).await,
             NodeMessage::ListPeers(reply) => self.list_peers(reply).await,
             NodeMessage::SendSelf(msg) => self.send_to_self(msg).await,
-            NodeMessage::Indextoidpeer(index, reply) => self.index_to_peer(index, reply),
             NodeMessage::Exit => {}
         }
     }
@@ -603,10 +589,6 @@ where
         };
         // The peer did not exist - simply add it.
         let _ = self.peers.insert(id, peer);
-        if direction == Direction::Outbound {
-            self.index_peer.insert(peer_index, id);
-        }
-
         // If this is an outbound connection, tell our port.
         if direction == Direction::Outbound {
             self.notify(NodeNotification::PeerAdded(id, peer_index))
@@ -694,7 +676,6 @@ where
                     addr.set_port(port);
                     peer.listening_addr = Some(addr);
                     peer.index = index;
-                    self.index_peer.insert(index, id);
                     println!("\n=>    Peer connected from: index: {}", index);
                     self.notify(NodeNotification::PeerAdded(id, index)).await;
                 }
@@ -752,15 +733,6 @@ where
 
     fn peer_id(&self) -> PeerID {
         PeerID::from(self.cybershake_identity.to_public_key())
-    }
-
-    fn index_to_peer(&self, index: usize, reply: Reply<PeerID>) {
-        let peerid = self
-            .index_peer
-            .get(&index)
-            .ok_or(MpcIOError::ObtainValueFailed)
-            .unwrap();
-        reply.send(*peerid).unwrap_or(())
     }
 }
 

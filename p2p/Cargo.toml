@@ -18,5 +18,4 @@ aes-siv = {version = "0.6.2",features = ["pmac"]}
 rand = "0.7"
 readerwriter = {path = "../readerwriter", features=["bytes"]}
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "1"
 time = "0.1"
