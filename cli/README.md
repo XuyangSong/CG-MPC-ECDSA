@@ -1,7 +1,7 @@
-# Run multi party demo
+# Run ECDSA demo
 
-## Two party
-CONFIGFILE is the config json file. You can found the example file here: "p2p/examples/config_2pc.json".
+## 1. Two party
+CONFIGFILE is the config json file. You can found the example file here: "configs/two_party_config.json".
 example
 ```
 {
@@ -20,18 +20,18 @@ example
 ```
 Specify the party_index 0 or 1.
 ```
-$ cargo run --example two_party_demo <party_index> <CONFIGFILE>
+$ cargo run --bin two_party_ecdsa <party_index> <CONFIGFILE>
 ```
 *Please start all nodes before connect.
 
-### connect
+### (a) Step 1: connect
 
 Connect two parties.
 ```
 >> Connect
 ```
 
-### KeyGen
+### (b) Step 2: KeyGen
 
 KeyGen Begin
 
@@ -40,28 +40,22 @@ KeyGen Begin
 >> keygen
 ```
 
-### KeyGen Quit
-
-Disconnect peers.
-```
->> q
-```
-### sign
+### (c) Step 3: sign
 * Please run sign by party 0.
 ```
 >> sign
 ```
 
-### Sign Quit
+### (d) Step 4: Quit
 
 Disconnect peers.
 ```
 >> q
 ```
 
-## Multi party keygen
+## 2. Multi party keygen
 
-CONFIGFILE is the config json file. You can found the example file here: "p2p/examples/config_3pc.json".
+CONFIGFILE is the config json file. You can found the example file here: "configs/config_3pc.json".
 ```example
 {
     "share_count": 3,
@@ -91,19 +85,19 @@ CONFIGFILE is the config json file. You can found the example file here: "p2p/ex
 Specify the party_index, party_index should be less than the total share counts.
 
 ```
-$ cargo run --example multi_party_keygen_demo <party_index> <CONFIGFILE>
+$ cargo run --bin multi_party_ecdsa_keygen <party_index> <CONFIGFILE>
 ```
 
 *Please start all nodes before connect.
 
-### KeyGen connect
+### (a) Step 1: KeyGen connect
 
 Connect all keygen peers.
 ```
 >> multikeygenconnect
 ```
 
-### KeyGen
+### (b) Step 2: KeyGen
 
 KeyGen Begin
 * Please run keygen by party 0.
@@ -111,36 +105,38 @@ KeyGen Begin
 >> keygen
 ```
 
-### KeyGen Quit
+### (c) Step 3: KeyGen Quit
 
 Disconnect peers.
 ```
 >> q
 ```
-## Multi party sign
+
+
+## 3. Multi party sign
 
 CONFIGFILE is the config json file. You can found the default file here: "p2p/examples/config.json".
 ```
-$ cargo run --example multi_party_demo CONFIGPATH
+$ cargo run --bin multi_party_ecdsa_sign <party_index> <CONFIGPATH>
 ```
 
 *Please start all nodes before connect.
 
-### Sign connect
+### (a) Step 1: Sign connect
 
 Connect the subset peers.
 ```
 >> multisignconnect
 ```
 
-### Sign Begin
+### (b) Step 2: Sign Begin
 * Please run sign by party 0.
 
 ```
 >> sign
 ```
 
-### Sign Quit
+### (c) Step 3: Sign Quit
 
 Disconnect peers.
 ```
