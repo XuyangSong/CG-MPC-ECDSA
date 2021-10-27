@@ -7,10 +7,7 @@ use tokio::task;
 use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
-use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
-use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::secp256_k1::FE;
-use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
@@ -103,10 +100,6 @@ impl InitMessage {
         let json_config: JsonConfigInternal =
             JsonConfigInternal::init_with(party_id, json_config_file);
 
-        // Get msg hash
-        let message_hash: BigInt = HSha256::create_hash_from_slice(json_config.message.as_bytes());
-        let message_to_sign: FE = ECScalar::from(&message_hash);
-
         // Init group params
         let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
@@ -120,7 +113,7 @@ impl InitMessage {
         let party_two_keygen = party_two::KeyGenInit::new(&group);
         let new_class_group = update_class_group_by_p(&group);
         let party_one_sign = party_one::SignPhase::new(new_class_group.clone());
-        let party_two_sign = party_two::SignPhase::new(new_class_group, &message_to_sign);
+        let party_two_sign = party_two::SignPhase::new(new_class_group, &json_config.message);
         let two_party_info = TwoParty {
             party_index: json_config.my_info.index,
             party_one_keygen,

@@ -66,7 +66,7 @@ fn two_party_test() {
 
     ////////// Start Signing /////////////////
     // creating the ephemeral private shares:
-    let sign_message = ECScalar::new_random();
+    let sign_message = "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string();
     let sign_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
@@ -117,7 +117,9 @@ fn two_party_test() {
 
     let sign_end = time::now();
 
-    party_one::SignPhase::verify(&signature, &party_one_share_key, &sign_message).unwrap();
+    let message_bigint = BigInt::from_hex("eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d").unwrap();
+    let message: FE = ECScalar::from(&message_bigint);
+    party_one::SignPhase::verify(&signature, &party_one_share_key, &message).unwrap();
 
     println!(
         "keygen_duration:{:?},sign_duration:{:?}",

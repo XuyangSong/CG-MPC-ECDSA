@@ -134,9 +134,7 @@ impl SignPhase {
         }
 
         // Process the message to sign
-        //let message_hash = HSha256::create_hash_from_slice(message_str.as_bytes());
-        let message_vec = hex::decode(message_str).unwrap();
-        let message_bigint = BigInt::from_bytes(&message_vec);
+        let message_bigint = BigInt::from_hex(message_str).unwrap();
         let message: FE = ECScalar::from(&message_bigint);
 
         // Compute lambda
