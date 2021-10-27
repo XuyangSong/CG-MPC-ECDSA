@@ -9,11 +9,9 @@ sudo apt install -y bison llvm clang
 
 # How to test
 cargo test -- --test-threads=1
-# How to run example
 
-cargo run --example pkc20
-
-cargo run --example two_party
+# How to run ECDSA demo
+cli/README.md
 
 # How to run web
 

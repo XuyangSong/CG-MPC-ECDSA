@@ -156,7 +156,6 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 return ProcessMessage::Default();
             }
             SendingMessages::EmptyMsg => {
-                println!("no msg to send");
                 return ProcessMessage::Default();
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
