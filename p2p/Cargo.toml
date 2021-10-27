@@ -45,9 +45,6 @@ url = "2.2"
 # ##################################
 
 [[example]]
-name = "multi_party_demo"
-
-[[example]]
 name = "two_party_demo"
 
 [[example]]
