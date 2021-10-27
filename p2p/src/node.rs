@@ -85,7 +85,6 @@ pub struct Node<Custom: Codable> {
     cybershake_identity: cybershake::PrivateKey,
     peer_notification_channel: sync::mpsc::Sender<PeerNotification<Custom>>,
     peers: HashMap<PeerID, PeerState<Custom>>,
-    index_peer: HashMap<usize, PeerID>,
     config: NodeConfig,
     inbound_semaphore: sync::Semaphore,
     peer_priorities: PriorityTable<PeerID>, // priorities of peers
@@ -183,7 +182,6 @@ where
             cybershake_identity,
             peer_notification_channel: peer_sender,
             peers: HashMap::new(),
-            index_peer: HashMap::new(),
             listener,
             config,
             inbound_semaphore,
@@ -591,10 +589,6 @@ where
         };
         // The peer did not exist - simply add it.
         let _ = self.peers.insert(id, peer);
-        if direction == Direction::Outbound {
-            self.index_peer.insert(peer_index, id);
-        }
-
         // If this is an outbound connection, tell our port.
         if direction == Direction::Outbound {
             self.notify(NodeNotification::PeerAdded(id, peer_index))
@@ -653,8 +647,11 @@ where
     }
 
     async fn send_to_peer_by_index(&mut self, index: usize, msg: PeerMessage<Custom>) {
-        let peer_id = self.index_peer.get(&index).unwrap();
-        self.peers.get_mut(peer_id).unwrap().link.send(msg).await;
+        for (_id, peer_link) in self.peers.iter_mut() {
+            if index == peer_link.index {
+                peer_link.link.send(msg.clone()).await;
+            }
+        }
     }
 
     async fn send_to_self(&mut self, msg: Custom) {
@@ -679,7 +676,6 @@ where
                     addr.set_port(port);
                     peer.listening_addr = Some(addr);
                     peer.index = index;
-                    self.index_peer.insert(index, id);
                     println!("\n=>    Peer connected from: index: {}", index);
                     self.notify(NodeNotification::PeerAdded(id, index)).await;
                 }
