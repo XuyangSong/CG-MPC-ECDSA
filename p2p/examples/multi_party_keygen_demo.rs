@@ -42,7 +42,7 @@ pub struct InitMessage {
 }
 
 struct MultiPartyKeygen {
-    keygen: KeyGen
+    keygen: KeyGen,
 }
 
 enum UserCommand {
@@ -118,9 +118,7 @@ impl InitMessage {
         //Init multi party info
         let keygen =
             KeyGen::init(&seed, &qtilde, json_config.my_info.index, params.clone()).unwrap();
-        let multi_party_keygen_info = MultiPartyKeygen { 
-            keygen: keygen
-        };
+        let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
             my_info: json_config.my_info,
             peers_info: json_config.peers_info,
@@ -220,10 +218,7 @@ impl Console {
     ) -> task::JoinHandle<Result<(), String>> {
         task::spawn_local(async move {
             let mut stdin = io::BufReader::new(io::stdin());
-            let mut console = Console {
-                node,
-                peers_info,
-            };
+            let mut console = Console { node, peers_info };
             loop {
                 let mut line = String::new();
                 io::stderr().write_all(">> ".as_ref()).await.unwrap();

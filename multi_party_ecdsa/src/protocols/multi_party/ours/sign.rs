@@ -694,7 +694,7 @@ impl SignPhase {
     pub fn msg_handler(
         &mut self,
         index: usize,
-        msg_received: &MultiSignMessage
+        msg_received: &MultiSignMessage,
     ) -> Result<SendingMessages, MulEcdsaError> {
         // println!("handle receiving msg: {:?}", msg_received);
 
@@ -724,7 +724,7 @@ impl SignPhase {
                     if self.msgs.phase_two_msgs.get(&index).is_some() {
                         return Ok(SendingMessages::EmptyMsg);
                     }
-    
+
                     // Handle the msg
                     self.handle_phase_two_msg(index, &msg)
                         .map_err(|_| MulEcdsaError::HandleSignPhaseTwoMsgFailed)?;
@@ -769,7 +769,7 @@ impl SignPhase {
                     if self.msgs.phase_four_msgs.get(&index).is_some() {
                         return Ok(SendingMessages::EmptyMsg);
                     }
-    
+
                     // Handle the msg
                     self.handle_phase_four_msg(index, &msg)
                         .map_err(|_| MulEcdsaError::HandleSignPhaseFourMsgFailed)?;
@@ -811,7 +811,7 @@ impl SignPhase {
                     if self.msgs.phase_five_step_two_msgs.get(&index).is_some() {
                         return Ok(SendingMessages::EmptyMsg);
                     }
-    
+
                     // Handle the msg
                     self.handle_phase_five_step_two_msg(index, &msg)
                         .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepTwoMsgFailed)?;
@@ -855,7 +855,7 @@ impl SignPhase {
                     if self.msgs.phase_five_step_five_msgs.get(&index).is_some() {
                         return Ok(SendingMessages::EmptyMsg);
                     }
-    
+
                     // Handle the msg
                     self.handle_phase_five_step_five_msg(index, &msg)
                         .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepFiveMsgFailed)?;
@@ -889,12 +889,12 @@ impl SignPhase {
                             .phase_five_step_eight_generate_signature_msg()
                             .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
                         println!("Signature: {:?}", signature);
-    
+
                         // Save signature to file
                         let signature_path = Path::new("./sign_result.json");
                         let signature_json = serde_json::to_string(&(signature,))
                             .map_err(|_| MulEcdsaError::ToStringFailed)?;
-    
+
                         fs::write(signature_path, signature_json.clone())
                             .map_err(|_| MulEcdsaError::FileWriteFailed)?;
                         return Ok(SendingMessages::SignSuccessWithResult(signature_json));

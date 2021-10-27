@@ -37,7 +37,7 @@ pub struct JsonConfigInternal {
 }
 
 struct MultiPartySign {
-    sign: SignPhase
+    sign: SignPhase,
 }
 
 pub struct InitMessage {
@@ -169,7 +169,7 @@ impl MsgProcess<Message> for MultiPartySign {
             SendingMessages::SubsetMessage(msg) => {
                 let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
                 for index in self.sign.subset.iter() {
-                    if index != &self.sign.party_index{
+                    if index != &self.sign.party_index {
                         msgs_to_send.insert(*index, Message(msg.clone()));
                     }
                 }
