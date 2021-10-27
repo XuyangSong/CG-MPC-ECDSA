@@ -1,38 +1,31 @@
+use cli::config::MultiPartyConfig;
 use curv::arithmetic::Converter;
-use std::collections::HashMap;
-
-use tokio::io;
-use tokio::prelude::*;
-use tokio::task;
-
-use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
-
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use multi_party_ecdsa::protocols::multi_party::ours::message::MultiKeyGenMessage;
-use serde::Deserialize;
-use std::path::Path;
-use std::{env, fs};
+use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
+use std::collections::HashMap;
+use structopt::StructOpt;
+use tokio::io;
+use tokio::prelude::*;
+use tokio::task;
 
-#[derive(Debug, Deserialize)]
-struct JsonConfig {
-    pub share_count: usize,
-    pub threshold: usize,
-    pub infos: Vec<Info>,
-    pub message: String,    // message to sign
-    pub subset: Vec<usize>, // sign parties
-}
+#[derive(StructOpt, Debug)]
+#[structopt(
+    name = "multi-ecdsa-keygen",
+    author = "songxuyang",
+    rename_all = "snake_case"
+)]
+struct Opt {
+    /// My index
+    #[structopt(short, long)]
+    index: usize,
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct JsonConfigInternal {
-    pub share_count: usize,
-    pub threshold: usize,
-    pub my_info: Info,
-    pub peers_info: Vec<Info>,
-    pub message: String,
-    pub subset: Vec<usize>,
+    /// Config Path
+    #[structopt(short, long)]
+    config_path: String,
 }
 
 pub struct InitMessage {
@@ -63,50 +56,20 @@ pub struct Console {
     peers_info: Vec<Info>,
 }
 
-impl JsonConfigInternal {
-    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
-        let file_path = Path::new(&json_config_file);
-        let json_str = fs::read_to_string(file_path).unwrap();
-        let json_config: JsonConfig =
-            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
-
-        // TBD: handle unwrap, return a error.
-        let my_info = json_config
-            .infos
-            .iter()
-            .find(|e| e.index == party_id)
-            .unwrap()
-            .clone();
-        let peers_info: Vec<Info> = json_config
-            .infos
-            .into_iter()
-            .filter(|e| e.index != party_id)
-            .collect();
-
-        Self {
-            share_count: json_config.share_count,
-            threshold: json_config.threshold,
-            my_info,
-            peers_info,
-            message: json_config.message,
-            subset: json_config.subset,
-        }
-    }
-}
-
 impl InitMessage {
     pub fn init_message() -> Self {
-        let party_id_str = env::args().nth(1).unwrap();
-        let party_id = party_id_str.parse::<usize>().unwrap();
-        let json_config_file = env::args().nth(2).unwrap();
+        let opt = Opt::from_args();
+        let index = opt.index;
+        let config = MultiPartyConfig::new_from_file(&opt.config_path).unwrap();
 
-        //Load config from file
-        let json_config = JsonConfigInternal::init_with(party_id, json_config_file);
+        let my_info = config.get_my_info(index);
 
+        let peers_info: Vec<Info> = config.get_peer_infos(index);
         let params = Parameters {
-            threshold: json_config.threshold,
-            share_count: json_config.share_count,
+            threshold: config.threshold,
+            share_count: config.share_count,
         };
+
         //Init group params
         let seed: BigInt = BigInt::from_hex(
             "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
@@ -116,12 +79,11 @@ impl InitMessage {
 
         // TBD: add a new func, init it latter.
         //Init multi party info
-        let keygen =
-            KeyGen::init(&seed, &qtilde, json_config.my_info.index, params.clone()).unwrap();
+        let keygen = KeyGen::init(&seed, &qtilde, index, params.clone()).unwrap();
         let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
-            my_info: json_config.my_info,
-            peers_info: json_config.peers_info,
+            my_info,
+            peers_info,
             multi_party_keygen_info: multi_party_keygen_info,
         };
         return init_messages;
@@ -171,14 +133,6 @@ impl MsgProcess<Message> for MultiPartyKeygen {
 }
 
 fn main() {
-    if env::args().count() < 3 {
-        println!(
-            "Usage:\n\t{} <parties> <party-id> <port> <config-file>",
-            env::args().nth(0).unwrap()
-        );
-        panic!("Need Config File")
-    }
-
     let init_messages = InitMessage::init_message();
 
     // Create the runtime.

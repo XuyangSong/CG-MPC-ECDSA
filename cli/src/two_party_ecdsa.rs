@@ -7,6 +7,7 @@ use tokio::task;
 use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
+use cli::config::TwoPartyConfig;
 use curv::elliptic::curves::secp256_k1::FE;
 use curv::BigInt;
 use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
@@ -14,21 +15,28 @@ use multi_party_ecdsa::protocols::two_party::party_one;
 use multi_party_ecdsa::protocols::two_party::party_two;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;
 use multi_party_ecdsa::utilities::promise_sigma::PromiseState;
-use serde::Deserialize;
 use std::path::Path;
-use std::{env, fs};
+use std::fs;
+use structopt::StructOpt;
 
-#[derive(Debug, Deserialize)]
-struct JsonConfig {
-    pub infos: Vec<Info>,
-    pub message: String, // message to sign
-}
+#[derive(StructOpt, Debug)]
+#[structopt(
+    name = "two-party-ecdsa",
+    author = "songxuyang",
+    rename_all = "snake_case"
+)]
+struct Opt {
+    /// My index
+    #[structopt(short, long)]
+    index: usize,
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct JsonConfigInternal {
-    pub my_info: Info,
-    pub peer_info: Info,
-    pub message: String,
+    /// Message to sign
+    #[structopt(short, long)]
+    message: String,
+
+    /// Config Path
+    #[structopt(short, long)]
+    config_path: String,
 }
 
 struct TwoParty {
@@ -62,43 +70,14 @@ pub struct Console {
     peer_info: Info,
 }
 
-impl JsonConfigInternal {
-    pub fn init_with(party_id: usize, json_config_file: String) -> Self {
-        let file_path = Path::new(&json_config_file);
-        let json_str = fs::read_to_string(file_path).unwrap();
-        let json_config: JsonConfig =
-            serde_json::from_str(&json_str).expect("JSON was not well-formatted");
-
-        // TBD: handle unwrap, return a error.
-        let my_info = json_config
-            .infos
-            .iter()
-            .find(|e| e.index == party_id)
-            .unwrap()
-            .clone();
-        let peer_info = json_config
-            .infos
-            .into_iter()
-            .find(|e| e.index != party_id)
-            .unwrap();
-
-        Self {
-            my_info,
-            peer_info,
-            message: json_config.message,
-        }
-    }
-}
-
 impl InitMessage {
     pub fn init_message() -> Self {
-        let party_id_str: String = env::args().nth(1).unwrap();
-        let party_id: usize = party_id_str.parse::<usize>().unwrap();
-        let json_config_file: String = env::args().nth(2).unwrap();
-
-        // Load config from file
-        let json_config: JsonConfigInternal =
-            JsonConfigInternal::init_with(party_id, json_config_file);
+        let opt = Opt::from_args();
+        let index = opt.index;
+        let message = opt.message;
+        let config = TwoPartyConfig::new_from_file(&opt.config_path).unwrap();
+        let my_info = config.get_my_info(index);
+        let peer_info = config.get_peer_info(index);
 
         // Init group params
         let seed: BigInt = BigInt::from_hex(
@@ -113,9 +92,9 @@ impl InitMessage {
         let party_two_keygen = party_two::KeyGenInit::new(&group);
         let new_class_group = update_class_group_by_p(&group);
         let party_one_sign = party_one::SignPhase::new(new_class_group.clone());
-        let party_two_sign = party_two::SignPhase::new(new_class_group, &json_config.message);
+        let party_two_sign = party_two::SignPhase::new(new_class_group, &message);
         let two_party_info = TwoParty {
-            party_index: json_config.my_info.index,
+            party_index: index,
             party_one_keygen,
             party_two_keygen,
             party_one_sign,
@@ -123,8 +102,8 @@ impl InitMessage {
         };
 
         InitMessage {
-            my_info: json_config.my_info,
-            peer_info: json_config.peer_info,
+            my_info,
+            peer_info,
             two_party_info,
         }
     }
@@ -323,13 +302,6 @@ impl MsgProcess<Message> for TwoParty {
 }
 
 fn main() {
-    if env::args().count() < 3 {
-        println!(
-            "Usage:\n\t{} <parties> <party-id> <port> <config-file>",
-            env::args().nth(0).unwrap()
-        );
-        panic!("Need Config File")
-    }
     let init_messages = InitMessage::init_message();
 
     // Create the runtime.

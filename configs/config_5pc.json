@@ -22,12 +22,5 @@
             "index": 4,
             "address": "127.0.0.1:64004"
         }
-    ],
-    "message": "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d",
-    "subset": [
-        0,
-        1,
-        2,
-        3
     ]
 }
