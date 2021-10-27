@@ -7,7 +7,7 @@ use tokio::task;
 use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::{CLGroup, SK};
-use curv::elliptic::curves::secp256_k1::FE;
+use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::BigInt;
 use multi_party_ecdsa::protocols::two_party::message::TwoPartyMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
@@ -112,7 +112,7 @@ impl InitMessage {
         let party_one_keygen = party_one::KeyGenInit::new(&group);
         let party_two_keygen = party_two::KeyGenInit::new(&group);
         let new_class_group = update_class_group_by_p(&group);
-        let party_one_sign = party_one::SignPhase::new(new_class_group.clone());
+        let party_one_sign = party_one::SignPhase::new(new_class_group.clone(), &json_config.message);
         let party_two_sign = party_two::SignPhase::new(new_class_group, &json_config.message);
         let two_party_info = TwoParty {
             party_index: json_config.my_info.index,
@@ -181,6 +181,7 @@ impl MsgProcess<Message> for TwoParty {
                 let keygen_json = serde_json::to_string(&(
                     self.party_one_keygen.cl_keypair.get_secret_key().clone(),
                     self.party_one_keygen.keypair.get_secret_key().clone(),
+                    self.party_one_keygen.public_signing_key,
                 ))
                 .unwrap();
                 fs::write(keygen_path, keygen_json).expect("Unable to save !");
@@ -297,7 +298,7 @@ impl MsgProcess<Message> for TwoParty {
                     "./keygen_result".to_string() + &self.party_index.to_string() + ".json";
                 let data = fs::read_to_string(file_name)
                     .expect("Unable to load keys, did you run keygen first? ");
-                let (cl_sk, secret_key): (SK, FE) = serde_json::from_str(&data).unwrap();
+                let (cl_sk, secret_key, public_signing_key): (SK, FE, GE) = serde_json::from_str(&data).unwrap();
 
                 let ephemeral_public_share = self
                     .party_one_sign
@@ -309,7 +310,7 @@ impl MsgProcess<Message> for TwoParty {
                     &secret_key,
                     &t_p,
                 );
-
+                party_one::SignPhase::verify(&signature.clone().unwrap(), &public_signing_key, &self.party_one_sign.message).unwrap();
                 // Party one time end
                 println!("##    Sign finish! \n signature: {:?}", signature);
                 return ProcessMessage::Default();

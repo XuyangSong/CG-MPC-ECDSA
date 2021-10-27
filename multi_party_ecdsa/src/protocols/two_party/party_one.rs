@@ -5,6 +5,7 @@ use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::secp256_k1::GE;
 use curv::elliptic::curves::traits::*;
+use curv::BigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::utilities::class::update_class_group_by_p;
@@ -40,6 +41,7 @@ pub struct SignPhase {
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
     pub received_msg: DLogProof<GE>,
+    pub message: FE,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -120,7 +122,10 @@ impl KeyGenInit {
 }
 
 impl SignPhase {
-    pub fn new(cl_group: CLGroup) -> Self {
+    pub fn new(cl_group: CLGroup, message_str: &String) -> Self {
+        let message_bigint = BigInt::from_hex(message_str).unwrap();
+        let message: FE = ECScalar::from(&message_bigint);
+
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
         let received_msg = DLogProof {
@@ -135,6 +140,7 @@ impl SignPhase {
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
             received_msg,
+            message,
         }
     }
 
