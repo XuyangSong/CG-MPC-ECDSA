@@ -99,7 +99,7 @@ impl SignPhase {
     pub fn new(cl_group: CLGroup, message_str: &String) -> Self {
         let message_bigint = BigInt::from_hex(message_str).unwrap();
         let message: FE = ECScalar::from(&message_bigint);
-        
+
         let keypair = EcKeyPair::new();
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
 
