@@ -24,10 +24,6 @@ use std::collections::HashMap;
     rename_all = "snake_case"
 )]
 struct Opt {
-    /// My index
-    #[structopt(short, long)]
-    index: usize,
-
     /// Message to sign
     #[structopt(short, long)]
     message: String,
@@ -68,7 +64,7 @@ pub struct InitMessage {
  impl InitMessage {
      pub fn init_message() -> Self {
          let opt = Opt::from_args();
-         let index = opt.index;
+         let index = 1;
          let message = opt.message;
          let config = TwoPartyConfig::new_from_file(&opt.config_path).unwrap();
          let my_info = config.get_my_info(index);
