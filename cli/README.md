@@ -135,6 +135,74 @@ KeyGen Begin
 >> keygen
 ```
 
+Keygen Result
+```json
+{
+	"pk": {
+		"x": "f5dd9621cf8bbfc8a54c94fa21e389ad38648a4f6b5aee12b7901e1714ed7397",
+		"y": "f6adef11d25d504b611f252656995c826adc28a74433c936b29ee7685288ccd8"
+	},
+	"cl_sk": "19cf0570bc45955ea9974ca39931c869519bcaeef29c47a1ccfa6624009653bb912cc834595f2dfd32650bbd36939bfa8ef6002557aa9eb793173bcbfc03d1e1af055dcae696d750690cd41f9bee3496ed6eaebd7cb9834fcce0a458153df3755cfa5a7832b1c235e",
+	"ec_sk": "c70af11e3ab3b38803b96cdf2cfc8bf4c3aa1d2cfaa3144dec96fadfbb2cf04c",
+	"share_sk": "2ed299d44bf29d96b06fdafe49b9a6f1e77e18ac546601cccb12cc178becbc55",
+	"share_pks": {
+		"1": {
+			"x": "5ba66927dce0037801b3ec82b803ddff4994eacebae0d21209b967bbf26a6780",
+			"y": "658e84279d51fc4d6b9fc1cc7c35cc095ffb3e2cfad8cd765a89e5d7ec23732f"
+		},
+		"0": {
+			"x": "fc4d99451352fc319a1fc70070d945d807c7f56e443ad6802a45b4a47897f05c",
+			"y": "6f81b550d35693651acfbc898036ff894e99f50260ec694eda7dbd0bfadb9a4"
+		},
+		"2": {
+			"x": "fe5b9d0cbcca084ec5a5ba22860ff6c50111b8eae05ae7eb5616c006f0019f7b",
+			"y": "b4a9c38eb570ae9124c19772caf7d51900dce3c25b27f5637856cf7eec4a7333"
+		}
+	},
+	"vss": {
+		"0": {
+			"parameters": {
+				"threshold": 1,
+				"share_count": 3
+			},
+			"commitments": [{
+				"x": "684fa0c684427045801346868bc9ff868664516e49f32c194baee415241841ac",
+				"y": "b2209c0a12e07e6c4251d625776a379adba431eb4dd78f24423f9fef0561896"
+			}, {
+				"x": "f15e7da61e08c671e39e39550c90b6c0cb67e448d6083b79b370af0930b13b32",
+				"y": "54474395284a66f85384de36ffe857bac74441acc27768628a03b18552f86ef9"
+			}]
+		},
+		"1": {
+			"parameters": {
+				"threshold": 1,
+				"share_count": 3
+			},
+			"commitments": [{
+				"x": "e92943ac1853d1f16f2c67a7bb9a718c94ed6858c09e6f94813d2ee8e2d7d9a",
+				"y": "d7686cf9f779de3041b4411c533db6f9f240e2f32159915d2cc8bf60d395df05"
+			}, {
+				"x": "943cc31fb8ea81565c3d4fa41956a804d5c9ad79128a72dec069604b6f113d3f",
+				"y": "9b1b979b2afdb1f6de4f184dafe900b5a53bb9359619f30f2fb2101a415b20fe"
+			}]
+		},
+		"2": {
+			"parameters": {
+				"threshold": 1,
+				"share_count": 3
+			},
+			"commitments": [{
+				"x": "4d445e0aa10cda4b68b615e7b8877e1e027b6cca9a37a9b3def3f69d05c58f95",
+				"y": "164cee3c7c7a3e3a67fe95cc92b024c0d5d3b2d062888428e60fd8dc8caa019b"
+			}, {
+				"x": "5d3da9b3e78ac632884911cd5693edf49654f517d0b431cff0aa4768e69bbced",
+				"y": "665997d5b7249bcace11d5747638835af7264d7cb1fe3f6156a7e7985a1152e1"
+			}]
+		}
+	}
+}
+```
+
 ### (c) Step 3: KeyGen Quit
 
 Disconnect peers.
@@ -185,6 +253,14 @@ Connect the subset peers.
 
 ```
 >> sign
+```
+
+Signature result
+```json
+{
+	"s": "6ce8fc4a0d5f8028562c4e649c7bf54b4196659bc9f770e2a93e7933512efb3b",
+	"r": "4a70fd7b22ae25e19c14c7d95c897b32196cf86690008f9b5175e8063f1a2940"
+}
 ```
 
 ### (c) Step 3: Sign Quit
