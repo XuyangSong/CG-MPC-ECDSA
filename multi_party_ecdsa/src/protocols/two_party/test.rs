@@ -112,13 +112,14 @@ fn two_party_test() {
             &ephemeral_public_share_1,
             party_one_key_gen_init.keypair.get_secret_key(),
             &t_p,
+            &party_one_share_key,
+            party_one_sign_new.message,
         )
         .unwrap();
 
     let sign_end = time::now();
 
-    party_one::SignPhase::verify(&signature, &party_one_share_key, &party_one_sign_new.message).unwrap();
-
+    println!("signature: {:?}", signature);
     println!(
         "keygen_duration:{:?},sign_duration:{:?}",
         keygen_end - keygen_start,
