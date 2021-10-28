@@ -41,8 +41,12 @@ name = "multi_party_ecdsa_sign"
 path = "src/multi_party_ecdsa_sign.rs"
 
 [[bin]]
-name = "two_party_ecdsa"
-path = "src/two_party_ecdsa.rs"
+name = "party_one_ecdsa"
+path = "src/party_one_ecdsa.rs"
+
+[[bin]]
+name = "party_two_ecdsa"
+path = "src/party_two_ecdsa.rs"
 
 # [[bin]]
 # name = "mpc_ecdsa_web"
