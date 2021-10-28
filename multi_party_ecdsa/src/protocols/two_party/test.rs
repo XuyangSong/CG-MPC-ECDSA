@@ -121,17 +121,8 @@ fn two_party_test() {
 
     let sign_end = time::now();
 
-<<<<<<< HEAD
     println!("signature: {:?}", signature);
-=======
-    party_one::SignPhase::verify(
-        &signature,
-        &party_one_share_key,
-        &party_one_sign_new.message,
-    )
-    .unwrap();
 
->>>>>>> remove unused msg and command types
     println!(
         "keygen_duration:{:?},sign_duration:{:?}",
         keygen_end - keygen_start,

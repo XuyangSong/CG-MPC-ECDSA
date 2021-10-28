@@ -11,7 +11,7 @@ sudo apt install -y bison llvm clang
 cargo test -- --test-threads=1
 
 # How to run ECDSA demo
-cli/README.md
+[cli/README.md](cli/README.md)
 
 # How to run web
 

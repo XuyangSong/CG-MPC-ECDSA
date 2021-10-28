@@ -19,10 +19,10 @@
 
 ### 1.1 How to use two_party_ecdsa
 ```shell
-$ ./two_party_ecdsa --help
+$ cargo run --bin two_party_ecdsa_one -- --help
 
 USAGE:
-    two_party_ecdsa --config_path <config_path> --index <index> --message <message>
+    two_party_ecdsa_one --config_path <config_path>  --message <message>
 
 FLAGS:
     -h, --help       Prints help information
@@ -30,14 +30,16 @@ FLAGS:
 
 OPTIONS:
     -c, --config_path <config_path>    Config Path
-    -i, --index <index>                My index
     -m, --message <message>            Message to sign
 ```
 
 ### 1.2 two_party_ecdsa cli example
 
 ```shell
-$ ./two_party_ecdsa --config_path ./configs/two_party_config.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin two_party_ecdsa_one -- --config_path ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+
+
+$ cargo run --bin two_party_ecdsa_two -- --config_path ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
 
 *Please start all nodes before connect.
@@ -99,7 +101,7 @@ Specify the party_index, party_index should be less than the total share counts.
 ### 2.1 How to use multi_party_ecdsa_keygen
 
 ```shell
-$ ./multi_party_ecdsa_keygen --help
+$ cargo run --bin multi_party_ecdsa_keygen -- --help
 
 USAGE:
     multi_party_ecdsa_keygen --config_path <config_path> --index <index>
@@ -114,8 +116,8 @@ OPTIONS:
 ```
 
 ### 2.2 keygen cli example
-```
-$ ./multi_party_ecdsa_keygen --config_path ./configs/config_3pc.json --index 0
+```shell
+$ cargo run --bin multi_party_ecdsa_keygen -- --config_path ./configs/config_3pc.json --index 0
 ```
 
 *Please start all nodes before connect.
@@ -217,7 +219,7 @@ Use the same config file as keygen.
 
 ### 3.1 How to use multi_party_ecdsa_sign
 ```shell
-$ ./multi_party_ecdsa_sign --help
+$ cargo run --bin multi_party_ecdsa_sign -- --help
 
 USAGE:
     multi_party_ecdsa_sign [OPTIONS] --config_path <config_path> --index <index> --message <message>
@@ -235,8 +237,8 @@ OPTIONS:
 ```
 
 ### 3.2 sign cli example
-```
-$ ./multi_party_ecdsa_sign --config_path ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_path ./keygen_result0.json
+```shell
+$ cargo run --bin multi_party_ecdsa_sign -- --config_path ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_path ./keygen_result0.json
 ```
 
 *Please start all nodes before connect.
