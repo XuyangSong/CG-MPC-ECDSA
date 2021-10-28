@@ -24,6 +24,7 @@ use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
 use std::fs;
 use std::path::Path;
 use crate::communication::sending_messages::SendingMessages;
+use crate::utilities::signature::Signature;
 
 //****************** Begin: Party One structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -47,12 +48,6 @@ pub struct SignPhase {
     pub round_two_msg: CommWitness,
     pub received_msg: DLogProof<GE>,
     pub message: FE,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Signature {
-    pub s: FE,
-    pub r: FE,
 }
 
 impl KeyGenInit {
@@ -243,33 +238,10 @@ impl SignPhase {
             s: ECScalar::from(&s),
             r: r_x,
         };
-        SignPhase::verify(&signature, public_signing_key, &message).unwrap();
+        signature.verify(public_signing_key, &message)?;
         Ok(signature)
     }
 
-    pub fn verify(signature: &Signature, pubkey: &GE, message: &FE) -> Result<(), MulEcdsaError> {
-        let q = FE::q();
-
-        let s_inv_fe = signature.s.invert();
-        let u1 = GE::generator() * (*message * s_inv_fe);
-        let u2 = *pubkey * (signature.r * s_inv_fe);
-
-        // second condition is against malleability
-        let u1_plus_u2 = (u1 + u2)
-            .x_coor()
-            .ok_or(MulEcdsaError::XcoorNone)?
-            .mod_floor(&q);
-
-        if signature.r.to_big_int() == u1_plus_u2
-            && signature.s.to_big_int() < FE::q() - signature.s.to_big_int()
-        {
-            Ok(())
-        } else {
-            return Err(MulEcdsaError::VrfyTwoECDSAFailed);
-        }
-    }
-
-    
     pub fn msg_handler_sign(&mut self, index: usize, msg_received: &PartyTwoMsg) -> SendingMessages{
         match msg_received {   
             PartyTwoMsg::SignBegin => {
