@@ -71,7 +71,8 @@ fn two_party_test() {
     let sign_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
-    let party_one_sign_new = party_one::SignPhase::new(party_one_key_gen_init.cl_group, &sign_message);
+    let party_one_sign_new =
+        party_one::SignPhase::new(party_one_key_gen_init.cl_group, &sign_message);
     let party_one_sign_round_one_msg = party_one_sign_new.round_one_msg.clone();
 
     // Party two round 1: send party_two_key_gen_init.msg
@@ -120,7 +121,17 @@ fn two_party_test() {
 
     let sign_end = time::now();
 
+<<<<<<< HEAD
     println!("signature: {:?}", signature);
+=======
+    party_one::SignPhase::verify(
+        &signature,
+        &party_one_share_key,
+        &party_one_sign_new.message,
+    )
+    .unwrap();
+
+>>>>>>> remove unused msg and command types
     println!(
         "keygen_duration:{:?},sign_duration:{:?}",
         keygen_end - keygen_start,

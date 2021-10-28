@@ -37,7 +37,7 @@ OPTIONS:
 ### 1.2 two_party_ecdsa cli example
 
 ```shell
-$ ./target/debug/two_party_ecdsa --config_path ./configs/two_party_config.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ ./two_party_ecdsa --config_path ./configs/two_party_config.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
 
 *Please start all nodes before connect.
@@ -124,7 +124,7 @@ $ ./multi_party_ecdsa_keygen --config_path ./configs/config_3pc.json --index 0
 
 Connect all keygen peers.
 ```
->> multikeygenconnect
+>> connect
 ```
 
 ### (b) Step 2: KeyGen
@@ -177,7 +177,7 @@ $ ./multi_party_ecdsa_sign --config_path ../configs/config_3pc.json --index 0 --
 
 Connect the subset peers.
 ```
->> multisignconnect
+>> connect
 ```
 
 ### (b) Step 2: Sign Begin
