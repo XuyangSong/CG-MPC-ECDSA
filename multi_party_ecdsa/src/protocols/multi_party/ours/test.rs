@@ -927,7 +927,7 @@ fn test_sign(params: &Parameters, key_gen_vec: Vec<KeyGenTest>) {
     println!("sign total time: {:?} * t + {:?}", time_t, time_constant);
 
     // Verify Signature
-    Signature::verify(&sig, &key_gen_vec[0].public_signing_key, &message).unwrap();
+    sig.verify(&key_gen_vec[0].public_signing_key, &message).unwrap();
 }
 
 #[test]
