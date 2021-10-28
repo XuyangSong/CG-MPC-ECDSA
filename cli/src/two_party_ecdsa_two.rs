@@ -3,13 +3,15 @@ use curv::arithmetic::Converter;
 
 use tokio::task;
 
-use p2p::{Info, Message, MsgProcess, Node, ProcessMessage};
+use p2p::{Info, Node};
 
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use cli::config::TwoPartyConfig;
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
+use message::message_process::{ProcessMessage, MsgProcess};
+use message::message::Message;
 use multi_party_ecdsa::protocols::two_party::message::PartyTwoMsg;
 use multi_party_ecdsa::protocols::two_party::party_two;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;

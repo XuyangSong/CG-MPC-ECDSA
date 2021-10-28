@@ -1,5 +1,6 @@
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
-use p2p::{Info, Message, NodeHandle, PeerID};
+use p2p::{Info, NodeHandle, PeerID};
+use message::message::Message;
 use tokio::io;
 use tokio::prelude::*;
 use tokio::task;

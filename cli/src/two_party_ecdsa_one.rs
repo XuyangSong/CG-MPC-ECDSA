@@ -5,7 +5,9 @@ use tokio::task;
 
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
-use p2p::{Info, Message, MsgProcess, Node, ProcessMessage};
+use p2p::{Info, Node};
+use message::message_process::{ProcessMessage, MsgProcess};
+use message::message::Message;
 
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use cli::config::TwoPartyConfig;
