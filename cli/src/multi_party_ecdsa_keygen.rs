@@ -7,6 +7,7 @@ use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use multi_party_ecdsa::protocols::multi_party::ours::message::MultiKeyGenMessage;
 use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 use std::collections::HashMap;
+use std::fs;
 use structopt::StructOpt;
 use tokio::io;
 use tokio::prelude::*;
@@ -108,24 +109,19 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                     msgs_to_send.insert(key, Message(value));
                 }
                 return ProcessMessage::SendMultiMessage(msgs_to_send);
-                //println!("Sending p2p msg");
             }
             SendingMessages::BroadcastMessage(msg) => {
                 return ProcessMessage::BroadcastMessage(Message(msg));
-                //println!("Sending broadcast msg");
-            }
-            SendingMessages::SubsetMessage(_msg) => {
-                return ProcessMessage::Default();
-            }
-            SendingMessages::EmptyMsg => {
-                return ProcessMessage::Default();
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 println!("keygen Success! {}", res);
+                // Save keygen result to file
+                let file_name =
+                    "./keygen_result".to_string() + &self.keygen.party_index.to_string() + ".json";
+                fs::write(file_name, res).expect("Unable to save !");
                 return ProcessMessage::Default();
             }
-            SendingMessages::SignSuccessWithResult(res) => {
-                println!("Sign Success! {}", res);
+            _ => {
                 return ProcessMessage::Default();
             }
         }

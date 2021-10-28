@@ -159,15 +159,16 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -c, --config_path <config_path>    Config Path
+    -c, --config_path <config_path>    Config path
     -i, --index <index>                My index
+    -k, --keygen_path <keygen_path>    Keygen result path
     -m, --message <message>            Message to sign
-    -s, --subset <subset>...           Paticipants index
+    -s, --subset <subset>...           Participants index
 ```
 
 ### 3.2 sign cli example
 ```
-$ ./multi_party_ecdsa_sign --config_path ./configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1
+$ ./multi_party_ecdsa_sign --config_path ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_path ./keygen_result0.json
 ```
 
 *Please start all nodes before connect.

@@ -349,7 +349,6 @@ impl<Custom: Codable> NodeHandle<Custom> {
         // so we will never have an error condition here.
         self.channel.send(msg).await.unwrap_or(())
     }
-
 }
 
 impl<Custom: Codable> NodeHandle<Custom> {
@@ -378,7 +377,7 @@ impl<Custom: Codable> NodeHandle<Custom> {
             }
         }
     }
-    
+
     pub async fn receive_(
         &mut self,
         mut notifications_channel: sync::mpsc::Receiver<NodeNotification<Custom>>,

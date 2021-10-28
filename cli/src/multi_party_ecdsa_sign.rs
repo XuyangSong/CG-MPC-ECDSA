@@ -8,6 +8,8 @@ use multi_party_ecdsa::protocols::multi_party::ours::message::MultiSignMessage;
 use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use structopt::StructOpt;
 use tokio::io;
 use tokio::prelude::*;
@@ -28,13 +30,17 @@ struct Opt {
     #[structopt(short, long)]
     message: String,
 
-    /// Paticipants index
+    /// Participants index
     #[structopt(short, long)]
     subset: Vec<usize>,
 
-    /// Config Path
+    /// Config path
     #[structopt(short, long)]
     config_path: String,
+
+    /// Keygen result path
+    #[structopt(short, long)]
+    keygen_path: String,
 }
 
 // TBD: After resovled #19(Message), use SignPhase directly
@@ -71,14 +77,15 @@ pub struct Console {
 impl InitMessage {
     pub fn init_message() -> Self {
         let opt = Opt::from_args();
-        let index = opt.index;
-        let subset = opt.subset;
-        let message = opt.message;
-        let config = MultiPartyConfig::new_from_file(&opt.config_path).unwrap();
-        assert!(subset.len() > config.threshold, "PartyLessThanThreshold");
 
-        let my_info = config.get_my_info(index);
-        let peers_info: Vec<Info> = config.get_peer_infos(index);
+        // Process config
+        let config = MultiPartyConfig::new_from_file(&opt.config_path).unwrap();
+        assert!(
+            opt.subset.len() > config.threshold,
+            "PartyLessThanThreshold"
+        );
+        let my_info = config.get_my_info(opt.index);
+        let peers_info: Vec<Info> = config.get_peer_infos(opt.index);
         let params = Parameters {
             threshold: config.threshold,
             share_count: config.share_count,
@@ -92,13 +99,27 @@ impl InitMessage {
         // discriminant: 1348, lambda: 112
         let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
 
-        let mut sign = SignPhase::new(&seed, &qtilde, index, params, &subset, &message).unwrap();
+        // Load keygen result
+        let input_path = Path::new(&opt.keygen_path);
+        let keygen_json_string = fs::read_to_string(input_path).unwrap();
+
+        // Sign init
+        let mut sign = SignPhase::new(
+            &seed,
+            &qtilde,
+            opt.index,
+            params,
+            &opt.subset,
+            &opt.message,
+            &keygen_json_string,
+        )
+        .unwrap();
         sign.init();
         let multi_party_sign_info = MultiPartySign { sign: sign };
         let init_messages = InitMessage {
             my_info,
             peers_info,
-            subset,
+            subset: opt.subset,
             multi_party_sign_info: multi_party_sign_info,
         };
         return init_messages;
@@ -140,15 +161,11 @@ impl MsgProcess<Message> for MultiPartySign {
                 }
                 return ProcessMessage::SendMultiMessage(msgs_to_send);
             }
-            SendingMessages::EmptyMsg => {
-                return ProcessMessage::Default();
-            }
-            SendingMessages::KeyGenSuccessWithResult(res) => {
-                println!("keygen Success! {}", res);
-                return ProcessMessage::Default();
-            }
             SendingMessages::SignSuccessWithResult(res) => {
                 println!("Sign Success! {}", res);
+                return ProcessMessage::Default();
+            }
+            _ => {
                 return ProcessMessage::Default();
             }
         }
@@ -296,7 +313,6 @@ impl Console {
                 // self.node.keygen(Message(msg)).await;
             }
             UserCommand::Sign => {
-                println!("=> Signature Begin...");
                 let msg = bincode::serialize(&ReceivingMessages::MultiSignMessage(
                     MultiSignMessage::SignBegin,
                 ))
