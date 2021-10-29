@@ -62,8 +62,8 @@ pub struct SignPhase {
     pub r_point: GE,
     pub rho: FE,
     pub l: FE,
-    pub beta_vec: Vec<FE>,
-    pub v_vec: Vec<FE>,
+    // pub beta_vec: Vec<FE>,
+    // pub v_vec: Vec<FE>,
     pub beta_map: HashMap<usize, FE>,
     pub v_map: HashMap<usize, FE>,
     pub precomputation: HashMap<usize, (CLCipher, CLCipher, GE)>,
@@ -83,6 +83,18 @@ impl SignMsgs {
             phase_five_step_five_msgs: HashMap::new(),
             phase_five_step_seven_msgs: HashMap::new(),
         }
+    }
+
+    pub fn clean(&mut self) {
+        self.phase_one_msgs.clear();
+        self.phase_two_msgs.clear();
+        self.phase_three_msgs.clear();
+        self.phase_four_msgs.clear();
+        self.phase_five_step_one_msgs.clear();
+        self.phase_five_step_two_msgs.clear();
+        self.phase_five_step_four_msgs.clear();
+        self.phase_five_step_five_msgs.clear();
+        self.phase_five_step_seven_msgs.clear();
     }
 }
 
@@ -159,7 +171,7 @@ impl SignPhase {
             })
             .collect::<Vec<_>>();
 
-        Ok(Self {
+        let mut ret = SignPhase {
             group: new_class_group,
             party_index,
             party_num,
@@ -180,49 +192,93 @@ impl SignPhase {
             r_point: GE::generator(), // Init r_point, compute later.
             rho: FE::zero(),          // Init rho, generate later.
             l: FE::zero(),            // Init l, generate later.
-            beta_vec: Vec::new(),     // Init random beta, generate later.
-            v_vec: Vec::new(),        // Init random v, generate later.
+            // beta_vec: Vec::new(),     // Init random beta, generate later.
+            // v_vec: Vec::new(),        // Init random v, generate later.
             beta_map: HashMap::new(),
             v_map: HashMap::new(),
             precomputation: HashMap::new(),
             msgs: SignMsgs::new(),
-        })
+        };
+
+        ret.init();
+
+        Ok(ret)
     }
 
-    pub fn new_default(seed: &BigInt, qtilde: &BigInt, params: Parameters) -> Self {
-        let group = CLGroup::new_from_qtilde(seed, qtilde);
-        let cl_keypair = ClKeyPair::new(&group);
-        Self {
-            group,
-            party_index: 0,
-            party_num: 0,
-            params,
-            subset: Vec::new(),
-            ec_keypair: EcKeyPair::new(),
-            cl_keypair,
-            public_signing_key: GE::generator(),
-            message: FE::zero(),
-            omega: FE::zero(),
-            big_omega_map: HashMap::new(),
-            k: FE::zero(),            // Init k, generate later.
-            gamma: FE::zero(),        // Init gamma, generate later.
-            delta: FE::zero(),        // Init delta, generate later.
-            sigma: FE::zero(),        // Init sigma, generate later.
-            delta_sum: FE::zero(),    // Init delta_sum, compute later.
-            r_x: FE::zero(),          // Init r_x, compute later.
-            r_point: GE::generator(), // Init r_point, compute later.
-            rho: FE::zero(),          // Init rho, generate later.
-            l: FE::zero(),            // Init l, generate later.
-            beta_vec: Vec::new(),     // Init random beta, generate later.
-            v_vec: Vec::new(),        // Init random v, generate later.
-            beta_map: HashMap::new(),
-            v_map: HashMap::new(),
-            precomputation: HashMap::new(),
-            msgs: SignMsgs::new(),
-        }
+    // TBD: Refine it
+    pub fn refresh(
+        &mut self,
+        party_index: usize,
+        params: Parameters,
+        subset: Vec<usize>,
+        message_str: &String,
+        keygen_result_json: &String,
+    ) -> Result<(), MulEcdsaError> {
+        self.party_index = party_index;
+        self.params = params;
+        self.party_num = subset.len();
+        self.subset = subset.clone();
+
+        // Load keygen result
+        let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;
+        self.ec_keypair = EcKeyPair::from_sk(keygen_result.ec_sk);
+        self.cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &self.group);
+        let vss_scheme_map = keygen_result.vss;
+        let share_public_key_map = keygen_result.share_pks;
+        self.public_signing_key = keygen_result.pk;
+
+        // Process the message to sign
+        let message_bigint = BigInt::from_hex(message_str).unwrap();
+        self.message = ECScalar::from(&message_bigint);
+
+        // Compute lambda
+        let lamda = VerifiableSS::<GE>::map_share_to_new_params(
+            &vss_scheme_map
+                .get(&self.party_index)
+                .ok_or(MulEcdsaError::GetIndexFailed)?
+                .parameters,
+            self.party_index,
+            &self.subset,
+        );
+
+        self.omega = lamda * keygen_result.share_sk;
+        self.big_omega_map.clear();
+        let _big_omega_vec = subset
+            .iter()
+            .filter_map(|i| {
+                if *i != self.party_index {
+                    let share_public_key = share_public_key_map
+                        .get(i)
+                        .ok_or(MulEcdsaError::GetIndexFailed)
+                        .ok()?;
+                    let vss_scheme = vss_scheme_map
+                        .get(i)
+                        .ok_or(MulEcdsaError::GetIndexFailed)
+                        .ok()?;
+                    let ret = share_public_key
+                        * &(VerifiableSS::<GE>::map_share_to_new_params(
+                            &vss_scheme.parameters,
+                            *i,
+                            &self.subset,
+                        ));
+                    self.big_omega_map.insert(*i, ret.clone());
+                    Some(ret)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        self.beta_map.clear();
+        self.v_map.clear();
+        self.precomputation.clear();
+        self.msgs.clean();
+
+        self.init();
+        Ok(())
     }
 
-    pub fn init(&mut self) {
+    fn init(&mut self) {
         self.phase_one_generate_promise_sigma_and_com_msg();
         self.pre_computation();
     }

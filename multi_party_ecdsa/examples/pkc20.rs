@@ -4,7 +4,6 @@ use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use multi_party_ecdsa::protocols::multi_party::pkc20::party_i::*;
-use multi_party_ecdsa::utilities::signature::Signature;
 
 fn main() {
     let seed: BigInt = BigInt::from_hex(
