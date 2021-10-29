@@ -26,16 +26,18 @@ use class_group::BinaryQF;
 
 //****************** Begin: Party One structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyGenInit {
+pub struct KeyGenPhase {
+    pub old_cl_group: CLGroup,
     pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
     pub cl_keypair: ClKeyPair,
     pub h_caret: PK,
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
-    pub public_signing_key: GE,
+    pub public_signing_key: Option<GE>,
     pub promise_state: PromiseState,
     pub promise_proof: PromiseProof,
+    pub need_refresh: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -56,13 +58,13 @@ pub struct KenGenResult {
     pub ec_sk: FE,
 }
 
-impl KeyGenInit {
+impl KeyGenPhase {
     pub fn new(group: &CLGroup) -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
 
         // Generate cl keypair
-        let mut cl_keypair = ClKeyPair::new(&group);
+        let mut cl_keypair = ClKeyPair::new(group);
         let h_caret = cl_keypair.get_public_key().clone();
         cl_keypair.update_pk_exp_p();
 
@@ -86,7 +88,8 @@ impl KeyGenInit {
         let promise_proof = PromiseProof::prove(&new_class_group, &promise_state, &promise_wit);
 
         Self {
-            public_signing_key: ECPoint::generator(), // Compute later
+            old_cl_group: group.clone(),
+            public_signing_key: None, // Compute later
             keypair,
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
@@ -95,7 +98,36 @@ impl KeyGenInit {
             promise_state,
             promise_proof,
             cl_group: new_class_group,
+            need_refresh: false,
         }
+    }
+
+    pub fn refresh(&mut self) {
+        self.public_signing_key = None;
+        self.keypair = EcKeyPair::new();
+        let dl_com_zk = DLComZK::new(&self.keypair);
+        self.round_one_msg = dl_com_zk.commitments;
+        self.round_two_msg = dl_com_zk.witness;
+        let mut cl_keypair = ClKeyPair::new(&self.old_cl_group);
+        let h_caret = cl_keypair.get_public_key().clone();
+        self.h_caret = h_caret;
+        cl_keypair.update_pk_exp_p();
+        self.cl_keypair = cl_keypair;
+        let cipher = PromiseCipher::encrypt(
+            &self.cl_group,
+            self.cl_keypair.get_public_key(),
+            self.keypair.get_secret_key(),
+        );
+        self.promise_state = PromiseState {
+            cipher: cipher.0,
+            cl_pub_key: self.cl_keypair.cl_pub_key.clone(),
+        };
+        let promise_wit = PromiseWit {
+            m: self.keypair.get_secret_key().clone(),
+            r: cipher.1,
+        };
+        self.promise_proof = PromiseProof::prove(&self.cl_group, &self.promise_state, &promise_wit);
+        self.need_refresh = false;
     }
 
     pub fn get_class_group_pk(&self) -> (PK, PK, BinaryQF) {
@@ -116,10 +148,8 @@ impl KeyGenInit {
         Ok(self.round_two_msg.clone())
     }
 
-    // TBD: remove return value
-    pub fn compute_public_key(&mut self, received_r_2: &GE) -> GE {
-        self.public_signing_key = received_r_2 * self.keypair.get_secret_key();
-        self.public_signing_key
+    pub fn compute_public_key(&mut self, received_r_2: &GE) {
+        self.public_signing_key = Some(received_r_2 * self.keypair.get_secret_key());
     }
 
     pub fn get_promise_proof(&self) -> (PromiseState, PromiseProof) {
@@ -134,6 +164,11 @@ impl KeyGenInit {
         match msg_received {
             PartyTwoMsg::KegGenBegin => {
                 if index == 0 {
+                    // Refresh
+                    if self.need_refresh {
+                        self.refresh();
+                    }
+
                     // Party one time begin
                     let msg_send: ReceivingMessages = ReceivingMessages::TwoKeyGenMessagePartyOne(
                         PartyOneMsg::KeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),
@@ -168,6 +203,8 @@ impl KeyGenInit {
                 return SendingMessages::BroadcastMessage(msg_bytes);
             }
             PartyTwoMsg::KeyGenFinish => {
+                // Set refresh
+                self.need_refresh = true;
                 let keygen_json = self.generate_result_json_string().unwrap();
                 return SendingMessages::KeyGenSuccessWithResult(keygen_json);
             }
@@ -175,12 +212,18 @@ impl KeyGenInit {
         }
     }
 
-    fn generate_result_json_string(&self) -> Result<String, MulEcdsaError> {
-        let ret = KenGenResult {
-            pk: self.public_signing_key.clone(),
-            cl_sk: self.cl_keypair.cl_priv_key.clone(),
-            ec_sk: self.keypair.secret_share.clone(),
-        };
+    pub fn generate_result_json_string(&self) -> Result<String, MulEcdsaError> {
+        let ret;
+        if let Some(pk) = self.public_signing_key {
+            ret = KenGenResult {
+                pk,
+                cl_sk: self.cl_keypair.cl_priv_key.clone(),
+                ec_sk: self.keypair.secret_share.clone(),
+            };
+        } else {
+            return Err(MulEcdsaError::InvalidPublicKey);
+        }
+
         let ret_string = serde_json::to_string(&ret).map_err(|_| MulEcdsaError::ToStringFailed)?;
 
         Ok(ret_string)

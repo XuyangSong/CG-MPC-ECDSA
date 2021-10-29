@@ -36,7 +36,7 @@ struct Opt {
 }
 
 struct PartyTwo {
-    party_two_keygen: party_two::KeyGenInit,
+    party_two_keygen: party_two::KeyGenPhase,
     party_two_sign: party_two::SignPhase,
 }
 
@@ -81,7 +81,7 @@ impl InitMessage {
         // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
 
         // Init two party info
-        let party_two_keygen = party_two::KeyGenInit::new(&group);
+        let party_two_keygen = party_two::KeyGenPhase::new(&group);
         let new_class_group = update_class_group_by_p(&group);
         let mut party_two_sign = party_two::SignPhase::new(new_class_group, &message);
 

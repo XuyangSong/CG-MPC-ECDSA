@@ -21,12 +21,13 @@ use serde::{Deserialize, Serialize};
 
 //****************** Begin: Party Two structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyGenInit {
+pub struct KeyGenPhase {
     pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
     pub msg: DLogProof<GE>,
     pub received_msg: DLCommitments,
-    pub public_signing_key: GE,
+    pub public_signing_key: Option<GE>,
+    pub need_refresh: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -53,18 +54,26 @@ impl KenGenResult {
     }
 }
 
-impl KeyGenInit {
+impl KeyGenPhase {
     pub fn new(group: &CLGroup) -> Self {
         let keypair = EcKeyPair::new();
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
         let new_class_group = update_class_group_by_p(group);
         Self {
             cl_group: new_class_group,
-            public_signing_key: ECPoint::generator(), // Compute later
+            public_signing_key: None, // Compute later
             keypair,
             msg: d_log_proof,
             received_msg: DLCommitments::default(),
+            need_refresh: false,
         }
+    }
+
+    pub fn refresh(&mut self) {
+        self.public_signing_key = None;
+        self.keypair = EcKeyPair::new();
+        self.msg = DLogProof::prove(self.keypair.get_secret_key());
+        self.need_refresh = false;
     }
 
     pub fn verify_class_group_pk(
@@ -109,13 +118,18 @@ impl KeyGenInit {
     }
 
     pub fn compute_public_key(&mut self, received_r_1: &GE) {
-        self.public_signing_key = received_r_1 * self.keypair.get_secret_key();
+        self.public_signing_key = Some(received_r_1 * self.keypair.get_secret_key());
     }
 
     pub fn msg_handler_keygen(&mut self, msg_received: &PartyOneMsg) -> SendingMessages {
         match msg_received {
             PartyOneMsg::KeyGenPartyOneRoundOneMsg(dlcom) => {
                 println!("\n=>    KeyGen: Receiving RoundOneMsg from index 0");
+                // Refresh
+                if self.need_refresh {
+                    self.refresh();
+                }
+
                 // Party two time begin
                 self.set_dl_com((*dlcom).clone());
                 let msg_send = ReceivingMessages::TwoKeyGenMessagePartyTwo(
@@ -134,7 +148,7 @@ impl KeyGenInit {
             ) => {
                 println!("\n=>    KeyGen: Receiving RoundTwoMsg from index 0");
                 // Verify commitment
-                KeyGenInit::verify_received_dl_com_zk(&self.received_msg, &com_open).unwrap();
+                KeyGenPhase::verify_received_dl_com_zk(&self.received_msg, &com_open).unwrap();
 
                 // Verify pk and pk's
                 self.verify_class_group_pk(&h_caret, &h, &gp).unwrap();
@@ -145,6 +159,7 @@ impl KeyGenInit {
                 self.compute_public_key(com_open.get_public_key());
 
                 let keygen_json = self.generate_result_json_string(&promise_state).unwrap();
+                self.need_refresh = true;
                 return SendingMessages::KeyGenSuccessWithResult(keygen_json);
             }
             _ => {
@@ -153,15 +168,20 @@ impl KeyGenInit {
         }
     }
 
-    fn generate_result_json_string(
+    pub fn generate_result_json_string(
         &self,
         promise_state: &PromiseState,
     ) -> Result<String, MulEcdsaError> {
-        let ret = KenGenResult {
-            pk: self.public_signing_key.clone(),
-            sk: self.keypair.secret_share.clone(),
-            cl_cipher: promise_state.cipher.cl_cipher.clone(),
-        };
+        let ret;
+        if let Some(pk) = self.public_signing_key {
+            ret = KenGenResult {
+                pk,
+                sk: self.keypair.secret_share.clone(),
+                cl_cipher: promise_state.cipher.cl_cipher.clone(),
+            };
+        } else {
+            return Err(MulEcdsaError::InvalidPublicKey);
+        }
         let ret_string = serde_json::to_string(&ret).map_err(|_| MulEcdsaError::ToStringFailed)?;
 
         Ok(ret_string)

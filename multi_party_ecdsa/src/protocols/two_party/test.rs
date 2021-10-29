@@ -24,22 +24,21 @@ fn two_party_test() {
     let keygen_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
-    let mut party_one_key_gen_init = party_one::KeyGenInit::new(&cl_group);
+    let mut party_one_key_gen_init = party_one::KeyGenPhase::new(&cl_group);
     let party_one_init_round_one_msg = party_one_key_gen_init.round_one_msg.clone();
 
     // Party two round 1: send party_two_key_gen_init.msg
-    let party_two_key_gen_init = party_two::KeyGenInit::new(&cl_group);
+    let mut party_two_key_gen_init = party_two::KeyGenPhase::new(&cl_group);
     let party_two_key_gen_round_one_msg = party_two_key_gen_init.msg.clone();
 
     // Party one round 2: verify received msg and send round 2 msg
     let party_one_init_round_two_msg = party_one_key_gen_init
         .verify_and_get_next_msg(&party_two_key_gen_round_one_msg)
         .unwrap();
-    let party_one_share_key =
-        party_one_key_gen_init.compute_public_key(&party_two_key_gen_round_one_msg.pk);
+    party_one_key_gen_init.compute_public_key(&party_two_key_gen_round_one_msg.pk);
 
     // Party two round 2: verify received msg
-    party_two::KeyGenInit::verify_received_dl_com_zk(
+    party_two::KeyGenPhase::verify_received_dl_com_zk(
         &party_one_init_round_one_msg,
         &party_one_init_round_two_msg,
     )
@@ -61,6 +60,7 @@ fn two_party_test() {
     party_two_key_gen_init
         .verify_promise_proof(&state, &proof)
         .unwrap();
+    party_two_key_gen_init.compute_public_key(&party_one_init_round_two_msg.get_public_key());
 
     let keygen_end = time::now();
 
@@ -71,13 +71,21 @@ fn two_party_test() {
     let sign_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
-    let party_one_sign_new =
+    let party_one_keygen_result = party_one_key_gen_init
+        .generate_result_json_string()
+        .unwrap();
+    let mut party_one_sign_new =
         party_one::SignPhase::new(party_one_key_gen_init.cl_group, &sign_message);
+    party_one_sign_new.load_keygen_result(&party_one_keygen_result);
     let party_one_sign_round_one_msg = party_one_sign_new.round_one_msg.clone();
 
     // Party two round 1: send party_two_key_gen_init.msg
-    let party_two_sign_new =
+    let party_two_keygen_result = party_two_key_gen_init
+        .generate_result_json_string(&state)
+        .unwrap();
+    let mut party_two_sign_new =
         party_two::SignPhase::new(party_two_key_gen_init.cl_group, &sign_message);
+    party_two_sign_new.load_keygen_result(&party_two_keygen_result);
     let party_two_sign_round_one_msg = party_two_sign_new.msg.clone();
 
     // Party one round 2: verify received msg and send round 2 msg
@@ -95,26 +103,16 @@ fn two_party_test() {
     // Party two: compute partial signature
     let ephemeral_public_share_2 =
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
-    let (cipher, t_p) = party_two_sign_new
-        .sign(
-            &ephemeral_public_share_2,
-            party_two_key_gen_init.keypair.get_secret_key(),
-            &state.cipher,
-            // &sign_message,
-        )
-        .unwrap();
+    let (cipher, t_p) = party_two_sign_new.sign(&ephemeral_public_share_2).unwrap();
 
     // Party one: finish signature
     let ephemeral_public_share_1 =
         party_one_sign_new.compute_public_share_key(&party_two_sign_round_one_msg.pk);
     let signature = party_one_sign_new
         .sign(
-            party_one_key_gen_init.cl_keypair.get_secret_key(),
             &cipher,
             &ephemeral_public_share_1,
-            party_one_key_gen_init.keypair.get_secret_key(),
             &t_p,
-            &party_one_share_key,
             party_one_sign_new.message,
         )
         .unwrap();
