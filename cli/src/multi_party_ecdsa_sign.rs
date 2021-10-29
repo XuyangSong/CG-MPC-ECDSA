@@ -8,6 +8,8 @@ use multi_party_ecdsa::protocols::multi_party::ours::message::MultiSignMessage;
 use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use structopt::StructOpt;
 use tokio::io;
 use tokio::prelude::*;
@@ -28,13 +30,17 @@ struct Opt {
     #[structopt(short, long)]
     message: String,
 
-    /// Paticipants index
+    /// Participants index
     #[structopt(short, long)]
     subset: Vec<usize>,
 
-    /// Config Path
+    /// Config path
     #[structopt(short, long)]
     config_path: String,
+
+    /// Keygen result path
+    #[structopt(short, long)]
+    keygen_path: String,
 }
 
 // TBD: After resovled #19(Message), use SignPhase directly
@@ -51,12 +57,8 @@ pub struct InitMessage {
 
 enum UserCommand {
     Nop,
-    MultiKeyGenConnect,
-    MultiSignConnect,
-    KeyGen,
+    Connect,
     Sign,
-    Broadcast(String),
-    SendMsg(PeerID, String),
     Disconnect(PeerID), // peer id
     ListPeers,
     Exit,
@@ -71,14 +73,15 @@ pub struct Console {
 impl InitMessage {
     pub fn init_message() -> Self {
         let opt = Opt::from_args();
-        let index = opt.index;
-        let subset = opt.subset;
-        let message = opt.message;
-        let config = MultiPartyConfig::new_from_file(&opt.config_path).unwrap();
-        assert!(subset.len() > config.threshold, "PartyLessThanThreshold");
 
-        let my_info = config.get_my_info(index);
-        let peers_info: Vec<Info> = config.get_peer_infos(index);
+        // Process config
+        let config = MultiPartyConfig::new_from_file(&opt.config_path).unwrap();
+        assert!(
+            opt.subset.len() > config.threshold,
+            "PartyLessThanThreshold"
+        );
+        let my_info = config.get_my_info(opt.index);
+        let peers_info: Vec<Info> = config.get_peers_info(opt.index);
         let params = Parameters {
             threshold: config.threshold,
             share_count: config.share_count,
@@ -92,13 +95,27 @@ impl InitMessage {
         // discriminant: 1348, lambda: 112
         let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
 
-        let mut sign = SignPhase::new(&seed, &qtilde, index, params, &subset, &message).unwrap();
+        // Load keygen result
+        let input_path = Path::new(&opt.keygen_path);
+        let keygen_json_string = fs::read_to_string(input_path).unwrap();
+
+        // Sign init
+        let mut sign = SignPhase::new(
+            &seed,
+            &qtilde,
+            opt.index,
+            params,
+            &opt.subset,
+            &opt.message,
+            &keygen_json_string,
+        )
+        .unwrap();
         sign.init();
         let multi_party_sign_info = MultiPartySign { sign: sign };
         let init_messages = InitMessage {
             my_info,
             peers_info,
-            subset,
+            subset: opt.subset,
             multi_party_sign_info: multi_party_sign_info,
         };
         return init_messages;
@@ -128,9 +145,6 @@ impl MsgProcess<Message> for MultiPartySign {
                 }
                 return ProcessMessage::SendMultiMessage(msgs_to_send);
             }
-            SendingMessages::BroadcastMessage(msg) => {
-                return ProcessMessage::BroadcastMessage(Message(msg))
-            }
             SendingMessages::SubsetMessage(msg) => {
                 let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
                 for index in self.sign.subset.iter() {
@@ -140,15 +154,15 @@ impl MsgProcess<Message> for MultiPartySign {
                 }
                 return ProcessMessage::SendMultiMessage(msgs_to_send);
             }
+            SendingMessages::SignSuccessWithResult(res) => {
+                println!("Sign Success! {}", res);
+                return ProcessMessage::Default();
+            }
             SendingMessages::EmptyMsg => {
                 return ProcessMessage::Default();
             }
-            SendingMessages::KeyGenSuccessWithResult(res) => {
-                println!("keygen Success! {}", res);
-                return ProcessMessage::Default();
-            }
-            SendingMessages::SignSuccessWithResult(res) => {
-                println!("Sign Success! {}", res);
+            _ => {
+                println!("Undefined Message Process");
                 return ProcessMessage::Default();
             }
         }
@@ -245,17 +259,7 @@ impl Console {
                 self.node.exit().await;
                 return Err("Command::Exit".into());
             }
-            UserCommand::MultiKeyGenConnect => {
-                for peer_info in self.peers_info.iter() {
-                    self.node
-                        .connect_to_peer(&peer_info.address, None, peer_info.index)
-                        .await
-                        .map_err(|e| {
-                            format!("Handshake error with {}. {:?}", peer_info.address, e)
-                        })?;
-                }
-            }
-            UserCommand::MultiSignConnect => {
+            UserCommand::Connect => {
                 for peer_info in self.peers_info.iter() {
                     if self.subset.contains(&peer_info.index) {
                         self.node
@@ -270,16 +274,6 @@ impl Console {
             UserCommand::Disconnect(peer_id) => {
                 self.node.remove_peer(peer_id).await;
             }
-            UserCommand::Broadcast(msg) => {
-                println!("=> Broadcasting: {:?}", &msg);
-                self.node.broadcast(Message(msg.as_bytes().to_vec())).await;
-            }
-            UserCommand::SendMsg(peer_id, msg) => {
-                println!("=> Send: {:?}, to {}", &msg, peer_id);
-                self.node
-                    .sendmsg(peer_id, Message(msg.as_bytes().to_vec()))
-                    .await;
-            }
             UserCommand::ListPeers => {
                 let peer_infos = self.node.list_peers().await;
                 println!("=> {} peers:", peer_infos.len());
@@ -287,16 +281,7 @@ impl Console {
                     println!("  {}", peer_info);
                 }
             }
-            UserCommand::KeyGen => {
-                // println!("=> KeyGen Begin...");
-                // let msg = bincode::serialize(&ReceivingMessages::MultiKeyGenMessage(
-                //     MultiKeyGenMessage::KeyGenBegin,
-                // ))
-                // .unwrap();
-                // self.node.keygen(Message(msg)).await;
-            }
             UserCommand::Sign => {
-                println!("=> Signature Begin...");
                 let msg = bincode::serialize(&ReceivingMessages::MultiSignMessage(
                     MultiSignMessage::SignBegin,
                 ))
@@ -323,22 +308,8 @@ impl Console {
             .to_lowercase();
         let rest = head_tail.next();
 
-        if command == "multikeygenconnect" {
-            Ok(UserCommand::MultiKeyGenConnect)
-        } else if command == "multisignconnect" {
-            Ok(UserCommand::MultiSignConnect)
-        } else if command == "broadcast" {
-            Ok(UserCommand::Broadcast(rest.unwrap_or("").into()))
-        } else if command == "sendmsg" {
-            let s = rest.unwrap_or("").to_string();
-            let mut ss = s.splitn(2, " ");
-            let spid = ss.next().ok_or_else(|| "Invalid peer ID".to_string())?;
-            let msg = ss.next();
-            if let Some(id) = PeerID::from_string(&spid) {
-                Ok(UserCommand::SendMsg(id, msg.unwrap_or("").into()))
-            } else {
-                Err(format!("Invalid peer ID `{}`", spid))
-            }
+        if command == "connect" {
+            Ok(UserCommand::Connect)
         } else if command == "peers" {
             Ok(UserCommand::ListPeers)
         } else if command == "disconnect" {
@@ -348,8 +319,6 @@ impl Console {
             } else {
                 Err(format!("Invalid peer ID `{}`", s))
             }
-        } else if command == "keygen" {
-            Ok(UserCommand::KeyGen)
         } else if command == "sign" {
             Ok(UserCommand::Sign)
         } else if command == "exit" || command == "quit" || command == "q" {

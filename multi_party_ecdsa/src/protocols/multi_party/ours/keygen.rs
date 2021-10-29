@@ -6,16 +6,15 @@ use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
-use class_group::primitives::cl_dl_public_setup::{CLGroup, PK};
+use class_group::primitives::cl_dl_public_setup::{CLGroup, PK, SK};
 use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 
 #[derive(Clone, Debug)]
 pub struct Parameters {
@@ -43,9 +42,19 @@ pub struct KeyGen {
     pub private_signing_key: EcKeyPair,       // (u_i, u_iP)
     pub public_signing_key: GE,               // Q
     pub share_private_key: FE,                // x_i
-    pub share_public_key: HashMap<usize, GE>, // X_i
-    pub vss_scheme_map: HashMap<usize, VerifiableSS<GE>>,
+    pub share_public_key: HashMap<usize, GE>, // X_i // TBD: use vec instead of hashmap
+    pub vss_scheme_map: HashMap<usize, VerifiableSS<GE>>, // TBD: use vec instead of hashmap
     pub msgs: KeyGenMsgs,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct KenGenResult {
+    pub pk: GE,
+    pub cl_sk: SK,
+    pub ec_sk: FE,
+    pub share_sk: FE,
+    pub share_pks: HashMap<usize, GE>,
+    pub vss: HashMap<usize, VerifiableSS<GE>>,
 }
 
 impl KeyGenMsgs {
@@ -57,6 +66,13 @@ impl KeyGenMsgs {
             phase_four_msgs: HashMap::new(),
             phase_five_msgs: HashMap::new(),
         }
+    }
+}
+
+impl KenGenResult {
+    pub fn from_json_string(json_string: &String) -> Result<Self, MulEcdsaError> {
+        let ret = serde_json::from_str(json_string).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        Ok(ret)
     }
 }
 
@@ -273,6 +289,20 @@ impl KeyGen {
         Ok(())
     }
 
+    fn generate_result_json_string(&self) -> Result<String, MulEcdsaError> {
+        let ret = KenGenResult {
+            pk: self.public_signing_key.clone(),
+            cl_sk: self.cl_keypair.cl_priv_key.clone(),
+            ec_sk: self.ec_keypair.secret_share.clone(),
+            share_sk: self.share_private_key.clone(),
+            share_pks: self.share_public_key.clone(),
+            vss: self.vss_scheme_map.clone(),
+        };
+        let ret_string = serde_json::to_string(&ret).map_err(|_| MulEcdsaError::ToStringFailed)?;
+
+        Ok(ret_string)
+    }
+
     pub fn msg_handler(
         &mut self,
         index: usize,
@@ -358,20 +388,7 @@ impl KeyGen {
                     .map_err(|_| MulEcdsaError::HandlePhaseFiveMsgFailed)?;
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
-                    // Save keygen to file
-                    let file_name =
-                        "./keygen_result".to_string() + &self.party_index.to_string() + ".json";
-                    let keygen_path = Path::new(&file_name);
-                    let keygen_json = serde_json::to_string(&(
-                        self.cl_keypair.clone(),
-                        self.ec_keypair.clone(),
-                        self.public_signing_key.clone(),
-                        self.share_private_key.clone(),
-                        self.share_public_key.clone(),
-                        self.vss_scheme_map.clone(),
-                    ))
-                    .map_err(|_| MulEcdsaError::ToStringFailed)?;
-                    fs::write(keygen_path, keygen_json.clone()).expect("Unable to save !");
+                    let keygen_json = self.generate_result_json_string()?;
                     return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
                 }
             }

@@ -9,13 +9,15 @@ use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use cli::config::TwoPartyConfig;
 use curv::BigInt;
-use multi_party_ecdsa::protocols::two_party::message::PartyOneMsg;
+use multi_party_ecdsa::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
 use multi_party_ecdsa::protocols::two_party::party_two;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;
 use structopt::StructOpt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -81,7 +83,18 @@ pub struct InitMessage {
          // Init two party info
          let party_two_keygen = party_two::KeyGenInit::new(&group);
          let new_class_group = update_class_group_by_p(&group);
-         let party_two_sign = party_two::SignPhase::new(new_class_group, &message);
+         let mut party_two_sign = party_two::SignPhase::new(new_class_group, &message);
+
+         // Load keygen result
+        let keygen_path = Path::new("./keygen_result1.json");
+        if keygen_path.exists() {
+            let keygen_json = fs::read_to_string(keygen_path).unwrap();
+            party_two_sign.load_keygen_result(&keygen_json);
+        } else {
+            // If keygen successes, party_one_sign will load keygen result automally.
+            println!("Can not load keygen result! Please keygen first");
+        }
+
          let party_two_info = PartyTwo {
              party_two_keygen,
              party_two_sign,
@@ -129,7 +142,18 @@ pub struct InitMessage {
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 println!("keygen Success! {}", res);
-                return ProcessMessage::Default();
+
+                // Load keygen result for signphase
+                self.party_two_sign.load_keygen_result(&res);
+
+                let file_name = "./keygen_result1".to_string() + ".json";
+                fs::write(file_name, res).expect("Unable to save !");
+
+                // Send KeyGenFinish to party0
+                let msg_send =
+                ReceivingMessages::TwoKeyGenMessagePartyTwo(PartyTwoMsg::KeyGenFinish);
+                let msg_bytes = bincode::serialize(&msg_send).unwrap();
+                return ProcessMessage::BroadcastMessage(Message(msg_bytes));
             }
             SendingMessages::SignSuccessWithResult(res) => {
                 println!("Sign Success! {}", res);

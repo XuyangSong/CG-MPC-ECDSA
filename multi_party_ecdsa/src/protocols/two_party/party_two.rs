@@ -3,7 +3,7 @@ use crate::utilities::class::update_class_group_by_p;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
-use crate::utilities::promise_sigma::{PromiseCipher, PromiseProof, PromiseState};
+use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
 use class_group::primitives::cl_dl_public_setup::{
     encrypt_without_r, eval_scal, eval_sum, CLGroup, Ciphertext as CLCiphertext, PK,
 };
@@ -18,8 +18,6 @@ use curv::BigInt;
 use serde::{Deserialize, Serialize};
 use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
 use crate::communication::sending_messages::SendingMessages;
-use std::fs;
-use std::path::Path;
 
 //****************** Begin: Party Two structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -29,6 +27,30 @@ pub struct KeyGenInit {
     pub msg: DLogProof<GE>,
     pub received_msg: DLCommitments,
     pub public_signing_key: GE,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct KenGenResult {
+    pub pk: GE,
+    pub sk: FE,
+    pub cl_cipher: CLCiphertext,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SignPhase {
+    pub cl_group: CLGroup,
+    pub keypair: EcKeyPair,
+    pub msg: DLogProof<GE>,
+    pub received_round_one_msg: DLCommitments,
+    pub precompute_c1: CLCiphertext,
+    pub keygen_result: Option<KenGenResult>,
+}
+
+impl KenGenResult {
+    pub fn from_json_string(json_string: &String) -> Result<Self, MulEcdsaError> {
+        let ret = serde_json::from_str(json_string).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        Ok(ret)
+    }
 }
 
 impl KeyGenInit {
@@ -126,31 +148,23 @@ impl KeyGenInit {
                     .unwrap();
                 self.compute_public_key(com_open.get_public_key());
 
-                // Party two save keygen to file
-                let file_name = "./keygen_result".to_string() + ".json";
-                let keygen_path = Path::new(&file_name);
-                let keygen_json = serde_json::to_string(&(
-                    promise_state,
-                    self.keypair.get_secret_key().clone(),
-                ))
-                .unwrap();
-                fs::write(keygen_path, keygen_json).expect("Unable to save !");
-
-                println!("##    KeyGen succuss!");
-                return SendingMessages::EmptyMsg;
+                let keygen_json = self.generate_result_json_string(&promise_state).unwrap();
+                return SendingMessages::KeyGenSuccessWithResult(keygen_json);
             }
             _ => {return SendingMessages::EmptyMsg;}
         }
     }
-}
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SignPhase {
-    pub cl_group: CLGroup,
-    pub keypair: EcKeyPair,
-    pub msg: DLogProof<GE>,
-    pub received_round_one_msg: DLCommitments,
-    pub precompute_c1: CLCiphertext,
+    fn generate_result_json_string(&self, promise_state: &PromiseState) -> Result<String, MulEcdsaError> {
+        let ret = KenGenResult {
+            pk: self.public_signing_key.clone(),
+            sk: self.keypair.secret_share.clone(),
+            cl_cipher: promise_state.cipher.cl_cipher.clone(),
+        };
+        let ret_string = serde_json::to_string(&ret).map_err(|_| MulEcdsaError::ToStringFailed)?;
+
+        Ok(ret_string)
+    }
 }
 
 impl SignPhase {
@@ -172,7 +186,14 @@ impl SignPhase {
             msg: d_log_proof,
             received_round_one_msg: DLCommitments::default(),
             precompute_c1: c1.0,
+            keygen_result: None,
         }
+    }
+
+    pub fn load_keygen_result(&mut self, keygen_json: &String) {
+        // Load keygen result
+        let keygen_result = KenGenResult::from_json_string(keygen_json).unwrap();
+        self.keygen_result = Some(keygen_result);
     }
 
     pub fn set_dl_com(&mut self, msg: DLCommitments) {
@@ -195,28 +216,29 @@ impl SignPhase {
     pub fn sign(
         &self,
         ephemeral_public_share: &GE,
-        secret_key: &FE,
-        cipher: &PromiseCipher,
-        // message: &FE,
     ) -> Result<(CLCiphertext, FE), MulEcdsaError> {
-        let q = FE::q();
-        let r_x: FE = ECScalar::from(
-            &ephemeral_public_share
-                .x_coor()
-                .ok_or(MulEcdsaError::XcoorNone)?
-                .mod_floor(&q),
-        );
-        let k2_inv = self.keypair.get_secret_key().invert();
-        // let k2_inv_m = k2_inv * message;
+        if let Some(keygen_result) = self.keygen_result.clone() {
+            let q = FE::q();
+            let r_x: FE = ECScalar::from(
+                &ephemeral_public_share
+                    .x_coor()
+                    .ok_or(MulEcdsaError::XcoorNone)?
+                    .mod_floor(&q),
+            );
+            let k2_inv = self.keypair.get_secret_key().invert();
+            // let k2_inv_m = k2_inv * message;
 
-        // let c1 = encrypt_without_r(cl_group, &k2_inv_m);
-        let v = k2_inv * r_x * secret_key;
-        let t = BigInt::sample_below(&(&self.cl_group.stilde * BigInt::from(2).pow(40) * &q));
-        let t_p = ECScalar::from(&t.mod_floor(&q));
-        let t_plus = t + v.to_big_int();
-        let c2 = eval_scal(&cipher.cl_cipher, &t_plus);
+            // let c1 = encrypt_without_r(cl_group, &k2_inv_m);
+            let v = k2_inv * r_x * keygen_result.sk;
+            let t = BigInt::sample_below(&(&self.cl_group.stilde * BigInt::from(2).pow(40) * &q));
+            let t_p = ECScalar::from(&t.mod_floor(&q));
+            let t_plus = t + v.to_big_int();
+            let c2 = eval_scal(&keygen_result.cl_cipher, &t_plus);
 
-        Ok((eval_sum(&self.precompute_c1, &c2), t_p))
+            Ok((eval_sum(&self.precompute_c1, &c2), t_p))
+        } else {
+            Err(MulEcdsaError::NotLoadKeyGenResult)
+        }
     }
 
     pub fn msg_handler_sign(&mut self, msg_received: &PartyOneMsg) -> SendingMessages{
@@ -238,15 +260,8 @@ impl SignPhase {
                 )
                 .unwrap();
 
-                // read key file
-                let file_name = "./keygen_result".to_string() + ".json";
-                let data = fs::read_to_string(file_name)
-                    .expect("Unable to load keys, did you run keygen first? ");
-                let (promise_state, secret_key): (PromiseState, FE) =
-                    serde_json::from_str(&data).unwrap();
-
                 let ephemeral_public_share = self.compute_public_share_key(witness.get_public_key());
-                let (cipher, t_p) = self.sign(&ephemeral_public_share, &secret_key, &promise_state.cipher)
+                let (cipher, t_p) = self.sign(&ephemeral_public_share)
                     .unwrap();
 
                 let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p));

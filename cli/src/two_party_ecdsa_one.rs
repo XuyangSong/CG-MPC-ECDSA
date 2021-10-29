@@ -16,6 +16,8 @@ use multi_party_ecdsa::protocols::two_party::party_one;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;
 use structopt::StructOpt;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -81,7 +83,18 @@ impl InitMessage {
         // Init party one info
         let party_one_keygen = party_one::KeyGenInit::new(&group);
         let new_class_group = update_class_group_by_p(&group);
-        let party_one_sign = party_one::SignPhase::new(new_class_group.clone(), &message);
+        let mut party_one_sign = party_one::SignPhase::new(new_class_group.clone(), &message);
+
+        // Load keygen result
+        let keygen_path = Path::new("./keygen_result0.json");
+        if keygen_path.exists() {
+            let keygen_json = fs::read_to_string(keygen_path).unwrap();
+            party_one_sign.load_keygen_result(&keygen_json);
+        } else {
+            // If keygen successes, party_one_sign will load keygen result automally.
+            println!("Can not load keygen result! Please keygen first");
+        }
+
         let party_one_info = PartyOne {
             party_one_keygen,
             party_one_sign,
@@ -129,6 +142,12 @@ impl MsgProcess<Message> for PartyOne {
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 println!("keygen Success! {}", res);
+
+                // Load keygen result for signphase
+                self.party_one_sign.load_keygen_result(&res);
+
+                let file_name = "./keygen_result0".to_string() + ".json";
+                fs::write(file_name, res).expect("Unable to save !");
                 return ProcessMessage::Default();
             }
             SendingMessages::SignSuccessWithResult(res) => {

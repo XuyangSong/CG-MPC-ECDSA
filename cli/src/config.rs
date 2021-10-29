@@ -62,7 +62,7 @@ impl MultiPartyConfig {
             .clone()
     }
 
-    pub fn get_peer_infos(&self, my_index: usize) -> Vec<Info> {
+    pub fn get_peers_info(&self, my_index: usize) -> Vec<Info> {
         self.infos
             .clone()
             .into_iter()

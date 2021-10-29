@@ -38,6 +38,7 @@ pub enum PartyTwoMsg {
     KeyGenInitSync(usize),
     KegGenBegin,
     KenGenPartyTwoRoundOneMsg(DLogProof<GE>),
+    KeyGenFinish,
     SignInitSync(usize),
     SignBegin,
     SignPartyTwoRoundOneMsg(DLogProof<GE>),

@@ -18,6 +18,14 @@ impl ClKeyPair {
         }
     }
 
+    pub fn from_sk(sk: SK, group: &CLGroup) -> Self {
+        let cl_pub_key = group.pk_for_sk(&sk);
+        Self {
+            cl_pub_key,
+            cl_priv_key: sk,
+        }
+    }
+
     pub fn update_pk_exp_p(&mut self) {
         let new_pk = self.cl_pub_key.0.exp(&FE::q());
         self.cl_pub_key = PK(new_pk);

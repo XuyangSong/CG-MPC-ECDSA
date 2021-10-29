@@ -19,6 +19,15 @@ impl EcKeyPair {
         }
     }
 
+    pub fn from_sk(sk: FE) -> Self {
+        let base: GE = ECPoint::generator();
+        let public_share = base.scalar_mul(&sk.get_element());
+        Self {
+            secret_share: sk,
+            public_share,
+        }
+    }
+
     pub fn get_public_key(&self) -> &GE {
         &self.public_share
     }

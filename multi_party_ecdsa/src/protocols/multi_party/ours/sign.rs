@@ -11,7 +11,7 @@ use class_group::primitives::cl_dl_public_setup::{
 
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::multi_party::ours::keygen::Parameters;
+use crate::protocols::multi_party::ours::keygen::{KenGenResult, Parameters};
 use crate::protocols::multi_party::ours::message::*;
 use crate::utilities::class::update_class_group_by_p;
 use curv::arithmetic::traits::*;
@@ -26,8 +26,6 @@ use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
 
 #[derive(Clone, Debug)]
 pub struct SignMsgs {
@@ -90,38 +88,24 @@ impl SignMsgs {
 
 impl SignPhase {
     pub fn new(
-        // file_path: &Path,
         seed: &BigInt,
         qtilde: &BigInt,
         party_index: usize,
         params: Parameters,
         subset: &Vec<usize>,
         message_str: &String,
+        keygen_result_json: &String,
     ) -> Result<Self, MulEcdsaError> {
         // Init CL group and update
         let group = CLGroup::new_from_qtilde(seed, qtilde);
         let new_class_group = update_class_group_by_p(&group);
 
-        // Read key file
-        let file_name = "./keygen_result".to_string() + &party_index.to_string() + ".json";
-        let data = fs::read_to_string(file_name).map_err(|_| MulEcdsaError::FileReadFailed)?;
-        //.expect("Unable to load keys, did you run keygen first? ");
-
-        let (
-            cl_keypair,
-            ec_keypair,
-            public_signing_key,
-            share_private_key,
-            share_public_key_map,
-            vss_scheme_map,
-        ): (
-            ClKeyPair,
-            EcKeyPair,
-            GE,
-            FE,
-            HashMap<usize, GE>,
-            HashMap<usize, VerifiableSS<GE>>,
-        ) = serde_json::from_str(&data).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        // Load keygen result
+        let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;
+        let ec_keypair = EcKeyPair::from_sk(keygen_result.ec_sk);
+        let cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &new_class_group);
+        let vss_scheme_map = keygen_result.vss;
+        let share_public_key_map = keygen_result.share_pks;
 
         let party_num = subset.len();
         if party_num < params.threshold {
@@ -146,7 +130,7 @@ impl SignPhase {
             party_index,
             subset,
         );
-        let omega = lamda * share_private_key;
+        let omega = lamda * keygen_result.share_sk;
         let mut big_omega_map = HashMap::new();
         let _big_omega_vec = subset
             .iter()
@@ -183,7 +167,7 @@ impl SignPhase {
             subset: subset.to_vec(),
             ec_keypair,
             cl_keypair,
-            public_signing_key,
+            public_signing_key: keygen_result.pk,
             message,
             omega,
             big_omega_map,
@@ -888,15 +872,10 @@ impl SignPhase {
                             .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
 
                         signature.verify(&self.public_signing_key, &self.message).unwrap();
-                        println!("Signature: {:?}", signature);
 
-                        // Save signature to file
-                        let signature_path = Path::new("./sign_result.json");
-                        let signature_json = serde_json::to_string(&(signature,))
+                        let signature_json = serde_json::to_string(&signature)
                             .map_err(|_| MulEcdsaError::ToStringFailed)?;
 
-                        fs::write(signature_path, signature_json.clone())
-                            .map_err(|_| MulEcdsaError::FileWriteFailed)?;
                         return Ok(SendingMessages::SignSuccessWithResult(signature_json));
                     }
                 }
