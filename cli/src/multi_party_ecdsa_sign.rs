@@ -116,7 +116,7 @@ impl MsgProcess<Message> for MultiPartySign {
                 sending_msg = self.sign.msg_handler(index, &msg).unwrap();
             }
             _ => {
-                println!("Undefined Message Process");
+                println!("Undefined Message Process: {:?}", received_msg);
             }
         }
         match sending_msg {
@@ -148,7 +148,7 @@ impl MsgProcess<Message> for MultiPartySign {
                 return ProcessMessage::Default();
             }
             _ => {
-                println!("Undefined Message Process");
+                println!("Undefined Message Process: {:?}", sending_msg);
                 return ProcessMessage::Default();
             }
         }

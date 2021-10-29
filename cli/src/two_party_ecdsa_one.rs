@@ -107,7 +107,7 @@ impl MsgProcess<Message> for PartyOne {
                 sending_msg = self.party_one_sign.process_begin_sign(index);
             }
             _ => {
-                println!("Undefined Message Process");
+                println!("Undefined Message Process: {:?}", received_msg);
             }
         }
 
@@ -144,7 +144,7 @@ impl MsgProcess<Message> for PartyOne {
                 return ProcessMessage::Default();
             }
             _ => {
-                println!("Undefined Message Process");
+                println!("Undefined Message Process: {:?}", sending_msg);
                 return ProcessMessage::Default();
             }
         }

@@ -84,7 +84,7 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 sending_msg = self.keygen.msg_handler(index, &msg).unwrap();
             }
             _ => {
-                println!("Undefined Message Process");
+                println!("Undefined Message Process: {:?}", received_msg);
             }
         }
         match sending_msg {
@@ -112,7 +112,7 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 return ProcessMessage::Default();
             }
             _ => {
-                println!("Undefined Message Process");
+                println!("Undefined Message Process: {:?}", sending_msg);
                 return ProcessMessage::Default();
             }
         }
