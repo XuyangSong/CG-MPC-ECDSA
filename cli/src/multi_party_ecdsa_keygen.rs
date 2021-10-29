@@ -83,7 +83,9 @@ impl MsgProcess<Message> for MultiPartyKeygen {
             ReceivingMessages::MultiKeyGenMessage(msg) => {
                 sending_msg = self.keygen.msg_handler(index, &msg).unwrap();
             }
-            _ => {}
+            _ => {
+                println!("Undefined Message Process");
+            }
         }
         match sending_msg {
             SendingMessages::P2pMessage(msgs) => {

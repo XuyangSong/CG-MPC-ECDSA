@@ -101,10 +101,9 @@ impl MsgProcess<Message> for PartyTwo {
             ReceivingMessages::TwoSignMessagePartyOne(msg) => {
                 sending_msg = self.party_two_sign.msg_handler_sign(&msg);
             }
-            ReceivingMessages::KeyGenBegin => {
-
+            _ => {
+                println!("Undefined Message Process");
             }
-            _ => {}
         }
 
         match sending_msg {
@@ -145,6 +144,7 @@ impl MsgProcess<Message> for PartyTwo {
                 return ProcessMessage::Default();
             }
             _ => {
+                println!("Undefined Message Process");
                 return ProcessMessage::Default();
             }
         }

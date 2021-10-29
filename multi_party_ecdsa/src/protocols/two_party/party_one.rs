@@ -158,6 +158,11 @@ impl KeyGenPhase {
 
     pub fn process_begin_keygen(&mut self, index:usize) -> SendingMessages {
         if index == 0 {
+            // Refresh
+            if self.need_refresh {
+                self.refresh();
+            }
+
             // Party one time begin
             let msg_send: ReceivingMessages = ReceivingMessages::TwoKeyGenMessagePartyOne(
                 PartyOneMsg::KeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),

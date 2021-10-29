@@ -370,6 +370,10 @@ impl KeyGenPhase {
     }
 
     pub fn process_begin(&mut self) -> Result<SendingMessages, MulEcdsaError>{
+        // Refresh
+        if self.need_refresh {
+            self.refresh()?;
+        }
         let sending_msg_bytes = self
             .get_phase_one_two_msg()
             .map_err(|_| MulEcdsaError::GetPhaseOneTwoMsgFailed)?;
