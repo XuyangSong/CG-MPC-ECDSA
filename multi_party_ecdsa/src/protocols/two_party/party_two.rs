@@ -36,6 +36,16 @@ pub struct KenGenResult {
     pub cl_cipher: CLCiphertext,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SignPhase {
+    pub cl_group: CLGroup,
+    pub keypair: EcKeyPair,
+    pub msg: DLogProof<GE>,
+    pub received_round_one_msg: DLCommitments,
+    pub precompute_c1: CLCiphertext,
+    pub keygen_result: Option<KenGenResult>,
+}
+
 impl KenGenResult {
     pub fn from_json_string(json_string: &String) -> Result<Self, MulEcdsaError> {
         let ret = serde_json::from_str(json_string).map_err(|_| MulEcdsaError::FromStringFailed)?;
@@ -157,18 +167,8 @@ impl KeyGenInit {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SignPhase {
-    pub cl_group: CLGroup,
-    pub keypair: EcKeyPair,
-    pub msg: DLogProof<GE>,
-    pub received_round_one_msg: DLCommitments,
-    pub precompute_c1: CLCiphertext,
-    pub keygen_result: KenGenResult,
-}
-
 impl SignPhase {
-    pub fn new(cl_group: CLGroup, message_str: &String, keygen_json: &String) -> Self {
+    pub fn new(cl_group: CLGroup, message_str: &String) -> Self {
         let message_bigint = BigInt::from_hex(message_str).unwrap();
         let message: FE = ECScalar::from(&message_bigint);
 
@@ -180,17 +180,20 @@ impl SignPhase {
         let k2_inv_m = k2_inv * message;
         let c1 = encrypt_without_r(&cl_group, &k2_inv_m);
 
-        // Load keygen result
-        let keygen_result = KenGenResult::from_json_string(keygen_json).unwrap();
-
         Self {
             cl_group,
             keypair,
             msg: d_log_proof,
             received_round_one_msg: DLCommitments::default(),
             precompute_c1: c1.0,
-            keygen_result,
+            keygen_result: None,
         }
+    }
+
+    pub fn load_keygen_result(&mut self, keygen_json: &String) {
+        // Load keygen result
+        let keygen_result = KenGenResult::from_json_string(keygen_json).unwrap();
+        self.keygen_result = Some(keygen_result);
     }
 
     pub fn set_dl_com(&mut self, msg: DLCommitments) {
@@ -213,26 +216,29 @@ impl SignPhase {
     pub fn sign(
         &self,
         ephemeral_public_share: &GE,
-        // message: &FE,
     ) -> Result<(CLCiphertext, FE), MulEcdsaError> {
-        let q = FE::q();
-        let r_x: FE = ECScalar::from(
-            &ephemeral_public_share
-                .x_coor()
-                .ok_or(MulEcdsaError::XcoorNone)?
-                .mod_floor(&q),
-        );
-        let k2_inv = self.keypair.get_secret_key().invert();
-        // let k2_inv_m = k2_inv * message;
+        if let Some(keygen_result) = self.keygen_result.clone() {
+            let q = FE::q();
+            let r_x: FE = ECScalar::from(
+                &ephemeral_public_share
+                    .x_coor()
+                    .ok_or(MulEcdsaError::XcoorNone)?
+                    .mod_floor(&q),
+            );
+            let k2_inv = self.keypair.get_secret_key().invert();
+            // let k2_inv_m = k2_inv * message;
 
-        // let c1 = encrypt_without_r(cl_group, &k2_inv_m);
-        let v = k2_inv * r_x * self.keygen_result.sk;
-        let t = BigInt::sample_below(&(&self.cl_group.stilde * BigInt::from(2).pow(40) * &q));
-        let t_p = ECScalar::from(&t.mod_floor(&q));
-        let t_plus = t + v.to_big_int();
-        let c2 = eval_scal(&self.keygen_result.cl_cipher, &t_plus);
+            // let c1 = encrypt_without_r(cl_group, &k2_inv_m);
+            let v = k2_inv * r_x * keygen_result.sk;
+            let t = BigInt::sample_below(&(&self.cl_group.stilde * BigInt::from(2).pow(40) * &q));
+            let t_p = ECScalar::from(&t.mod_floor(&q));
+            let t_plus = t + v.to_big_int();
+            let c2 = eval_scal(&keygen_result.cl_cipher, &t_plus);
 
-        Ok((eval_sum(&self.precompute_c1, &c2), t_p))
+            Ok((eval_sum(&self.precompute_c1, &c2), t_p))
+        } else {
+            Err(MulEcdsaError::NotLoadKeyGenResult)
+        }
     }
 
     pub fn msg_handler_sign(&mut self, msg_received: &PartyOneMsg) -> SendingMessages{

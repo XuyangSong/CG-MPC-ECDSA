@@ -83,6 +83,8 @@ pub enum MulEcdsaError {
     FileReadFailed,
     #[error("File write failed")]
     FileWriteFailed,
+    #[error("Not load keygen result")]
+    NotLoadKeyGenResult,
     #[error("General error")]
     GeneralError,
 }

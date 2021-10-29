@@ -83,10 +83,18 @@ pub struct InitMessage {
          // Init two party info
          let party_two_keygen = party_two::KeyGenInit::new(&group);
          let new_class_group = update_class_group_by_p(&group);
-         // Read keygen result
+         let mut party_two_sign = party_two::SignPhase::new(new_class_group, &message);
+
+         // Load keygen result
         let keygen_path = Path::new("./keygen_result1.json");
-        let keygen_json = fs::read_to_string(keygen_path).unwrap();
-         let party_two_sign = party_two::SignPhase::new(new_class_group, &message, &keygen_json);
+        if keygen_path.exists() {
+            let keygen_json = fs::read_to_string(keygen_path).unwrap();
+            party_two_sign.load_keygen_result(&keygen_json);
+        } else {
+            // If keygen successes, party_one_sign will load keygen result automally.
+            println!("Can not load keygen result! Please keygen first");
+        }
+
          let party_two_info = PartyTwo {
              party_two_keygen,
              party_two_sign,
@@ -134,6 +142,10 @@ pub struct InitMessage {
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 println!("keygen Success! {}", res);
+
+                // Load keygen result for signphase
+                self.party_two_sign.load_keygen_result(&res);
+
                 let file_name = "./keygen_result1".to_string() + ".json";
                 fs::write(file_name, res).expect("Unable to save !");
 

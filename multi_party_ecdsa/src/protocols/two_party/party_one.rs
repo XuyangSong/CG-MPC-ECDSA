@@ -46,7 +46,7 @@ pub struct SignPhase {
     pub round_two_msg: CommWitness,
     pub received_msg: DLogProof<GE>,
     pub message: FE,
-    pub keygen_result: KenGenResult,
+    pub keygen_result: Option<KenGenResult>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -182,7 +182,7 @@ impl KeyGenInit {
 }
 
 impl SignPhase {
-    pub fn new(cl_group: CLGroup, message_str: &String, keygen_json: &String) -> Self {
+    pub fn new(cl_group: CLGroup, message_str: &String) -> Self {
         let message_bigint = BigInt::from_hex(message_str).unwrap();
         let message: FE = ECScalar::from(&message_bigint);
 
@@ -194,8 +194,7 @@ impl SignPhase {
             challenge_response: FE::zero(),
         };
 
-        // Load keygen result
-        let keygen_result = KenGenResult::from_json_string(keygen_json).unwrap();
+
 
         Self {
             cl_group,
@@ -204,8 +203,14 @@ impl SignPhase {
             round_two_msg: dl_com_zk.witness,
             received_msg,
             message,
-            keygen_result,
+            keygen_result: None,
         }
+    }
+
+    pub fn load_keygen_result(&mut self, keygen_json: &String) {
+        // Load keygen result
+        let keygen_result = KenGenResult::from_json_string(keygen_json).unwrap();
+        self.keygen_result = Some(keygen_result);
     }
 
     pub fn set_received_msg(&mut self, msg: DLogProof<GE>) {
@@ -232,24 +237,28 @@ impl SignPhase {
         t_p: &FE,
         message: FE,
     ) -> Result<Signature, MulEcdsaError> {
-        let q = FE::q();
-        let r_x: FE = ECScalar::from(
-            &ephemeral_public_share
-                .x_coor()
-                .ok_or(MulEcdsaError::XcoorNone)?
-                .mod_floor(&q),
-        );
-        let k1_inv = self.keypair.get_secret_key().invert();
-        let x1_mul_tp = self.keygen_result.ec_sk * t_p;
-        let s_tag = decrypt(&self.cl_group, &self.keygen_result.cl_sk, &partial_sig_c3).sub(&x1_mul_tp.get_element());
-        let s_tag_tag = k1_inv * s_tag;
-        let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());
-        let signature = Signature {
-            s: ECScalar::from(&s),
-            r: r_x,
-        };
-        signature.verify(&self.keygen_result.pk, &message)?;
-        Ok(signature)
+        if let Some(keygen_result) = self.keygen_result.clone() {
+            let q = FE::q();
+            let r_x: FE = ECScalar::from(
+                &ephemeral_public_share
+                    .x_coor()
+                    .ok_or(MulEcdsaError::XcoorNone)?
+                    .mod_floor(&q),
+            );
+            let k1_inv = self.keypair.get_secret_key().invert();
+            let x1_mul_tp = keygen_result.ec_sk * t_p;
+            let s_tag = decrypt(&self.cl_group, &keygen_result.cl_sk, &partial_sig_c3).sub(&x1_mul_tp.get_element());
+            let s_tag_tag = k1_inv * s_tag;
+            let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());
+            let signature = Signature {
+                s: ECScalar::from(&s),
+                r: r_x,
+            };
+            signature.verify(&keygen_result.pk, &message)?;
+            Ok(signature)
+        }else{
+            Err(MulEcdsaError::NotLoadKeyGenResult)
+        }
     }
 
     pub fn msg_handler_sign(&mut self, index: usize, msg_received: &PartyTwoMsg) -> SendingMessages{
