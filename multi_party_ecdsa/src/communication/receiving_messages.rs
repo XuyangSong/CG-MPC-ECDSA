@@ -12,4 +12,6 @@ pub enum ReceivingMessages {
     TwoSignMessagePartyOne(PartyOneMsg),
     TwoKeyGenMessagePartyTwo(PartyTwoMsg),
     TwoSignMessagePartyTwo(PartyTwoMsg),
+    KeyGenBegin,
+    SignBegin,
 }

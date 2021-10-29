@@ -1,17 +1,16 @@
+use cli::console::Console;
 use curv::arithmetic::Converter;
 
-use tokio::io;
-use tokio::prelude::*;
 use tokio::task;
 
-use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
+use p2p::{Info, Message, MsgProcess, Node, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use cli::config::TwoPartyConfig;
 use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
-use multi_party_ecdsa::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
+use multi_party_ecdsa::protocols::two_party::message::PartyTwoMsg;
 use multi_party_ecdsa::protocols::two_party::party_two;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;
 use std::collections::HashMap;
@@ -42,25 +41,8 @@ struct PartyTwo {
 
 pub struct InitMessage {
     my_info: Info,
-    peer_info: Info,
+    peer_info: Vec<Info>,
     party_two_info: PartyTwo,
-}
-
-enum UserCommand {
-    Nop,
-    Connect,
-    KeyGen,
-    Sign,
-    Broadcast(String),
-    SendMsg(PeerID, String),
-    Disconnect(PeerID), // peer id
-    ListPeers,
-    Exit,
-}
-
-pub struct Console {
-    node: NodeHandle<Message>,
-    peer_info: Info,
 }
 
 impl InitMessage {
@@ -118,6 +100,9 @@ impl MsgProcess<Message> for PartyTwo {
             }
             ReceivingMessages::TwoSignMessagePartyOne(msg) => {
                 sending_msg = self.party_two_sign.msg_handler_sign(&msg);
+            }
+            ReceivingMessages::KeyGenBegin => {
+
             }
             _ => {}
         }
@@ -197,143 +182,4 @@ fn main() {
             interactive_loop.await.expect("panic on JoinError")
         })
         .unwrap()
-}
-
-impl Console {
-    pub fn spawn(
-        node: NodeHandle<Message>,
-        peer_info: Info,
-    ) -> task::JoinHandle<Result<(), String>> {
-        task::spawn_local(async move {
-            let mut stdin = io::BufReader::new(io::stdin());
-            let mut console = Console { node, peer_info };
-            loop {
-                let mut line = String::new();
-                io::stderr().write_all(">> ".as_ref()).await.unwrap();
-                let n = stdin
-                    .read_line(&mut line)
-                    .await
-                    .map_err(|_| "Failed to read UTF-8 line.".to_string())?;
-                if n == 0 {
-                    // reached EOF
-                    break;
-                }
-                let result = async {
-                    let cmd = Console::parse_command(&line)?;
-                    console.process_command(cmd).await
-                }
-                .await;
-
-                match result {
-                    Err(e) => {
-                        if e == "Command::Exit" {
-                            // exit gracefully
-                            return Ok(());
-                        } else {
-                            // print error
-                            println!("!> {}", e);
-                        }
-                    }
-                    Ok(_) => {}
-                };
-            }
-            Ok(())
-        })
-    }
-
-    /// Processes a single command.
-    async fn process_command(&mut self, command: UserCommand) -> Result<(), String> {
-        match command {
-            UserCommand::Nop => {}
-            UserCommand::Exit => {
-                self.node.exit().await;
-                return Err("Command::Exit".into());
-            }
-            UserCommand::Connect => {
-                self.node
-                    .connect_to_peer(&self.peer_info.address, None, self.peer_info.index)
-                    .await
-                    .map_err(|e| {
-                        format!("Handshake error with {}. {:?}", self.peer_info.address, e)
-                    })?;
-            }
-            UserCommand::Disconnect(peer_id) => {
-                self.node.remove_peer(peer_id).await;
-            }
-            UserCommand::Broadcast(msg) => {
-                println!("=> Broadcasting: {:?}", &msg);
-                self.node.broadcast(Message(msg.as_bytes().to_vec())).await;
-            }
-            UserCommand::SendMsg(peer_id, msg) => {
-                println!("=> Send: {:?}, to {}", &msg, peer_id);
-                self.node
-                    .sendmsg(peer_id, Message(msg.as_bytes().to_vec()))
-                    .await;
-            }
-            UserCommand::ListPeers => {
-                let peer_infos = self.node.list_peers().await;
-                println!("=> {} peers:", peer_infos.len());
-                for peer_info in peer_infos.iter() {
-                    println!("  {}", peer_info);
-                }
-            }
-            UserCommand::KeyGen => {
-                let msg = bincode::serialize(&PartyOneMsg::KegGenBegin).unwrap();
-                self.node.sendself(Message(msg)).await;
-            }
-            UserCommand::Sign => {
-                let msg = bincode::serialize(&PartyOneMsg::SignBegin).unwrap();
-                self.node.sendself(Message(msg)).await;
-            }
-        }
-        Ok(())
-    }
-
-    fn parse_command(line: &str) -> Result<UserCommand, String> {
-        let line = line.trim().to_string();
-        if line == "" {
-            return Ok(UserCommand::Nop);
-        }
-        let mut head_tail = line.splitn(2, " ");
-        let command = head_tail
-            .next()
-            .ok_or_else(|| {
-                "Missing command. Try `connect <addr:port>` or `broadcast <text>`".to_string()
-            })?
-            .to_lowercase();
-        let rest = head_tail.next();
-
-        if command == "connect" {
-            Ok(UserCommand::Connect)
-        } else if command == "broadcast" {
-            Ok(UserCommand::Broadcast(rest.unwrap_or("").into()))
-        } else if command == "sendmsg" {
-            let s = rest.unwrap_or("").to_string();
-            let mut ss = s.splitn(2, " ");
-            let spid = ss.next().ok_or_else(|| "Invalid peer ID".to_string())?;
-            let msg = ss.next();
-            if let Some(id) = PeerID::from_string(&spid) {
-                Ok(UserCommand::SendMsg(id, msg.unwrap_or("").into()))
-            } else {
-                Err(format!("Invalid peer ID `{}`", spid))
-            }
-        } else if command == "peers" {
-            Ok(UserCommand::ListPeers)
-        } else if command == "disconnect" {
-            let s: String = rest.unwrap_or("").into();
-            if let Some(id) = PeerID::from_string(&s) {
-                Ok(UserCommand::Disconnect(id))
-            } else {
-                Err(format!("Invalid peer ID `{}`", s))
-            }
-        } else if command == "keygen" {
-            Ok(UserCommand::KeyGen)
-        } else if command == "sign" {
-            Ok(UserCommand::Sign)
-        } else if command == "exit" || command == "quit" || command == "q" {
-            Ok(UserCommand::Exit)
-        } else {
-            Err(format!("Unknown command `{}`", command))
-        }
-    }
 }

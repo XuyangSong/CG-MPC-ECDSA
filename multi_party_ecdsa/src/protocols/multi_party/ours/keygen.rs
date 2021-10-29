@@ -369,6 +369,13 @@ impl KeyGenPhase {
         Ok(ret_string)
     }
 
+    pub fn process_begin(&mut self) -> Result<SendingMessages, MulEcdsaError>{
+        let sending_msg_bytes = self
+            .get_phase_one_two_msg()
+            .map_err(|_| MulEcdsaError::GetPhaseOneTwoMsgFailed)?;
+        return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
+    }
+
     pub fn msg_handler(
         &mut self,
         index: usize,
@@ -376,16 +383,6 @@ impl KeyGenPhase {
     ) -> Result<SendingMessages, MulEcdsaError> {
         // println!("handle receiving msg: {:?}", msg);
         match msg {
-            MultiKeyGenMessage::KeyGenBegin => {
-                // Refresh
-                if self.need_refresh {
-                    self.refresh()?;
-                }
-                let sending_msg_bytes = self
-                    .get_phase_one_two_msg()
-                    .map_err(|_| MulEcdsaError::GetPhaseOneTwoMsgFailed)?;
-                return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
-            }
             MultiKeyGenMessage::PhaseOneTwoMsg(msg) => {
                 // Refresh
                 if self.need_refresh {

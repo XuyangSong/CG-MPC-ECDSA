@@ -673,21 +673,24 @@ impl SignPhase {
         Ok(Signature { s, r: self.r_x })
     }
 
+    pub fn process_begin(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError> {
+        if self.subset.contains(&index) {
+            let msg = self
+                        .get_phase_one_msg()
+                        .map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
+                    return Ok(SendingMessages::SubsetMessage(msg));
+        }
+        Ok(SendingMessages::EmptyMsg)
+    }
+
     pub fn msg_handler(
         &mut self,
         index: usize,
         msg_received: &MultiSignMessage,
     ) -> Result<SendingMessages, MulEcdsaError> {
         // println!("handle receiving msg: {:?}", msg_received);
-
         if self.subset.contains(&index) {
             match msg_received {
-                MultiSignMessage::SignBegin => {
-                    let msg = self
-                        .get_phase_one_msg()
-                        .map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(msg));
-                }
                 MultiSignMessage::PhaseOneMsg(msg) => {
                     // Already received the msg
                     if self.msgs.phase_one_msgs.get(&index).is_some() {

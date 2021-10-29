@@ -24,11 +24,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PartyOneMsg {
     KeyGenInitSync(usize),
-    KegGenBegin,
     KeyGenPartyOneRoundOneMsg(DLCommitments),
     KeyGenPartyOneRoundTwoMsg(CommWitness, PK, PK, BinaryQF, PromiseState, PromiseProof),
     SignInitSync(usize),
-    SignBegin,
     SignPartyOneRoundOneMsg(DLCommitments),
     SignPartyOneRoundTwoMsg(CommWitness),
 }
@@ -36,11 +34,9 @@ pub enum PartyOneMsg {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PartyTwoMsg {
     KeyGenInitSync(usize),
-    KegGenBegin,
     KenGenPartyTwoRoundOneMsg(DLogProof<GE>),
     KeyGenFinish,
     SignInitSync(usize),
-    SignBegin,
     SignPartyTwoRoundOneMsg(DLogProof<GE>),
     SignPartyTwoRoundTwoMsg(CLCiphertext, FE),
 }

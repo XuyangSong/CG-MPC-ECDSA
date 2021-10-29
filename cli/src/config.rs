@@ -34,12 +34,12 @@ impl TwoPartyConfig {
             .clone()
     }
 
-    pub fn get_peer_info(&self, my_index: usize) -> Info {
+    pub fn get_peer_info(&self, my_index: usize) -> Vec<Info> {
         self.infos
-            .iter()
-            .find(|e| e.index != my_index)
-            .unwrap()
-            .clone()
+        .clone()
+        .into_iter()
+        .filter(|e| e.index != my_index)
+        .collect()
     }
 }
 
@@ -62,11 +62,19 @@ impl MultiPartyConfig {
             .clone()
     }
 
-    pub fn get_peers_info(&self, my_index: usize) -> Vec<Info> {
+    pub fn get_peers_info_keygen(&self, my_index: usize) -> Vec<Info> {
         self.infos
             .clone()
             .into_iter()
             .filter(|e| e.index != my_index)
+            .collect()
+    }
+
+    pub fn get_peers_info_sign(&self, my_index: usize, subset: Vec<usize>) -> Vec<Info> {
+        self.infos
+            .clone()
+            .into_iter()
+            .filter(|e| e.index != my_index && subset.contains(&e.index))
             .collect()
     }
 }

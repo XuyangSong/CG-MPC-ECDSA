@@ -46,7 +46,6 @@ pub struct KeyGenPhaseFiveMsg {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MultiKeyGenMessage {
-    KeyGenBegin,
     PhaseOneTwoMsg(KeyGenPhaseOneTwoMsg),
     PhaseThreeMsg(KeyGenPhaseThreeMsg),
     PhaseFourMsg(KeyGenPhaseFourMsg),
@@ -68,7 +67,6 @@ pub struct SignMsgs {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MultiSignMessage {
-    SignBegin,
     PhaseOneMsg(SignPhaseOneMsg),
     PhaseTwoMsg(SignPhaseTwoMsg),
     PhaseThreeMsg(SignPhaseThreeMsg),
