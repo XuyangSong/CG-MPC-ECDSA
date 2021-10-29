@@ -82,7 +82,7 @@ impl InitMessage {
         let keygen_json_string = fs::read_to_string(input_path).unwrap();
 
         // Sign init
-        let mut sign = SignPhase::new(
+        let sign = SignPhase::new(
             &seed,
             &qtilde,
             opt.index,
@@ -92,7 +92,6 @@ impl InitMessage {
             &keygen_json_string,
         )
         .unwrap();
-        sign.init();
         let multi_party_sign_info = MultiPartySign { sign: sign };
         let init_messages = InitMessage {
             my_info,

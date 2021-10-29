@@ -211,6 +211,24 @@ impl SignPhase {
         }
     }
 
+    pub fn refresh(&mut self, message_str: &String) {
+        let message_bigint = BigInt::from_hex(message_str).unwrap();
+        let message: FE = ECScalar::from(&message_bigint);
+
+        self.keypair = EcKeyPair::new();
+
+        self.msg = DLogProof::prove(self.keypair.get_secret_key());
+
+        // Precompute c1
+        let k2_inv = self.keypair.get_secret_key().invert();
+        let k2_inv_m = k2_inv * message;
+        let c1 = encrypt_without_r(&self.cl_group, &k2_inv_m);
+        self.precompute_c1 = c1.0;
+        // self.message = message;
+
+        self.keygen_result = None;
+    }
+
     pub fn load_keygen_result(&mut self, keygen_json: &String) {
         // Load keygen result
         let keygen_result = KenGenResult::from_json_string(keygen_json).unwrap();
