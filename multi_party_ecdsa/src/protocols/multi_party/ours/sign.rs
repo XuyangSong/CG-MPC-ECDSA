@@ -872,9 +872,8 @@ impl SignPhase {
                             .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
 
                         signature.verify(&self.public_signing_key, &self.message).unwrap();
-                        println!("Signature: {:?}", signature);
 
-                        let signature_json = serde_json::to_string(&(signature,))
+                        let signature_json = serde_json::to_string(&signature)
                             .map_err(|_| MulEcdsaError::ToStringFailed)?;
 
                         return Ok(SendingMessages::SignSuccessWithResult(signature_json));

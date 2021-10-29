@@ -295,10 +295,9 @@ impl SignPhase {
                     &ephemeral_public_share,
                     &t_p,
                     self.message,
-                );
-                // Party one time end
-                println!("##    Sign finish! \n signature: {:?}", signature);
-                return SendingMessages::EmptyMsg;
+                ).unwrap();
+                let signature_json = serde_json::to_string(&signature).unwrap();
+                return SendingMessages::SignSuccessWithResult(signature_json);
             }
             _ => {
                 println!("Unsupported parse Received MessageType");
