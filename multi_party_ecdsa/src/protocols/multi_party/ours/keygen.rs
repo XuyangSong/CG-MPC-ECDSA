@@ -32,7 +32,8 @@ pub struct KeyGenMsgs {
 }
 
 #[derive(Clone, Debug)]
-pub struct KeyGen {
+pub struct KeyGenPhase {
+    old_group: CLGroup,
     group: CLGroup,
     pub party_index: usize,
     pub params: Parameters,
@@ -45,6 +46,7 @@ pub struct KeyGen {
     pub share_public_key: HashMap<usize, GE>, // X_i // TBD: use vec instead of hashmap
     pub vss_scheme_map: HashMap<usize, VerifiableSS<GE>>, // TBD: use vec instead of hashmap
     pub msgs: KeyGenMsgs,
+    pub need_refresh: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -67,6 +69,14 @@ impl KeyGenMsgs {
             phase_five_msgs: HashMap::new(),
         }
     }
+
+    pub fn clean(&mut self) {
+        self.phase_one_two_msgs.clear();
+        self.phase_three_msgs.clear();
+        self.phase_four_vss_sending_msgs.clear();
+        self.phase_four_msgs.clear();
+        self.phase_five_msgs.clear();
+    }
 }
 
 impl KenGenResult {
@@ -76,8 +86,8 @@ impl KenGenResult {
     }
 }
 
-impl KeyGen {
-    pub fn init(
+impl KeyGenPhase {
+    pub fn new(
         seed: &BigInt,
         qtilde: &BigInt,
         party_index: usize,
@@ -91,7 +101,7 @@ impl KeyGen {
         let h_caret = cl_keypair.get_public_key().clone();
         cl_keypair.update_pk_exp_p();
 
-        //Generate elgamal keypair
+        // Generate elgamal keypair
         let ec_keypair = EcKeyPair::new();
 
         // Update gp
@@ -125,7 +135,7 @@ impl KeyGen {
         msgs.phase_three_msgs.insert(party_index, msg_3);
 
         // Generate phase four msg, vss
-        let (vss_scheme_map, share_private_key) = KeyGen::phase_four_generate_vss(
+        let (vss_scheme_map, share_private_key) = KeyGenPhase::phase_four_generate_vss(
             &mut msgs,
             party_index,
             params.threshold,
@@ -135,6 +145,7 @@ impl KeyGen {
         .map_err(|_| MulEcdsaError::GenVSSFailed)?;
 
         Ok(Self {
+            old_group: group,
             group: new_class_group,
             party_index,
             params,
@@ -147,7 +158,62 @@ impl KeyGen {
             share_public_key: HashMap::new(),
             vss_scheme_map,
             msgs,
+            need_refresh: false,
         })
+    }
+
+    pub fn refresh(&mut self) -> Result<(), MulEcdsaError> {
+        // Refresh cl keypair
+        let mut cl_keypair = ClKeyPair::new(&self.old_group);
+        self.h_caret = cl_keypair.get_public_key().clone();
+        cl_keypair.update_pk_exp_p();
+        self.cl_keypair = cl_keypair;
+
+        // Refresh elgamal keypair
+        self.ec_keypair = EcKeyPair::new();
+
+        // Refresh signing key pair
+        self.private_signing_key = EcKeyPair::new();
+        self.public_signing_key = self.private_signing_key.get_public_key().clone();
+
+        self.msgs.clean();
+
+        // Refresh dl com
+        let dlog_com = DlogCommitment::new(&self.public_signing_key);
+
+        // Refresh phase one and two msg
+        let msg_1_2 = KeyGenPhaseOneTwoMsg {
+            h_caret: self.h_caret.clone(),
+            h: self.cl_keypair.get_public_key().clone(),
+            ec_pk: self.ec_keypair.get_public_key().clone(),
+            gp: self.group.gq.clone(),
+            commitment: dlog_com.commitment,
+        };
+        self.msgs
+            .phase_one_two_msgs
+            .insert(self.party_index, msg_1_2);
+
+        //  Refresh phase three msg
+        let msg_3 = KeyGenPhaseThreeMsg {
+            open: dlog_com.open,
+        };
+        self.msgs.phase_three_msgs.insert(self.party_index, msg_3);
+
+        // Refresh phase four msg, vss
+        let (vss_scheme_map, share_private_key) = KeyGenPhase::phase_four_generate_vss(
+            &mut self.msgs,
+            self.party_index,
+            self.params.threshold,
+            self.params.share_count,
+            self.private_signing_key.get_secret_key(),
+        )
+        .map_err(|_| MulEcdsaError::GenVSSFailed)?;
+
+        self.vss_scheme_map.clear();
+        self.vss_scheme_map = vss_scheme_map;
+        self.share_private_key = share_private_key;
+        self.need_refresh = false;
+        Ok(())
     }
 
     fn get_phase_one_two_msg(&self) -> Result<Vec<u8>, MulEcdsaError> {
@@ -311,12 +377,21 @@ impl KeyGen {
         // println!("handle receiving msg: {:?}", msg);
         match msg {
             MultiKeyGenMessage::KeyGenBegin => {
+                // Refresh
+                if self.need_refresh {
+                    self.refresh()?;
+                }
                 let sending_msg_bytes = self
                     .get_phase_one_two_msg()
                     .map_err(|_| MulEcdsaError::GetPhaseOneTwoMsgFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
             }
             MultiKeyGenMessage::PhaseOneTwoMsg(msg) => {
+                // Refresh
+                if self.need_refresh {
+                    self.refresh()?;
+                }
+
                 self.verify_phase_one_msg(&msg.h_caret, &msg.h, &msg.gp)
                     .map_err(|_| MulEcdsaError::VrfyPhaseOneMsgFailed)?;
                 self.msgs.phase_one_two_msgs.insert(index, msg.clone());
@@ -389,6 +464,7 @@ impl KeyGen {
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
                     let keygen_json = self.generate_result_json_string()?;
+                    self.need_refresh = true;
                     return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
                 }
             }

@@ -36,7 +36,7 @@ pub struct InitMessage {
 }
 
 struct MultiPartyKeygen {
-    keygen: KeyGen,
+    keygen: KeyGenPhase,
 }
 
 enum UserCommand {
@@ -76,7 +76,7 @@ impl InitMessage {
 
         // TBD: add a new func, init it latter.
         //Init multi party info
-        let keygen = KeyGen::init(&seed, &qtilde, index, params.clone()).unwrap();
+        let keygen = KeyGenPhase::new(&seed, &qtilde, index, params.clone()).unwrap();
         let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
             my_info,
