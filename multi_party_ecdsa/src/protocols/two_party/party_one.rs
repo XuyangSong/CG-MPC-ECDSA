@@ -156,30 +156,30 @@ impl KeyGenPhase {
         (self.promise_state.clone(), self.promise_proof.clone())
     }
 
+    pub fn process_begin_keygen(&mut self, index:usize) -> SendingMessages {
+        if index == 0 {
+            // Refresh
+            if self.need_refresh {
+                self.refresh();
+            }
+
+            // Party one time begin
+            let msg_send: ReceivingMessages = ReceivingMessages::TwoKeyGenMessagePartyOne(
+                PartyOneMsg::KeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),
+            );
+            let msg_bytes: Vec<u8> = bincode::serialize(&msg_send).unwrap();
+            return SendingMessages::BroadcastMessage(msg_bytes);
+        } else {
+            println!("Please use index 0 party begin the keygen...");
+            return SendingMessages::EmptyMsg;
+        }
+    }
+
     pub fn msg_handler_keygen(
         &mut self,
-        index: usize,
         msg_received: &PartyTwoMsg,
     ) -> SendingMessages {
         match msg_received {
-            PartyTwoMsg::KegGenBegin => {
-                if index == 0 {
-                    // Refresh
-                    if self.need_refresh {
-                        self.refresh();
-                    }
-
-                    // Party one time begin
-                    let msg_send: ReceivingMessages = ReceivingMessages::TwoKeyGenMessagePartyOne(
-                        PartyOneMsg::KeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),
-                    );
-                    let msg_bytes: Vec<u8> = bincode::serialize(&msg_send).unwrap();
-                    return SendingMessages::BroadcastMessage(msg_bytes);
-                } else {
-                    println!("Please use index 0 party begin the keygen...");
-                    return SendingMessages::EmptyMsg;
-                }
-            }
             PartyTwoMsg::KenGenPartyTwoRoundOneMsg(msg) => {
                 println!("\n=>    KeyGen: Receiving RoundOneMsg from index 1");
                 let com_open = self.verify_and_get_next_msg(&msg).unwrap();
@@ -309,24 +309,25 @@ impl SignPhase {
         }
     }
 
+
+    pub fn process_begin_sign(&mut self, index:usize) -> SendingMessages {
+        if index == 0 {
+            let msg_send = ReceivingMessages::TwoSignMessagePartyOne(
+                PartyOneMsg::SignPartyOneRoundOneMsg(self.round_one_msg.clone()),
+            );
+            let msg_bytes = bincode::serialize(&msg_send).unwrap();
+            return SendingMessages::BroadcastMessage(msg_bytes);
+        } else {
+            println!("Please use index 0 party begin the sign...");
+            return SendingMessages::EmptyMsg;
+        }
+    }
+
     pub fn msg_handler_sign(
         &mut self,
-        index: usize,
         msg_received: &PartyTwoMsg,
     ) -> SendingMessages {
         match msg_received {
-            PartyTwoMsg::SignBegin => {
-                if index == 0 {
-                    let msg_send = ReceivingMessages::TwoSignMessagePartyOne(
-                        PartyOneMsg::SignPartyOneRoundOneMsg(self.round_one_msg.clone()),
-                    );
-                    let msg_bytes = bincode::serialize(&msg_send).unwrap();
-                    return SendingMessages::BroadcastMessage(msg_bytes);
-                } else {
-                    println!("Please use index 0 party begin the sign...");
-                    return SendingMessages::EmptyMsg;
-                }
-            }
             PartyTwoMsg::SignPartyTwoRoundOneMsg(msg) => {
                 println!("\n=>    Sign: Receiving RoundOneMsg from index 1");
 
