@@ -254,6 +254,20 @@ impl SignPhase {
         }
     }
 
+    pub fn refresh(&mut self, message_str: &String) {
+        self.keypair = EcKeyPair::new();
+
+        let dl_com_zk = DLComZK::new(&self.keypair);
+        self.round_one_msg = dl_com_zk.commitments;
+        self.round_two_msg = dl_com_zk.witness;
+
+        let message_bigint = BigInt::from_hex(message_str).unwrap();
+        let message: FE = ECScalar::from(&message_bigint);
+        self.message = message;
+
+        self.keygen_result = None;
+    }
+
     pub fn load_keygen_result(&mut self, keygen_json: &String) {
         // Load keygen result
         let keygen_result = KenGenResult::from_json_string(keygen_json).unwrap();
