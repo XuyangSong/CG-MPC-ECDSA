@@ -85,6 +85,8 @@ pub enum MulEcdsaError {
     FileWriteFailed,
     #[error("Not load keygen result")]
     NotLoadKeyGenResult,
+    #[error("Invalid public key")]
+    InvalidPublicKey,
     #[error("General error")]
     GeneralError,
 }
