@@ -4,9 +4,9 @@ use tokio::io;
 use tokio::prelude::*;
 use tokio::task;
 
-use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
+use p2p::{Info, Message, MsgProcess, Node, NodeHandle, PeerID, ProcessMessage};
 
 use class_group::primitives::cl_dl_public_setup::CLGroup;
 use cli::config::TwoPartyConfig;
@@ -14,10 +14,10 @@ use curv::BigInt;
 use multi_party_ecdsa::protocols::two_party::message::PartyTwoMsg;
 use multi_party_ecdsa::protocols::two_party::party_one;
 use multi_party_ecdsa::utilities::class::update_class_group_by_p;
-use structopt::StructOpt;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -121,7 +121,7 @@ impl MsgProcess<Message> for PartyOne {
             }
             _ => {}
         }
-        
+
         match sending_msg {
             SendingMessages::NormalMessage(index, msg) => {
                 return ProcessMessage::SendMessage(index, Message(msg))
@@ -154,7 +154,9 @@ impl MsgProcess<Message> for PartyOne {
                 println!("Sign Success! {}", res);
                 return ProcessMessage::Default();
             }
-            _ => {return ProcessMessage::Default();}
+            _ => {
+                return ProcessMessage::Default();
+            }
         }
     }
 }
@@ -272,11 +274,17 @@ impl Console {
                 }
             }
             UserCommand::KeyGen => {
-                let msg = bincode::serialize(&ReceivingMessages::TwoKeyGenMessagePartyTwo(PartyTwoMsg::KegGenBegin)).unwrap();
+                let msg = bincode::serialize(&ReceivingMessages::TwoKeyGenMessagePartyTwo(
+                    PartyTwoMsg::KegGenBegin,
+                ))
+                .unwrap();
                 self.node.sendself(Message(msg)).await;
             }
             UserCommand::Sign => {
-                let msg = bincode::serialize(&ReceivingMessages::TwoSignMessagePartyTwo(PartyTwoMsg::SignBegin)).unwrap();
+                let msg = bincode::serialize(&ReceivingMessages::TwoSignMessagePartyTwo(
+                    PartyTwoMsg::SignBegin,
+                ))
+                .unwrap();
                 self.node.sendself(Message(msg)).await;
             }
         }

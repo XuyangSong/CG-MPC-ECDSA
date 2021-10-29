@@ -1077,7 +1077,8 @@ mod tests {
             sign_vec[0].phase_five_step_eight_generate_signature(&phase_five_step_seven_msg_vec);
 
         // Verify Signature
-        sig.verify(&key_gen_vec[0].public_signing_key, &message).unwrap();
+        sig.verify(&key_gen_vec[0].public_signing_key, &message)
+            .unwrap();
     }
 
     #[test]

@@ -396,5 +396,6 @@ fn sign(group: &CLGroup, params: &Parameters, key_gen_vec: &Vec<KeyGen>) {
     println!("sign total time: {:?} * t + {:?}", time_t, time_constant);
 
     // Verify Signature
-    sig.verify(&key_gen_vec[0].public_signing_key, &message).unwrap();
+    sig.verify(&key_gen_vec[0].public_signing_key, &message)
+        .unwrap();
 }

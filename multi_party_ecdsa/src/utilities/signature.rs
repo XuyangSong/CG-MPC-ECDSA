@@ -21,8 +21,7 @@ impl Signature {
         // second condition is against malleability
         let u1_plus_u2 = (u1 + u2).x_coor().unwrap().mod_floor(&q);
 
-        if self.r.to_big_int() == u1_plus_u2
-            && self.s.to_big_int() < FE::q() - self.s.to_big_int()
+        if self.r.to_big_int() == u1_plus_u2 && self.s.to_big_int() < FE::q() - self.s.to_big_int()
         {
             Ok(())
         } else {

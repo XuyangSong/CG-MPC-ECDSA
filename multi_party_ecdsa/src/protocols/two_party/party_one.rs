@@ -9,20 +9,20 @@ use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use serde::{Deserialize, Serialize};
 
+use crate::communication::sending_messages::SendingMessages;
+use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
 use crate::utilities::class::update_class_group_by_p;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::promise_sigma::*;
+use crate::utilities::signature::Signature;
 use class_group::primitives::cl_dl_public_setup::SK;
 use class_group::primitives::cl_dl_public_setup::{
     decrypt, CLGroup, Ciphertext as CLCiphertext, PK,
 };
 use class_group::BinaryQF;
-use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
-use crate::communication::sending_messages::SendingMessages;
-use crate::utilities::signature::Signature;
 
 //****************** Begin: Party One structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -126,14 +126,18 @@ impl KeyGenInit {
         (self.promise_state.clone(), self.promise_proof.clone())
     }
 
-    pub fn msg_handler_keygen(&mut self, index: usize, msg_received: &PartyTwoMsg) -> SendingMessages{
+    pub fn msg_handler_keygen(
+        &mut self,
+        index: usize,
+        msg_received: &PartyTwoMsg,
+    ) -> SendingMessages {
         match msg_received {
             PartyTwoMsg::KegGenBegin => {
                 if index == 0 {
                     // Party one time begin
-                    let msg_send: ReceivingMessages = ReceivingMessages::TwoKeyGenMessagePartyOne(PartyOneMsg::KeyGenPartyOneRoundOneMsg(
-                        self.round_one_msg.clone(),
-                    ));
+                    let msg_send: ReceivingMessages = ReceivingMessages::TwoKeyGenMessagePartyOne(
+                        PartyOneMsg::KeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),
+                    );
                     let msg_bytes: Vec<u8> = bincode::serialize(&msg_send).unwrap();
                     return SendingMessages::BroadcastMessage(msg_bytes);
                 } else {
@@ -149,14 +153,16 @@ impl KeyGenInit {
                 // Get pk and pk'
                 let (h_caret, h, gp) = self.get_class_group_pk();
 
-                let msg_send = ReceivingMessages::TwoKeyGenMessagePartyOne(PartyOneMsg::KeyGenPartyOneRoundTwoMsg(
-                    com_open,
-                    h_caret,
-                    h,
-                    gp,
-                    self.promise_state.clone(),
-                    self.promise_proof.clone(),
-                ));
+                let msg_send = ReceivingMessages::TwoKeyGenMessagePartyOne(
+                    PartyOneMsg::KeyGenPartyOneRoundTwoMsg(
+                        com_open,
+                        h_caret,
+                        h,
+                        gp,
+                        self.promise_state.clone(),
+                        self.promise_proof.clone(),
+                    ),
+                );
                 let msg_bytes = bincode::serialize(&msg_send).unwrap();
 
                 return SendingMessages::BroadcastMessage(msg_bytes);
@@ -165,10 +171,10 @@ impl KeyGenInit {
                 let keygen_json = self.generate_result_json_string().unwrap();
                 return SendingMessages::KeyGenSuccessWithResult(keygen_json);
             }
-            _ => {return SendingMessages::EmptyMsg}
+            _ => return SendingMessages::EmptyMsg,
         }
     }
-    
+
     fn generate_result_json_string(&self) -> Result<String, MulEcdsaError> {
         let ret = KenGenResult {
             pk: self.public_signing_key.clone(),
@@ -193,8 +199,6 @@ impl SignPhase {
             pk_t_rand_commitment: GE::generator(),
             challenge_response: FE::zero(),
         };
-
-
 
         Self {
             cl_group,
@@ -247,7 +251,8 @@ impl SignPhase {
             );
             let k1_inv = self.keypair.get_secret_key().invert();
             let x1_mul_tp = keygen_result.ec_sk * t_p;
-            let s_tag = decrypt(&self.cl_group, &keygen_result.cl_sk, &partial_sig_c3).sub(&x1_mul_tp.get_element());
+            let s_tag = decrypt(&self.cl_group, &keygen_result.cl_sk, &partial_sig_c3)
+                .sub(&x1_mul_tp.get_element());
             let s_tag_tag = k1_inv * s_tag;
             let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());
             let signature = Signature {
@@ -256,18 +261,22 @@ impl SignPhase {
             };
             signature.verify(&keygen_result.pk, &message)?;
             Ok(signature)
-        }else{
+        } else {
             Err(MulEcdsaError::NotLoadKeyGenResult)
         }
     }
 
-    pub fn msg_handler_sign(&mut self, index: usize, msg_received: &PartyTwoMsg) -> SendingMessages{
-        match msg_received {   
+    pub fn msg_handler_sign(
+        &mut self,
+        index: usize,
+        msg_received: &PartyTwoMsg,
+    ) -> SendingMessages {
+        match msg_received {
             PartyTwoMsg::SignBegin => {
                 if index == 0 {
-                    let msg_send = ReceivingMessages::TwoSignMessagePartyOne(PartyOneMsg::SignPartyOneRoundOneMsg(
-                        self.round_one_msg.clone(),
-                    ));
+                    let msg_send = ReceivingMessages::TwoSignMessagePartyOne(
+                        PartyOneMsg::SignPartyOneRoundOneMsg(self.round_one_msg.clone()),
+                    );
                     let msg_bytes = bincode::serialize(&msg_send).unwrap();
                     return SendingMessages::BroadcastMessage(msg_bytes);
                 } else {
@@ -281,21 +290,19 @@ impl SignPhase {
                 let witness = self.verify_and_get_next_msg(&msg).unwrap();
                 self.set_received_msg((*msg).clone());
 
-                let msg_send = ReceivingMessages::TwoSignMessagePartyOne(PartyOneMsg::SignPartyOneRoundTwoMsg(witness));
+                let msg_send = ReceivingMessages::TwoSignMessagePartyOne(
+                    PartyOneMsg::SignPartyOneRoundTwoMsg(witness),
+                );
                 let msg_bytes = bincode::serialize(&msg_send).unwrap();
                 return SendingMessages::BroadcastMessage(msg_bytes);
             }
             PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p) => {
                 println!("\n=>    Sign: Receiving RoundTwoMsg from index 1");
 
-                let ephemeral_public_share = self
-                    .compute_public_share_key(&self.received_msg.pk);
-                let signature = self.sign(
-                    &cipher,
-                    &ephemeral_public_share,
-                    &t_p,
-                    self.message,
-                ).unwrap();
+                let ephemeral_public_share = self.compute_public_share_key(&self.received_msg.pk);
+                let signature = self
+                    .sign(&cipher, &ephemeral_public_share, &t_p, self.message)
+                    .unwrap();
                 let signature_json = serde_json::to_string(&signature).unwrap();
                 return SendingMessages::SignSuccessWithResult(signature_json);
             }
