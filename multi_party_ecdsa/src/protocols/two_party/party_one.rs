@@ -46,9 +46,7 @@ pub struct SignPhase {
     pub round_two_msg: CommWitness,
     pub received_msg: DLogProof<GE>,
     pub message: FE,
-    pub pk: GE,
-    pub cl_sk: SK,
-    pub ec_sk: FE,
+    pub keygen_result: KenGenResult,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -206,9 +204,7 @@ impl SignPhase {
             round_two_msg: dl_com_zk.witness,
             received_msg,
             message,
-            cl_sk: keygen_result.cl_sk,
-            ec_sk: keygen_result.ec_sk,
-            pk: keygen_result.pk,
+            keygen_result,
         }
     }
 
@@ -244,15 +240,15 @@ impl SignPhase {
                 .mod_floor(&q),
         );
         let k1_inv = self.keypair.get_secret_key().invert();
-        let x1_mul_tp = self.ec_sk * t_p;
-        let s_tag = decrypt(&self.cl_group, &self.cl_sk, &partial_sig_c3).sub(&x1_mul_tp.get_element());
+        let x1_mul_tp = self.keygen_result.ec_sk * t_p;
+        let s_tag = decrypt(&self.cl_group, &self.keygen_result.cl_sk, &partial_sig_c3).sub(&x1_mul_tp.get_element());
         let s_tag_tag = k1_inv * s_tag;
         let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());
         let signature = Signature {
             s: ECScalar::from(&s),
             r: r_x,
         };
-        signature.verify(&self.pk, &message)?;
+        signature.verify(&self.keygen_result.pk, &message)?;
         Ok(signature)
     }
 

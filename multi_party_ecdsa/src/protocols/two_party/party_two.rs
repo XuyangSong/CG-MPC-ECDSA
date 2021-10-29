@@ -33,8 +33,7 @@ pub struct KeyGenInit {
 pub struct KenGenResult {
     pub pk: GE,
     pub sk: FE,
-    // TBD: use promise cipher
-    pub promise_state: PromiseState,
+    pub cl_cipher: CLCiphertext,
 }
 
 impl KenGenResult {
@@ -150,7 +149,7 @@ impl KeyGenInit {
         let ret = KenGenResult {
             pk: self.public_signing_key.clone(),
             sk: self.keypair.secret_share.clone(),
-            promise_state: promise_state.clone(),
+            cl_cipher: promise_state.cipher.cl_cipher.clone(),
         };
         let ret_string = serde_json::to_string(&ret).map_err(|_| MulEcdsaError::ToStringFailed)?;
 
@@ -231,7 +230,7 @@ impl SignPhase {
         let t = BigInt::sample_below(&(&self.cl_group.stilde * BigInt::from(2).pow(40) * &q));
         let t_p = ECScalar::from(&t.mod_floor(&q));
         let t_plus = t + v.to_big_int();
-        let c2 = eval_scal(&self.keygen_result.promise_state.cipher.cl_cipher, &t_plus);
+        let c2 = eval_scal(&self.keygen_result.cl_cipher, &t_plus);
 
         Ok((eval_sum(&self.precompute_c1, &c2), t_p))
     }
