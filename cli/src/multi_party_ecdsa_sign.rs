@@ -6,7 +6,7 @@ use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
-use p2p::{Info, Node, NodeHandle, PeerID};
+use p2p::{Info, Node};
 use message::message_process::{ProcessMessage, MsgProcess};
 use message::message::Message;
 use std::collections::HashMap;

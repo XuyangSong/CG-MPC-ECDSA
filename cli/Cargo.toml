@@ -37,9 +37,9 @@ tag = "v1.5.2"
 name = "multi_party_ecdsa_keygen"
 path = "src/multi_party_ecdsa_keygen.rs"
 
-#[[bin]]
-# name = "multi_party_ecdsa_sign"
-# path = "src/multi_party_ecdsa_sign.rs"
+[[bin]]
+name = "multi_party_ecdsa_sign"
+path = "src/multi_party_ecdsa_sign.rs"
 
 [[bin]]
 name = "two_party_ecdsa_one"
