@@ -23,8 +23,8 @@ use crate::codec::{MessageDecoder, MessageEncoder};
 use crate::cybershake;
 use crate::peer::{PeerAddr, PeerID, PeerLink, PeerMessage, PeerNotification};
 use crate::priority::{Priority, PriorityTable, HIGH_PRIORITY, LOW_PRIORITY};
+use message::message_process::{MsgProcess, ProcessMessage};
 use readerwriter::Codable;
-use message::message_process::{ProcessMessage, MsgProcess};
 
 type Reply<T> = sync::oneshot::Sender<T>;
 

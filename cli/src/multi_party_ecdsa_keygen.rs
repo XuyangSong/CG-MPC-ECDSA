@@ -2,17 +2,16 @@ use cli::config::MultiPartyConfig;
 use cli::console::Console;
 use curv::arithmetic::Converter;
 use curv::BigInt;
+use message::message::Message;
+use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use p2p::{Info, Node};
-use message::message_process::{ProcessMessage, MsgProcess};
-use message::message::Message;
 use std::collections::HashMap;
 use std::fs;
 use structopt::StructOpt;
 use tokio::task;
-
 
 #[derive(StructOpt, Debug)]
 #[structopt(
