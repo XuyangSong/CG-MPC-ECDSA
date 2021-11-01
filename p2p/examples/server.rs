@@ -1,5 +1,6 @@
-use p2p::Message;
-use p2p::{Info, MsgProcess, Node, ProcessMessage};
+use message::message::Message;
+use message::message_process::{MsgProcess, ProcessMessage};
+use p2p::{Info, Node};
 use tokio::task;
 struct TestReceive {}
 impl MsgProcess<Message> for TestReceive {

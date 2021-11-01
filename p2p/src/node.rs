@@ -23,6 +23,7 @@ use crate::codec::{MessageDecoder, MessageEncoder};
 use crate::cybershake;
 use crate::peer::{PeerAddr, PeerID, PeerLink, PeerMessage, PeerNotification};
 use crate::priority::{Priority, PriorityTable, HIGH_PRIORITY, LOW_PRIORITY};
+use message::message_process::{MsgProcess, ProcessMessage};
 use readerwriter::Codable;
 
 type Reply<T> = sync::oneshot::Sender<T>;
@@ -45,19 +46,6 @@ impl Default for Info {
             address: String::default(),
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub enum ProcessMessage<Custom: Codable> {
-    BroadcastMessage(Custom),
-    SendMessage(usize, Custom),
-    SendMultiMessage(HashMap<usize, Custom>),
-    Quit(),
-    Default(),
-}
-
-pub trait MsgProcess<Custom: Codable> {
-    fn process(&mut self, index: usize, msg: Custom) -> ProcessMessage<Custom>;
 }
 
 /// State of the node.

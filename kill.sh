@@ -2,5 +2,5 @@
 set -x
 
 curdir=$(pwd)
-killall two_party_demo multi_party_keygen_demo multi_party_demo multi_party_sign_demo
+killall tmulti_party_ecdsa_keygen multi_party_ecdsa_sign two_party_ecdsa_one two_party_ecdsa_two
 killall mpc_ecdsa_web

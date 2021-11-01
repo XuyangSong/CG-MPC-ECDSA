@@ -156,7 +156,7 @@ impl KeyGenPhase {
         (self.promise_state.clone(), self.promise_proof.clone())
     }
 
-    pub fn process_begin_keygen(&mut self, index:usize) -> SendingMessages {
+    pub fn process_begin_keygen(&mut self, index: usize) -> SendingMessages {
         if index == 0 {
             // Refresh
             if self.need_refresh {
@@ -175,10 +175,7 @@ impl KeyGenPhase {
         }
     }
 
-    pub fn msg_handler_keygen(
-        &mut self,
-        msg_received: &PartyTwoMsg,
-    ) -> SendingMessages {
+    pub fn msg_handler_keygen(&mut self, msg_received: &PartyTwoMsg) -> SendingMessages {
         match msg_received {
             PartyTwoMsg::KenGenPartyTwoRoundOneMsg(msg) => {
                 println!("\n=>    KeyGen: Receiving RoundOneMsg from index 1");
@@ -323,8 +320,7 @@ impl SignPhase {
         }
     }
 
-
-    pub fn process_begin_sign(&mut self, index:usize) -> SendingMessages {
+    pub fn process_begin_sign(&mut self, index: usize) -> SendingMessages {
         if index == 0 {
             let msg_send = ReceivingMessages::TwoSignMessagePartyOne(
                 PartyOneMsg::SignPartyOneRoundOneMsg(self.round_one_msg.clone()),
@@ -337,10 +333,7 @@ impl SignPhase {
         }
     }
 
-    pub fn msg_handler_sign(
-        &mut self,
-        msg_received: &PartyTwoMsg,
-    ) -> SendingMessages {
+    pub fn msg_handler_sign(&mut self, msg_received: &PartyTwoMsg) -> SendingMessages {
         match msg_received {
             PartyTwoMsg::SignPartyTwoRoundOneMsg(msg) => {
                 println!("\n=>    Sign: Receiving RoundOneMsg from index 1");

@@ -732,9 +732,9 @@ impl SignPhase {
     pub fn process_begin(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError> {
         if self.subset.contains(&index) {
             let msg = self
-                        .get_phase_one_msg()
-                        .map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
-                    return Ok(SendingMessages::SubsetMessage(msg));
+                .get_phase_one_msg()
+                .map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
+            return Ok(SendingMessages::SubsetMessage(msg));
         }
         Ok(SendingMessages::EmptyMsg)
     }

@@ -369,7 +369,7 @@ impl KeyGenPhase {
         Ok(ret_string)
     }
 
-    pub fn process_begin(&mut self) -> Result<SendingMessages, MulEcdsaError>{
+    pub fn process_begin(&mut self) -> Result<SendingMessages, MulEcdsaError> {
         // Refresh
         if self.need_refresh {
             self.refresh()?;

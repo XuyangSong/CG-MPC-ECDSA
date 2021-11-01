@@ -5,4 +5,5 @@ members = [
     "readerwriter",
     "p2p",
     "cli",
+    "message",
 ]

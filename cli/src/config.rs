@@ -36,10 +36,10 @@ impl TwoPartyConfig {
 
     pub fn get_peer_info(&self, my_index: usize) -> Vec<Info> {
         self.infos
-        .clone()
-        .into_iter()
-        .filter(|e| e.index != my_index)
-        .collect()
+            .clone()
+            .into_iter()
+            .filter(|e| e.index != my_index)
+            .collect()
     }
 }
 
