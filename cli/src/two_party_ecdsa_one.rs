@@ -1,5 +1,4 @@
 use cli::console::Console;
-use curv::arithmetic::Converter;
 
 use tokio::task;
 
@@ -9,11 +8,8 @@ use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use p2p::{Info, Node};
 
-use class_group::primitives::cl_dl_public_setup::CLGroup;
 use cli::config::TwoPartyConfig;
-use curv::BigInt;
 use multi_party_ecdsa::protocols::two_party::party_one;
-use multi_party_ecdsa::utilities::class::update_class_group_by_p;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -55,18 +51,9 @@ impl InitMessage {
         let my_info = config.get_my_info(index);
         let peer_info = config.get_peer_info(index);
 
-        // Init group params
-        let seed: BigInt = BigInt::from_hex(
-            "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-        ).unwrap();
-        let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
-        let group = CLGroup::new_from_qtilde(&seed, &qtilde);
-        // let group = CLGroup::new_from_setup(&1348, &seed); //discriminant 1348
-
         // Init party one info
-        let party_one_keygen = party_one::KeyGenPhase::new(&group);
-        let new_class_group = update_class_group_by_p(&group);
-        let mut party_one_sign = party_one::SignPhase::new(new_class_group.clone(), &message);
+        let party_one_keygen = party_one::KeyGenPhase::new();
+        let mut party_one_sign = party_one::SignPhase::new(&message);
 
         // Load keygen result
         let keygen_path = Path::new("./keygen_result0.json");

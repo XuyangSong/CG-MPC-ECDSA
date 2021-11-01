@@ -13,7 +13,7 @@ use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::keygen::{KenGenResult, Parameters};
 use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::update_class_group_by_p;
+use crate::utilities::class::{update_class_group_by_p, GROUP_128};
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -100,17 +100,13 @@ impl SignMsgs {
 
 impl SignPhase {
     pub fn new(
-        seed: &BigInt,
-        qtilde: &BigInt,
         party_index: usize,
         params: Parameters,
         subset: &Vec<usize>,
         message_str: &String,
         keygen_result_json: &String,
     ) -> Result<Self, MulEcdsaError> {
-        // Init CL group and update
-        let group = CLGroup::new_from_qtilde(seed, qtilde);
-        let new_class_group = update_class_group_by_p(&group);
+        let new_class_group = update_class_group_by_p(&GROUP_128);
 
         // Load keygen result
         let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;

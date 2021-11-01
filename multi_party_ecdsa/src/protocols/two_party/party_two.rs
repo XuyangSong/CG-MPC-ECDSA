@@ -1,7 +1,7 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
-use crate::utilities::class::update_class_group_by_p;
+use crate::utilities::class::{update_class_group_by_p, GROUP_128};
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
@@ -55,10 +55,11 @@ impl KenGenResult {
 }
 
 impl KeyGenPhase {
-    pub fn new(group: &CLGroup) -> Self {
+    pub fn new() -> Self {
         let keypair = EcKeyPair::new();
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
-        let new_class_group = update_class_group_by_p(group);
+       
+        let new_class_group = update_class_group_by_p(&GROUP_128);
         Self {
             cl_group: new_class_group,
             public_signing_key: None, // Compute later
@@ -189,7 +190,8 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new(cl_group: CLGroup, message_str: &String) -> Self {
+    pub fn new( message_str: &String) -> Self {
+        let cl_group = update_class_group_by_p(&GROUP_128);
         let message_bigint = BigInt::from_hex(message_str).unwrap();
         let message: FE = ECScalar::from(&message_bigint);
 

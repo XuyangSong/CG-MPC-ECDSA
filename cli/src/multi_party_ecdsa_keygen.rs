@@ -1,7 +1,5 @@
 use cli::config::MultiPartyConfig;
 use cli::console::Console;
-use curv::arithmetic::Converter;
-use curv::BigInt;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -53,16 +51,9 @@ impl InitMessage {
             share_count: config.share_count,
         };
 
-        //Init group params
-        let seed: BigInt = BigInt::from_hex(
-            "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-        ).unwrap();
-        // discriminant: 1348, lambda: 112
-        let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
-
         // TBD: add a new func, init it latter.
         //Init multi party info
-        let keygen = KeyGenPhase::new(&seed, &qtilde, index, params.clone()).unwrap();
+        let keygen = KeyGenPhase::new(index, params.clone()).unwrap();
         let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
             my_info,

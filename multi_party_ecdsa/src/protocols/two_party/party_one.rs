@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
-use crate::utilities::class::update_class_group_by_p;
+use crate::utilities::class::{update_class_group_by_p, GROUP_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
@@ -27,7 +27,6 @@ use class_group::BinaryQF;
 //****************** Begin: Party One structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyGenPhase {
-    pub old_cl_group: CLGroup,
     pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
     pub cl_keypair: ClKeyPair,
@@ -59,16 +58,16 @@ pub struct KenGenResult {
 }
 
 impl KeyGenPhase {
-    pub fn new(group: &CLGroup) -> Self {
+    pub fn new() -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
 
         // Generate cl keypair
-        let mut cl_keypair = ClKeyPair::new(group);
+        let mut cl_keypair = ClKeyPair::new(&GROUP_128);
         let h_caret = cl_keypair.get_public_key().clone();
         cl_keypair.update_pk_exp_p();
 
-        let new_class_group = update_class_group_by_p(group);
+        let new_class_group = update_class_group_by_p(&GROUP_128);
 
         // Precomputation: promise proof
         let cipher = PromiseCipher::encrypt(
@@ -88,7 +87,6 @@ impl KeyGenPhase {
         let promise_proof = PromiseProof::prove(&new_class_group, &promise_state, &promise_wit);
 
         Self {
-            old_cl_group: group.clone(),
             public_signing_key: None, // Compute later
             keypair,
             round_one_msg: dl_com_zk.commitments,
@@ -108,7 +106,7 @@ impl KeyGenPhase {
         let dl_com_zk = DLComZK::new(&self.keypair);
         self.round_one_msg = dl_com_zk.commitments;
         self.round_two_msg = dl_com_zk.witness;
-        let mut cl_keypair = ClKeyPair::new(&self.old_cl_group);
+        let mut cl_keypair = ClKeyPair::new(&GROUP_128);
         let h_caret = cl_keypair.get_public_key().clone();
         self.h_caret = h_caret;
         cl_keypair.update_pk_exp_p();
@@ -228,7 +226,8 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new(cl_group: CLGroup, message_str: &String) -> Self {
+    pub fn new(message_str: &String) -> Self {
+        let cl_group = update_class_group_by_p(&GROUP_128);
         let message_bigint = BigInt::from_hex(message_str).unwrap();
         let message: FE = ECScalar::from(&message_bigint);
 

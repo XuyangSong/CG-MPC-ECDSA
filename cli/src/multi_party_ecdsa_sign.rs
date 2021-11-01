@@ -1,7 +1,5 @@
 use cli::console::Console;
 use cli::config::MultiPartyConfig;
-use curv::arithmetic::Converter;
-use curv::BigInt;
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
@@ -71,22 +69,12 @@ impl InitMessage {
             share_count: config.share_count,
         };
 
-        //Init group params
-        let seed: BigInt = BigInt::from_hex(
-            "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-        ).unwrap();
-
-        // discriminant: 1348, lambda: 112
-        let qtilde: BigInt = BigInt::from_hex("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
-
         // Load keygen result
         let input_path = Path::new(&opt.keygen_path);
         let keygen_json_string = fs::read_to_string(input_path).unwrap();
 
         // Sign init
         let sign = SignPhase::new(
-            &seed,
-            &qtilde,
             opt.index,
             params,
             &opt.subset,
