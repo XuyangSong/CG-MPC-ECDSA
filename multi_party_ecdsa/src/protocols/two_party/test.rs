@@ -24,11 +24,11 @@ fn two_party_test() {
     let keygen_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
-    let mut party_one_key_gen_init = party_one::KeyGenPhase::new(&cl_group);
+    let mut party_one_key_gen_init = party_one::KeyGenPhase::new();
     let party_one_init_round_one_msg = party_one_key_gen_init.round_one_msg.clone();
 
     // Party two round 1: send party_two_key_gen_init.msg
-    let mut party_two_key_gen_init = party_two::KeyGenPhase::new(&cl_group);
+    let mut party_two_key_gen_init = party_two::KeyGenPhase::new();
     let party_two_key_gen_round_one_msg = party_two_key_gen_init.msg.clone();
 
     // Party one round 2: verify received msg and send round 2 msg
@@ -75,7 +75,7 @@ fn two_party_test() {
         .generate_result_json_string()
         .unwrap();
     let mut party_one_sign_new =
-        party_one::SignPhase::new(party_one_key_gen_init.cl_group, &sign_message);
+        party_one::SignPhase::new(&sign_message);
     party_one_sign_new.load_keygen_result(&party_one_keygen_result);
     let party_one_sign_round_one_msg = party_one_sign_new.round_one_msg.clone();
 
@@ -84,7 +84,7 @@ fn two_party_test() {
         .generate_result_json_string(&state)
         .unwrap();
     let mut party_two_sign_new =
-        party_two::SignPhase::new(party_two_key_gen_init.cl_group, &sign_message);
+        party_two::SignPhase::new(&sign_message);
     party_two_sign_new.load_keygen_result(&party_two_keygen_result);
     let party_two_sign_round_one_msg = party_two_sign_new.msg.clone();
 

@@ -1,7 +1,7 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::update_class_group_by_p;
+use crate::utilities::class::{update_class_group_by_p, GROUP_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
@@ -12,7 +12,7 @@ use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
-use curv::BigInt;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -33,7 +33,6 @@ pub struct KeyGenMsgs {
 
 #[derive(Clone, Debug)]
 pub struct KeyGenPhase {
-    old_group: CLGroup,
     group: CLGroup,
     pub party_index: usize,
     pub params: Parameters,
@@ -88,16 +87,11 @@ impl KenGenResult {
 
 impl KeyGenPhase {
     pub fn new(
-        seed: &BigInt,
-        qtilde: &BigInt,
         party_index: usize,
         params: Parameters,
     ) -> Result<Self, MulEcdsaError> {
-        // Init CL group
-        let group = CLGroup::new_from_qtilde(seed, qtilde);
-
         // Generate cl keypair
-        let mut cl_keypair = ClKeyPair::new(&group);
+        let mut cl_keypair = ClKeyPair::new(&GROUP_128);
         let h_caret = cl_keypair.get_public_key().clone();
         cl_keypair.update_pk_exp_p();
 
@@ -105,7 +99,7 @@ impl KeyGenPhase {
         let ec_keypair = EcKeyPair::new();
 
         // Update gp
-        let new_class_group = update_class_group_by_p(&group);
+        let new_class_group = update_class_group_by_p(&GROUP_128);
 
         // Generate signing key pair
         let private_signing_key = EcKeyPair::new();
@@ -145,7 +139,6 @@ impl KeyGenPhase {
         .map_err(|_| MulEcdsaError::GenVSSFailed)?;
 
         Ok(Self {
-            old_group: group,
             group: new_class_group,
             party_index,
             params,
@@ -164,7 +157,7 @@ impl KeyGenPhase {
 
     pub fn refresh(&mut self) -> Result<(), MulEcdsaError> {
         // Refresh cl keypair
-        let mut cl_keypair = ClKeyPair::new(&self.old_group);
+        let mut cl_keypair = ClKeyPair::new(&GROUP_128);
         self.h_caret = cl_keypair.get_public_key().clone();
         cl_keypair.update_pk_exp_p();
         self.cl_keypair = cl_keypair;
@@ -478,29 +471,20 @@ impl KeyGenPhase {
 #[test]
 fn test_exp() {
     use curv::arithmetic::traits::*;
-    let seed: BigInt = BigInt::from_hex(
-        "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-    ).unwrap();
+    use curv::BigInt;
 
-    // 683
-    // let qtilde: BigInt = str::parse("23893039587891638565297401593924273169825964283558231612167738384238313917887833945225898199741584873627027859268757281540231029139309613219716874418588517495558290624716349383746651319918936091587965845797835593810764676322501564946526995033976417223598945838942128878559190581681834232455419055873026991107437602524121085617731").unwrap();
-
-    // 923
-    let qtilde: BigInt = BigInt::from_hex("23134629277267369792843354241183585965289672542849276532207430015120455980466994354663282525744929223097771940566085692607836906398587331469747248600524817812682304621106507179764371100444437141969242248158429617082063052414988242667563996070192147160738941577591048902446543474661282744240565430969463246910793975505673398580796242020117195767211576704240148858827298420892993584245717232048052900060035847264121684747571088249105643535567823029086931610261875021794804631").unwrap();
-    let group = CLGroup::new_from_qtilde(&seed, &qtilde);
-    println!("{}", group.stilde.bit_length());
-    let r_1 = BigInt::sample_below(&(&group.stilde * BigInt::from(2).pow(40)));
+    let r_1 = BigInt::sample_below(&(&GROUP_128.stilde * BigInt::from(2).pow(40)));
     let r_2 = BigInt::sample_below(
-        &(&group.stilde
+        &(&GROUP_128.stilde
             * BigInt::from(2).pow(40)
             * BigInt::from(2).pow(128 as u32)
             * BigInt::from(2).pow(40)),
     );
 
     let t1 = time::now();
-    group.gq.exp(&r_1);
+    GROUP_128.gq.exp(&r_1);
     println!("time: {:?}", time::now() - t1);
     let t2 = time::now();
-    group.gq.exp(&r_2);
+    GROUP_128.gq.exp(&r_2);
     println!("time: {:?}", time::now() - t2);
 }
