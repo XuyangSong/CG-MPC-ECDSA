@@ -17,6 +17,16 @@ pub enum MulEcdsaError {
     XcoorNone,
     #[error("Verify two-party ECDSA signature failed")]
     VrfyTwoECDSAFailed,
+    #[error("Verify party two one round message and generate nest message failed in keygen phase")]
+    VrfyKeyGenPartyTwoRoundOneMsgFailed,
+    #[error("Verify party two one round message and generate nest message failed in sign phase")]
+    VrfySignPartyTwoRoundOneMsgFailed,
+    #[error("Party one sign failed in two party ECDSA")]
+    PartyOneSignFailed,
+    #[error("Party two sign failed in two party ECDSA")]
+    PartyTwoSignFailed,
+    #[error("Verify multi-party ECDSA signature failed")]
+    VrfyMultiECDSAFailed,
     #[error("Verify class group pk failed")]
     VrfyClassGroupFailed,
     #[error("Verify received DL commitment zk failed")]
@@ -87,6 +97,10 @@ pub enum MulEcdsaError {
     NotLoadKeyGenResult,
     #[error("Invalid public key")]
     InvalidPublicKey,
+    #[error("From Hex Failed")]
+    FromHexFailed,
+    #[error("Generate Result Json String Failed")]
+    GenerateJsonStringFailed,
     #[error("General error")]
     GeneralError,
 }

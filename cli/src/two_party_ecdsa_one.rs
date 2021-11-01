@@ -53,13 +53,13 @@ impl InitMessage {
 
         // Init party one info
         let party_one_keygen = party_one::KeyGenPhase::new();
-        let mut party_one_sign = party_one::SignPhase::new(&message);
+        let mut party_one_sign = party_one::SignPhase::new(&message).unwrap();
 
         // Load keygen result
         let keygen_path = Path::new("./keygen_result0.json");
         if keygen_path.exists() {
             let keygen_json = fs::read_to_string(keygen_path).unwrap();
-            party_one_sign.load_keygen_result(&keygen_json);
+            party_one_sign.load_keygen_result(&keygen_json).unwrap();
         } else {
             // If keygen successes, party_one_sign will load keygen result automally.
             println!("Can not load keygen result! Please keygen first");
@@ -84,13 +84,13 @@ impl MsgProcess<Message> for PartyOne {
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::TwoKeyGenMessagePartyTwo(msg) => {
-                sending_msg = self.party_one_keygen.msg_handler_keygen(&msg);
+                sending_msg = self.party_one_keygen.msg_handler_keygen(&msg).unwrap();
             }
             ReceivingMessages::TwoSignMessagePartyTwo(msg) => {
-                sending_msg = self.party_one_sign.msg_handler_sign(&msg);
+                sending_msg = self.party_one_sign.msg_handler_sign(&msg).unwrap();
             }
             ReceivingMessages::KeyGenBegin => {
-                sending_msg = self.party_one_keygen.process_begin_keygen(index);
+                sending_msg = self.party_one_keygen.process_begin_keygen(index).unwrap();
             }
             ReceivingMessages::SignBegin => {
                 if self.party_one_sign.need_refresh {
@@ -98,11 +98,11 @@ impl MsgProcess<Message> for PartyOne {
                     sending_msg = SendingMessages::BroadcastMessage(msg_bytes);
                     println!("Need refresh");
                 } else {
-                    sending_msg = self.party_one_sign.process_begin_sign(index);
+                    sending_msg = self.party_one_sign.process_begin_sign(index).unwrap();
                 }
             }
             ReceivingMessages::TwoPartySignRefresh(message, keygen_result_json) => {
-                self.party_one_sign.refresh(&message, &keygen_result_json);
+                self.party_one_sign.refresh(&message, &keygen_result_json).unwrap();
                 println!("Refresh Success!");
             }
             ReceivingMessages::NeedRefresh => {
@@ -135,7 +135,7 @@ impl MsgProcess<Message> for PartyOne {
                 println!("keygen Success! {}", res);
 
                 // Load keygen result for signphase
-                self.party_one_sign.load_keygen_result(&res);
+                self.party_one_sign.load_keygen_result(&res).unwrap();
 
                 let file_name = "./keygen_result0".to_string() + ".json";
                 fs::write(file_name, res).expect("Unable to save !");

@@ -127,7 +127,7 @@ impl SignPhase {
         }
 
         // Process the message to sign
-        let message_bigint = BigInt::from_hex(message_str).unwrap();
+        let message_bigint = BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message: FE = ECScalar::from(&message_bigint);
 
         // Compute lambda
@@ -221,7 +221,7 @@ impl SignPhase {
         self.public_signing_key = keygen_result.pk;
 
         // Process the message to sign
-        let message_bigint = BigInt::from_hex(message_str).unwrap();
+        let message_bigint = BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         self.message = ECScalar::from(&message_bigint);
 
         // Compute lambda
@@ -926,7 +926,7 @@ impl SignPhase {
 
                         signature
                             .verify(&self.public_signing_key, &self.message)
-                            .unwrap();
+                            .map_err(|_| MulEcdsaError::VrfyMultiECDSAFailed)?;
 
                         let signature_json = serde_json::to_string(&signature)
                             .map_err(|_| MulEcdsaError::ToStringFailed)?;

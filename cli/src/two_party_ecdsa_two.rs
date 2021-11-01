@@ -54,13 +54,13 @@ impl InitMessage {
 
         // Init two party info
         let party_two_keygen = party_two::KeyGenPhase::new();
-        let mut party_two_sign = party_two::SignPhase::new(&message);
+        let mut party_two_sign = party_two::SignPhase::new(&message).unwrap();
 
         // Load keygen result
         let keygen_path = Path::new("./keygen_result1.json");
         if keygen_path.exists() {
             let keygen_json = fs::read_to_string(keygen_path).unwrap();
-            party_two_sign.load_keygen_result(&keygen_json);
+            party_two_sign.load_keygen_result(&keygen_json).unwrap();
         } else {
             // If keygen successes, party_one_sign will load keygen result automally.
             println!("Can not load keygen result! Please keygen first");
@@ -85,13 +85,13 @@ impl MsgProcess<Message> for PartyTwo {
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::TwoKeyGenMessagePartyOne(msg) => {
-                sending_msg = self.party_two_keygen.msg_handler_keygen(&msg);
+                sending_msg = self.party_two_keygen.msg_handler_keygen(&msg).unwrap();
             }
             ReceivingMessages::TwoSignMessagePartyOne(msg) => {
-                sending_msg = self.party_two_sign.msg_handler_sign(&msg);
+                sending_msg = self.party_two_sign.msg_handler_sign(&msg).unwrap();
             }
             ReceivingMessages::TwoPartySignRefresh(message, keygen_result_json) => {
-                self.party_two_sign.refresh(&message, &keygen_result_json);
+                self.party_two_sign.refresh(&message, &keygen_result_json).unwrap();
                 println!("Refresh Success!");
             }
             ReceivingMessages::SignBegin => {
@@ -131,7 +131,7 @@ impl MsgProcess<Message> for PartyTwo {
                 println!("keygen Success! {}", res);
 
                 // Load keygen result for signphase
-                self.party_two_sign.load_keygen_result(&res);
+                self.party_two_sign.load_keygen_result(&res).unwrap();
 
                 let file_name = "./keygen_result1".to_string() + ".json";
                 fs::write(file_name, res).expect("Unable to save !");
