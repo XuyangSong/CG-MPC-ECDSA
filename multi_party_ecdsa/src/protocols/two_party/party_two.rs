@@ -45,6 +45,7 @@ pub struct SignPhase {
     pub received_round_one_msg: DLCommitments,
     pub precompute_c1: CLCiphertext,
     pub keygen_result: Option<KenGenResult>,
+    pub need_refresh: bool,
 }
 
 impl KenGenResult {
@@ -58,7 +59,7 @@ impl KeyGenPhase {
     pub fn new() -> Self {
         let keypair = EcKeyPair::new();
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
-       
+
         let new_class_group = update_class_group_by_p(&GROUP_128);
         Self {
             cl_group: new_class_group,
@@ -190,7 +191,7 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new( message_str: &String) -> Self {
+    pub fn new(message_str: &String) -> Self {
         let cl_group = update_class_group_by_p(&GROUP_128);
         let message_bigint = BigInt::from_hex(message_str).unwrap();
         let message: FE = ECScalar::from(&message_bigint);
@@ -210,10 +211,12 @@ impl SignPhase {
             received_round_one_msg: DLCommitments::default(),
             precompute_c1: c1.0,
             keygen_result: None,
+            need_refresh: false,
         }
     }
 
-    pub fn refresh(&mut self, message_str: &String) {
+    pub fn refresh(&mut self, message_str: &String, keygen_json: &String) {
+        self.load_keygen_result(keygen_json);
         let message_bigint = BigInt::from_hex(message_str).unwrap();
         let message: FE = ECScalar::from(&message_bigint);
 
@@ -228,7 +231,7 @@ impl SignPhase {
         self.precompute_c1 = c1.0;
         // self.message = message;
 
-        self.keygen_result = None;
+        self.need_refresh = false;
     }
 
     pub fn load_keygen_result(&mut self, keygen_json: &String) {
@@ -307,6 +310,7 @@ impl SignPhase {
 
                 // Party two time end
                 println!("##    Sign Finish!");
+                self.need_refresh = true;
                 return SendingMessages::BroadcastMessage(msg_bytes);
             }
             _ => {

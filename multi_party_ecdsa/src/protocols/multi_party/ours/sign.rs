@@ -204,15 +204,15 @@ impl SignPhase {
     // TBD: Refine it
     pub fn refresh(
         &mut self,
-        party_index: usize,
-        params: Parameters,
+        // party_index: usize,
+        // params: Parameters,
         subset: Vec<usize>,
         message_str: &String,
         keygen_result_json: &String,
     ) -> Result<(), MulEcdsaError> {
-        self.party_index = party_index;
-        self.params = params;
-        self.party_num = subset.len();
+        // self.party_index = party_index;
+        // self.params = params;
+        // self.party_num = subset.len();
         self.subset = subset.clone();
 
         // Load keygen result

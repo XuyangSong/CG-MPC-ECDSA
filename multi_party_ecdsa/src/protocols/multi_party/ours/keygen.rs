@@ -86,10 +86,7 @@ impl KenGenResult {
 }
 
 impl KeyGenPhase {
-    pub fn new(
-        party_index: usize,
-        params: Parameters,
-    ) -> Result<Self, MulEcdsaError> {
+    pub fn new(party_index: usize, params: Parameters) -> Result<Self, MulEcdsaError> {
         // Generate cl keypair
         let mut cl_keypair = ClKeyPair::new(&GROUP_128);
         let h_caret = cl_keypair.get_public_key().clone();

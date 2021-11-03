@@ -90,6 +90,20 @@ impl MsgProcess<Message> for PartyTwo {
             ReceivingMessages::TwoSignMessagePartyOne(msg) => {
                 sending_msg = self.party_two_sign.msg_handler_sign(&msg);
             }
+            ReceivingMessages::TwoPartySignRefresh(message, keygen_result_json) => {
+                self.party_two_sign.refresh(&message, &keygen_result_json);
+                println!("Refresh Success!");
+            }
+            ReceivingMessages::SignBegin => {
+                if self.party_two_sign.need_refresh {
+                    let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh).unwrap();
+                    sending_msg = SendingMessages::BroadcastMessage(msg_bytes);
+                    println!("Need refresh");
+                }
+            }
+            ReceivingMessages::NeedRefresh => {
+                println!("Index {} need refresh", _index);
+            }
             _ => {
                 println!("Undefined Message Process: {:?}", received_msg);
             }
