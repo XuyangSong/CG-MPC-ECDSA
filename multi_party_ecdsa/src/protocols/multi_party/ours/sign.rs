@@ -68,6 +68,7 @@ pub struct SignPhase {
     pub v_map: HashMap<usize, FE>,
     pub precomputation: HashMap<usize, (CLCipher, CLCipher, GE)>,
     pub msgs: SignMsgs,
+    pub need_refresh: bool,
 }
 
 impl SignMsgs {
@@ -194,6 +195,7 @@ impl SignPhase {
             v_map: HashMap::new(),
             precomputation: HashMap::new(),
             msgs: SignMsgs::new(),
+            need_refresh: false,
         };
 
         ret.init();
@@ -204,15 +206,10 @@ impl SignPhase {
     // TBD: Refine it
     pub fn refresh(
         &mut self,
-        // party_index: usize,
-        // params: Parameters,
         subset: Vec<usize>,
         message_str: &String,
         keygen_result_json: &String,
     ) -> Result<(), MulEcdsaError> {
-        // self.party_index = party_index;
-        // self.params = params;
-        // self.party_num = subset.len();
         self.subset = subset.clone();
 
         // Load keygen result
@@ -271,6 +268,7 @@ impl SignPhase {
         self.msgs.clean();
 
         self.init();
+        self.need_refresh = false;
         Ok(())
     }
 
@@ -932,7 +930,7 @@ impl SignPhase {
 
                         let signature_json = serde_json::to_string(&signature)
                             .map_err(|_| MulEcdsaError::ToStringFailed)?;
-
+                        self.need_refresh = true;
                         return Ok(SendingMessages::SignSuccessWithResult(signature_json));
                     }
                 }

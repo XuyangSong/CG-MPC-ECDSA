@@ -99,10 +99,25 @@ impl MsgProcess<Message> for MultiPartySign {
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::SignBegin => {
-                sending_msg = self.sign.process_begin(index).unwrap();
+                if self.sign.need_refresh {
+                    let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh).unwrap();
+                    sending_msg = SendingMessages::SubsetMessage(msg_bytes);
+                    println!("Need refresh");
+                } else {
+                    sending_msg = self.sign.process_begin(index).unwrap();
+                }
             }
             ReceivingMessages::MultiSignMessage(msg) => {
                 sending_msg = self.sign.msg_handler(index, &msg).unwrap();
+            }
+            ReceivingMessages::MultiPartySignRefresh(message, keygen_result_json, subset) => {
+                self.sign
+                    .refresh(subset, &message, &keygen_result_json)
+                    .unwrap();
+                println!("Refresh Success!");
+            }
+            ReceivingMessages::NeedRefresh => {
+                println!("Index {} need refresh", index);
             }
             _ => {
                 println!("Undefined Message Process: {:?}", received_msg);

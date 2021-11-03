@@ -13,7 +13,7 @@ enum UserCommand {
     KeyGen,
     Sign,
     TwoSignRefresh(String, String),
-    // MultiSignRefresh(String, String, Vec<usize>),
+    MultiSignRefresh(String, String, Vec<usize>),
     Disconnect(PeerID), // peer id
     ListPeers,
     Exit,
@@ -113,6 +113,15 @@ impl Console {
                 .unwrap();
                 self.node.sendself(Message(msg)).await;
             }
+            UserCommand::MultiSignRefresh(message, keygen_result_json, subset) => {
+                let msg = bincode::serialize(&ReceivingMessages::MultiPartySignRefresh(
+                    message,
+                    keygen_result_json,
+                    subset,
+                ))
+                .unwrap();
+                self.node.sendself(Message(msg)).await;
+            }
         }
         Ok(())
     }
@@ -122,7 +131,7 @@ impl Console {
         if line == "" {
             return Ok(UserCommand::Nop);
         }
-        let mut head_tail = line.splitn(4, " ");
+        let mut head_tail = line.splitn(8, " ");
         let command = head_tail
             .next()
             .ok_or_else(|| {
@@ -156,6 +165,23 @@ impl Console {
             Ok(UserCommand::TwoSignRefresh(
                 message.to_owned(),
                 keygen_result_json,
+            ))
+        } else if command == "multirefresh" {
+            let message = rest.ok_or_else(|| "Missing message".to_string())?;
+            let keygen_result_file = head_tail
+                .next()
+                .ok_or_else(|| "Missing keygen result file".to_string())?;
+            let keygen_path = Path::new(keygen_result_file);
+            let keygen_result_json = fs::read_to_string(keygen_path).unwrap();
+            let mut subset = Vec::new();
+            while let Some(s) = head_tail.next() {
+                let index: usize = s.parse().unwrap();
+                subset.push(index);
+            }
+            Ok(UserCommand::MultiSignRefresh(
+                message.to_owned(),
+                keygen_result_json,
+                subset,
             ))
         } else if command == "exit" || command == "quit" || command == "q" {
             Ok(UserCommand::Exit)
