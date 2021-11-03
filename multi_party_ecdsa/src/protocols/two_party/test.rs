@@ -74,8 +74,7 @@ fn two_party_test() {
     let party_one_keygen_result = party_one_key_gen_init
         .generate_result_json_string()
         .unwrap();
-    let mut party_one_sign_new =
-        party_one::SignPhase::new(&sign_message);
+    let mut party_one_sign_new = party_one::SignPhase::new(&sign_message);
     party_one_sign_new.load_keygen_result(&party_one_keygen_result);
     let party_one_sign_round_one_msg = party_one_sign_new.round_one_msg.clone();
 
@@ -83,8 +82,7 @@ fn two_party_test() {
     let party_two_keygen_result = party_two_key_gen_init
         .generate_result_json_string(&state)
         .unwrap();
-    let mut party_two_sign_new =
-        party_two::SignPhase::new(&sign_message);
+    let mut party_two_sign_new = party_two::SignPhase::new(&sign_message);
     party_two_sign_new.load_keygen_result(&party_two_keygen_result);
     let party_two_sign_round_one_msg = party_two_sign_new.msg.clone();
 

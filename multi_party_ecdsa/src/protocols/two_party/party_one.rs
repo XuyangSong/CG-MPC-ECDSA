@@ -48,6 +48,7 @@ pub struct SignPhase {
     pub received_msg: DLogProof<GE>,
     pub message: FE,
     pub keygen_result: Option<KenGenResult>,
+    pub need_refresh: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -247,10 +248,13 @@ impl SignPhase {
             received_msg,
             message,
             keygen_result: None,
+            need_refresh: false,
         }
     }
 
-    pub fn refresh(&mut self, message_str: &String) {
+    pub fn refresh(&mut self, message_str: &String, keygen_json: &String) {
+        self.load_keygen_result(keygen_json);
+
         self.keypair = EcKeyPair::new();
 
         let dl_com_zk = DLComZK::new(&self.keypair);
@@ -261,7 +265,7 @@ impl SignPhase {
         let message: FE = ECScalar::from(&message_bigint);
         self.message = message;
 
-        self.keygen_result = None;
+        self.need_refresh = false;
     }
 
     pub fn load_keygen_result(&mut self, keygen_json: &String) {
@@ -354,6 +358,7 @@ impl SignPhase {
                     .sign(&cipher, &ephemeral_public_share, &t_p, self.message)
                     .unwrap();
                 let signature_json = serde_json::to_string(&signature).unwrap();
+                self.need_refresh = true;
                 return SendingMessages::SignSuccessWithResult(signature_json);
             }
             _ => {

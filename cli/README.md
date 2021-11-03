@@ -66,7 +66,17 @@ KeyGen Begin
 >> sign
 ```
 
-### (d) Step 4: Quit
+### (d) Step 3*: sign refresh
+After refresh, you can sign again.
+
+```shell
+>> tworefresh eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d ./keygen_result0.json
+```
+* tworefresh is command
+* "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d" is the new message to sign.
+* "./keygen_result0.json" is the file path of new keygen-result.
+
+### (e) Step 4: Quit
 
 Disconnect peers.
 ```shell
@@ -251,8 +261,6 @@ Connect the subset peers.
 ```
 
 ### (b) Step 2: Sign Begin
-* Please run sign by party 0.
-
 ```
 >> sign
 ```
@@ -265,7 +273,17 @@ Signature result
 }
 ```
 
-### (c) Step 3: Sign Quit
+### (d) Step 3*: sign refresh
+After refresh, you can sign again.
+
+```shell
+>> multirefresh eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1f ./keygen_result0.json 0 1
+```
+* tworefresh is command
+* "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d" is the new message to sign.
+* "./keygen_result0.json" is the file path of new keygen-result.
+* "0 1" are the new subset member indexes.
+### (d) Step 3: Sign Quit
 
 Disconnect peers.
 ```

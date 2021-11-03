@@ -1,12 +1,12 @@
-use cli::console::Console;
 use cli::config::MultiPartyConfig;
+use cli::console::Console;
+use message::message::Message;
+use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use p2p::{Info, Node};
-use message::message_process::{ProcessMessage, MsgProcess};
-use message::message::Message;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -99,10 +99,25 @@ impl MsgProcess<Message> for MultiPartySign {
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::SignBegin => {
-                sending_msg = self.sign.process_begin(index).unwrap();
+                if self.sign.need_refresh {
+                    let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh).unwrap();
+                    sending_msg = SendingMessages::SubsetMessage(msg_bytes);
+                    println!("Need refresh");
+                } else {
+                    sending_msg = self.sign.process_begin(index).unwrap();
+                }
             }
             ReceivingMessages::MultiSignMessage(msg) => {
                 sending_msg = self.sign.msg_handler(index, &msg).unwrap();
+            }
+            ReceivingMessages::MultiPartySignRefresh(message, keygen_result_json, subset) => {
+                self.sign
+                    .refresh(subset, &message, &keygen_result_json)
+                    .unwrap();
+                println!("Refresh Success!");
+            }
+            ReceivingMessages::NeedRefresh => {
+                println!("Index {} need refresh", index);
             }
             _ => {
                 println!("Undefined Message Process: {:?}", received_msg);
@@ -156,10 +171,7 @@ fn main() {
                 Node::<Message>::node_init(&init_messages.my_info).await;
 
             // Begin the UI.
-            let interactive_loop = Console::spawn(
-                node_handle.clone(),
-                init_messages.peers_info,
-            );
+            let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
 
             let mut message_process = init_messages.multi_party_sign_info;
             // Spawn the notifications loop
