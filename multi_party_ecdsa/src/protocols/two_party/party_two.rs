@@ -123,7 +123,10 @@ impl KeyGenPhase {
         self.public_signing_key = Some(received_r_1 * self.keypair.get_secret_key());
     }
 
-    pub fn msg_handler_keygen(&mut self, msg_received: &PartyOneMsg) -> Result<SendingMessages, MulEcdsaError> {
+    pub fn msg_handler_keygen(
+        &mut self,
+        msg_received: &PartyOneMsg,
+    ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
             PartyOneMsg::KeyGenPartyOneRoundOneMsg(dlcom) => {
                 println!("\n=>    KeyGen: Receiving RoundOneMsg from index 0");
@@ -137,7 +140,8 @@ impl KeyGenPhase {
                 let msg_send = ReceivingMessages::TwoKeyGenMessagePartyTwo(
                     PartyTwoMsg::KenGenPartyTwoRoundOneMsg(self.msg.clone()),
                 );
-                let msg_bytes = bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                let msg_bytes =
+                    bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
             PartyOneMsg::KeyGenPartyOneRoundTwoMsg(
@@ -150,17 +154,21 @@ impl KeyGenPhase {
             ) => {
                 println!("\n=>    KeyGen: Receiving RoundTwoMsg from index 0");
                 // Verify commitment
-                KeyGenPhase::verify_received_dl_com_zk(&self.received_msg, &com_open).map_err(|_| MulEcdsaError::VrfyRecvDLComZKFailed)?;
+                KeyGenPhase::verify_received_dl_com_zk(&self.received_msg, &com_open)
+                    .map_err(|_| MulEcdsaError::VrfyRecvDLComZKFailed)?;
 
                 // Verify pk and pk's
-                self.verify_class_group_pk(&h_caret, &h, &gp).map_err(|_| MulEcdsaError::VrfyClassGroupFailed)?;
+                self.verify_class_group_pk(&h_caret, &h, &gp)
+                    .map_err(|_| MulEcdsaError::VrfyClassGroupFailed)?;
 
                 // Verify promise proof
                 self.verify_promise_proof(&promise_state, &promise_proof)
                     .map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
                 self.compute_public_key(com_open.get_public_key());
 
-                let keygen_json = self.generate_result_json_string(&promise_state).map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
+                let keygen_json = self
+                    .generate_result_json_string(&promise_state)
+                    .map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
                 self.need_refresh = true;
                 return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
             }
@@ -191,9 +199,10 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new( message_str: &String) -> Result<Self, MulEcdsaError> {
+    pub fn new(message_str: &String) -> Result<Self, MulEcdsaError> {
         let cl_group = update_class_group_by_p(&GROUP_128);
-        let message_bigint = BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message_bigint =
+            BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message: FE = ECScalar::from(&message_bigint);
 
         let keypair = EcKeyPair::new();
@@ -215,9 +224,14 @@ impl SignPhase {
         })
     }
 
-    pub fn refresh(&mut self, message_str: &String, keygen_json: &String) -> Result<(), MulEcdsaError> {
+    pub fn refresh(
+        &mut self,
+        message_str: &String,
+        keygen_json: &String,
+    ) -> Result<(), MulEcdsaError> {
         self.load_keygen_result(keygen_json)?;
-        let message_bigint = BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message_bigint =
+            BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message: FE = ECScalar::from(&message_bigint);
 
         self.keypair = EcKeyPair::new();
@@ -237,7 +251,8 @@ impl SignPhase {
 
     pub fn load_keygen_result(&mut self, keygen_json: &String) -> Result<(), MulEcdsaError> {
         // Load keygen result
-        let keygen_result = KenGenResult::from_json_string(keygen_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_result = KenGenResult::from_json_string(keygen_json)
+            .map_err(|_| MulEcdsaError::FromStringFailed)?;
         self.keygen_result = Some(keygen_result);
         Ok(())
     }
@@ -284,7 +299,10 @@ impl SignPhase {
         }
     }
 
-    pub fn msg_handler_sign(&mut self, msg_received: &PartyOneMsg) -> Result<SendingMessages, MulEcdsaError> {
+    pub fn msg_handler_sign(
+        &mut self,
+        msg_received: &PartyOneMsg,
+    ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
             PartyOneMsg::SignPartyOneRoundOneMsg(dlcom) => {
                 println!("\n=>    Sign: Receiving RoundOneMsg from index 0");
@@ -292,7 +310,8 @@ impl SignPhase {
                 let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
                     PartyTwoMsg::SignPartyTwoRoundOneMsg(self.msg.clone()),
                 );
-                let msg_bytes = bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                let msg_bytes =
+                    bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
             PartyOneMsg::SignPartyOneRoundTwoMsg(witness) => {
@@ -303,12 +322,15 @@ impl SignPhase {
 
                 let ephemeral_public_share =
                     self.compute_public_share_key(witness.get_public_key());
-                let (cipher, t_p) = self.sign(&ephemeral_public_share).map_err(|_| MulEcdsaError::PartyTwoSignFailed)?;
+                let (cipher, t_p) = self
+                    .sign(&ephemeral_public_share)
+                    .map_err(|_| MulEcdsaError::PartyTwoSignFailed)?;
 
                 let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
                     PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),
                 );
-                let msg_bytes = bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                let msg_bytes =
+                    bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
 
                 // Party two time end
                 println!("##    Sign Finish!");

@@ -43,12 +43,12 @@ pub struct InitMessage {
 }
 
 impl InitMessage {
-    pub fn init_message() -> Self {
+    pub fn init_message() -> Result<Self, anyhow::Error> {
         let opt = Opt::from_args();
         let index = 0;
         let message = opt.message;
-        let config = TwoPartyConfig::new_from_file(&opt.config_path).unwrap();
-        let my_info = config.get_my_info(index);
+        let config = TwoPartyConfig::new_from_file(&opt.config_path)?;
+        let my_info = config.get_my_info(index)?;
         let peer_info = config.get_peer_info(index);
 
         // Init party one info
@@ -70,11 +70,11 @@ impl InitMessage {
             party_one_sign,
         };
 
-        InitMessage {
+        Ok(Self {
             my_info,
             peer_info,
             party_one_info,
-        }
+        })
     }
 }
 
@@ -102,7 +102,9 @@ impl MsgProcess<Message> for PartyOne {
                 }
             }
             ReceivingMessages::TwoPartySignRefresh(message, keygen_result_json) => {
-                self.party_one_sign.refresh(&message, &keygen_result_json).unwrap();
+                self.party_one_sign
+                    .refresh(&message, &keygen_result_json)
+                    .unwrap();
                 println!("Refresh Success!");
             }
             ReceivingMessages::NeedRefresh => {
@@ -154,7 +156,7 @@ impl MsgProcess<Message> for PartyOne {
 }
 
 fn main() {
-    let init_messages = InitMessage::init_message();
+    let init_messages = InitMessage::init_message().expect("Init message failed!");
 
     // Create the runtime.
     let mut rt: tokio::runtime::Runtime =

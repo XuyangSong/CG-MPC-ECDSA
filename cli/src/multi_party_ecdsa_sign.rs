@@ -53,16 +53,16 @@ pub struct InitMessage {
 }
 
 impl InitMessage {
-    pub fn init_message() -> Self {
+    pub fn init_message() -> Result<Self, anyhow::Error> {
         let opt = Opt::from_args();
 
         // Process config
-        let config = MultiPartyConfig::new_from_file(&opt.config_path).unwrap();
+        let config = MultiPartyConfig::new_from_file(&opt.config_path)?;
         assert!(
             opt.subset.len() > config.threshold,
             "PartyLessThanThreshold"
         );
-        let my_info = config.get_my_info(opt.index);
+        let my_info = config.get_my_info(opt.index)?;
         let peers_info: Vec<Info> = config.get_peers_info_sign(opt.index, opt.subset.clone());
         let params = Parameters {
             threshold: config.threshold,
@@ -88,7 +88,7 @@ impl InitMessage {
             peers_info,
             multi_party_sign_info: multi_party_sign_info,
         };
-        return init_messages;
+        return Ok(init_messages);
     }
 }
 
@@ -159,7 +159,7 @@ impl MsgProcess<Message> for MultiPartySign {
     }
 }
 fn main() {
-    let init_messages = InitMessage::init_message();
+    let init_messages = InitMessage::init_message().expect("Init message failed!");
 
     // Create the runtime.
     let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");

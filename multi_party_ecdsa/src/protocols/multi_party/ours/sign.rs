@@ -127,7 +127,8 @@ impl SignPhase {
         }
 
         // Process the message to sign
-        let message_bigint = BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message_bigint =
+            BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message: FE = ECScalar::from(&message_bigint);
 
         // Compute lambda
@@ -221,7 +222,8 @@ impl SignPhase {
         self.public_signing_key = keygen_result.pk;
 
         // Process the message to sign
-        let message_bigint = BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message_bigint =
+            BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         self.message = ECScalar::from(&message_bigint);
 
         // Compute lambda
