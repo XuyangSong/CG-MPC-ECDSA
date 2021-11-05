@@ -142,7 +142,6 @@ impl KeyGenPhase {
         &self,
         dl_proof: &DLogProof<GE>,
     ) -> Result<CommWitness, MulEcdsaError> {
-        // TBD: handle the error
         DLogProof::verify(dl_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
         Ok(self.round_two_msg.clone())
     }
@@ -182,9 +181,7 @@ impl KeyGenPhase {
         match msg_received {
             PartyTwoMsg::KenGenPartyTwoRoundOneMsg(msg) => {
                 println!("\n=>    KeyGen: Receiving RoundOneMsg from index 1");
-                let com_open = self
-                    .verify_and_get_next_msg(&msg)
-                    .map_err(|_| MulEcdsaError::VrfyKeyGenPartyTwoRoundOneMsgFailed)?;
+                let com_open = self.verify_and_get_next_msg(&msg)?;
                 self.compute_public_key(&msg.pk);
 
                 // Get pk and pk'
@@ -208,9 +205,7 @@ impl KeyGenPhase {
             PartyTwoMsg::KeyGenFinish => {
                 // Set refresh
                 self.need_refresh = true;
-                let keygen_json = self
-                    .generate_result_json_string()
-                    .map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
+                let keygen_json = self.generate_result_json_string()?;
                 return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
             }
             _ => return Ok(SendingMessages::EmptyMsg),
@@ -286,8 +281,7 @@ impl SignPhase {
 
     pub fn load_keygen_result(&mut self, keygen_json: &String) -> Result<(), MulEcdsaError> {
         // Load keygen result
-        let keygen_result = KenGenResult::from_json_string(keygen_json)
-            .map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_result = KenGenResult::from_json_string(keygen_json)?;
         self.keygen_result = Some(keygen_result);
         Ok(())
     }
@@ -300,7 +294,6 @@ impl SignPhase {
         &self,
         dl_proof: &DLogProof<GE>,
     ) -> Result<CommWitness, MulEcdsaError> {
-        // TBD: handle the error
         DLogProof::verify(dl_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
         Ok(self.round_two_msg.clone())
     }
@@ -363,9 +356,7 @@ impl SignPhase {
             PartyTwoMsg::SignPartyTwoRoundOneMsg(msg) => {
                 println!("\n=>    Sign: Receiving RoundOneMsg from index 1");
 
-                let witness = self
-                    .verify_and_get_next_msg(&msg)
-                    .map_err(|_| MulEcdsaError::VrfySignPartyTwoRoundOneMsgFailed)?;
+                let witness = self.verify_and_get_next_msg(&msg)?;
                 self.set_received_msg((*msg).clone());
 
                 let msg_send = ReceivingMessages::TwoSignMessagePartyOne(

@@ -95,8 +95,7 @@ impl KeyGenPhase {
         commitment: &DLCommitments,
         witness: &CommWitness,
     ) -> Result<(), MulEcdsaError> {
-        // TBD: handle the error
-        DLComZK::verify(commitment, witness).map_err(|_| MulEcdsaError::VrfyRecvDLComZKFailed)?;
+        DLComZK::verify(commitment, witness)?;
 
         Ok(())
     }
@@ -108,9 +107,7 @@ impl KeyGenPhase {
     ) -> Result<(), MulEcdsaError> {
         // TBD: check pk
 
-        proof
-            .verify(&self.cl_group, state)
-            .map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
+        proof.verify(&self.cl_group, state)?;
 
         Ok(())
     }
@@ -154,21 +151,16 @@ impl KeyGenPhase {
             ) => {
                 println!("\n=>    KeyGen: Receiving RoundTwoMsg from index 0");
                 // Verify commitment
-                KeyGenPhase::verify_received_dl_com_zk(&self.received_msg, &com_open)
-                    .map_err(|_| MulEcdsaError::VrfyRecvDLComZKFailed)?;
+                KeyGenPhase::verify_received_dl_com_zk(&self.received_msg, &com_open)?;
 
                 // Verify pk and pk's
-                self.verify_class_group_pk(&h_caret, &h, &gp)
-                    .map_err(|_| MulEcdsaError::VrfyClassGroupFailed)?;
+                self.verify_class_group_pk(&h_caret, &h, &gp)?;
 
                 // Verify promise proof
-                self.verify_promise_proof(&promise_state, &promise_proof)
-                    .map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
+                self.verify_promise_proof(&promise_state, &promise_proof)?;
                 self.compute_public_key(com_open.get_public_key());
 
-                let keygen_json = self
-                    .generate_result_json_string(&promise_state)
-                    .map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
+                let keygen_json = self.generate_result_json_string(&promise_state)?;
                 self.need_refresh = true;
                 return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
             }
@@ -251,8 +243,7 @@ impl SignPhase {
 
     pub fn load_keygen_result(&mut self, keygen_json: &String) -> Result<(), MulEcdsaError> {
         // Load keygen result
-        let keygen_result = KenGenResult::from_json_string(keygen_json)
-            .map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_result = KenGenResult::from_json_string(keygen_json)?;
         self.keygen_result = Some(keygen_result);
         Ok(())
     }
@@ -265,9 +256,7 @@ impl SignPhase {
         commitment: &DLCommitments,
         witness: &CommWitness,
     ) -> Result<(), MulEcdsaError> {
-        // TBD: handle the error
-        DLComZK::verify(commitment, witness).map_err(|_| MulEcdsaError::VrfyRecvDLComZKFailed)?;
-        Ok(())
+        DLComZK::verify(commitment, witness)
     }
 
     pub fn compute_public_share_key(&self, received_r_1: &GE) -> GE {
@@ -317,14 +306,11 @@ impl SignPhase {
             PartyOneMsg::SignPartyOneRoundTwoMsg(witness) => {
                 println!("\n=>    Sign: Receiving RoundTwoMsg from index 0");
 
-                SignPhase::verify_received_dl_com_zk(&self.received_round_one_msg, &witness)
-                    .map_err(|_| MulEcdsaError::VrfyRecvDLComZKFailed)?;
+                SignPhase::verify_received_dl_com_zk(&self.received_round_one_msg, &witness)?;
 
                 let ephemeral_public_share =
                     self.compute_public_share_key(witness.get_public_key());
-                let (cipher, t_p) = self
-                    .sign(&ephemeral_public_share)
-                    .map_err(|_| MulEcdsaError::PartyTwoSignFailed)?;
+                let (cipher, t_p) = self.sign(&ephemeral_public_share)?;
 
                 let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
                     PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),

@@ -231,7 +231,6 @@ where
     > {
         let vs: Vec<&str> = my_info.address.splitn(2, ":").collect();
 
-        // TBD: handle the unwrap, return a error.
         let ip = vs[0]
             .parse()
             .map_err(|why| format_err!("Invalid ip, address: {}, err: {}", my_info.address, why))?;

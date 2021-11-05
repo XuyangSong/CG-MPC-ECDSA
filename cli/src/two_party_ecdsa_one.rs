@@ -143,7 +143,7 @@ impl MsgProcess<Message> for PartyOne {
                 self.party_one_sign.load_keygen_result(&res)?;
 
                 let file_name = "./keygen_result0".to_string() + ".json";
-                fs::write(file_name, res).expect("Unable to save !");
+                fs::write(file_name, res).map_err(|why| format_err!("result save err: {}", why))?;
                 return Ok(ProcessMessage::Default());
             }
             SendingMessages::SignSuccessWithResult(res) => {

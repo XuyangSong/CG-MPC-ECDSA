@@ -139,7 +139,7 @@ impl MsgProcess<Message> for PartyTwo {
                 self.party_two_sign.load_keygen_result(&res)?;
 
                 let file_name = "./keygen_result1".to_string() + ".json";
-                fs::write(file_name, res).expect("Unable to save !");
+                fs::write(file_name, res).map_err(|why| format_err!("result save err: {}", why))?;
 
                 // Send KeyGenFinish to party0
                 let msg_send =

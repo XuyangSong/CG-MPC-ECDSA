@@ -204,7 +204,6 @@ impl SignPhase {
         Ok(ret)
     }
 
-    // TBD: Refine it
     pub fn refresh(
         &mut self,
         subset: Vec<usize>,
@@ -365,9 +364,7 @@ impl SignPhase {
     ) -> Result<Vec<u8>, MulEcdsaError> {
         // TBD: check ec cl pk
         // Verify promise proof
-        msg.proof
-            .verify(&self.group, &msg.promise_state)
-            .map_err(|_| MulEcdsaError::VrfyPromiseFailed)?;
+        msg.proof.verify(&self.group, &msg.promise_state)?;
 
         // Homo
         let cipher = &msg.promise_state.cipher;
@@ -475,7 +472,7 @@ impl SignPhase {
 
     fn phase_two_compute_delta_sum_msg(&mut self) -> Result<(), MulEcdsaError> {
         if self.msgs.phase_three_msgs.len() != self.party_num {
-            return Err(MulEcdsaError::LeftNotEqualRight);
+            return Err(MulEcdsaError::ComputeDeltaSumFailed);
         }
 
         self.delta_sum = self
@@ -497,8 +494,7 @@ impl SignPhase {
             .phase_one_msgs
             .get(&index)
             .ok_or(MulEcdsaError::GetIndexFailed)?;
-        DlogCommitment::verify_dlog(&msg_one.commitment, &msg.open)
-            .map_err(|_| MulEcdsaError::OpenDLCommFailed)?;
+        DlogCommitment::verify_dlog(&msg_one.commitment, &msg.open)?;
 
         Ok(())
     }
@@ -727,9 +723,7 @@ impl SignPhase {
 
     pub fn process_begin(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError> {
         if self.subset.contains(&index) {
-            let msg = self
-                .get_phase_one_msg()
-                .map_err(|_| MulEcdsaError::GetSignPhaseOneMsgFailed)?;
+            let msg = self.get_phase_one_msg()?;
             return Ok(SendingMessages::SubsetMessage(msg));
         }
         Ok(SendingMessages::EmptyMsg)
@@ -751,9 +745,7 @@ impl SignPhase {
                     // Handle the msg and generate the reply msg
                     self.msgs.phase_one_msgs.insert(index, msg.clone());
 
-                    let msg = self
-                        .handle_phase_one_msg(index, &msg)
-                        .map_err(|_| MulEcdsaError::HandleSignPhaseOneMsgFailed)?;
+                    let msg = self.handle_phase_one_msg(index, &msg)?;
                     return Ok(SendingMessages::NormalMessage(index, msg));
                 }
                 MultiSignMessage::PhaseTwoMsg(msg) => {
@@ -763,8 +755,7 @@ impl SignPhase {
                     }
 
                     // Handle the msg
-                    self.handle_phase_two_msg(index, &msg)
-                        .map_err(|_| MulEcdsaError::HandleSignPhaseTwoMsgFailed)?;
+                    self.handle_phase_two_msg(index, &msg)?;
 
                     self.msgs.phase_two_msgs.insert(index, msg.clone());
                     // Generate the next msg
@@ -786,8 +777,7 @@ impl SignPhase {
                 MultiSignMessage::PhaseThreeMsg(msg) => {
                     self.msgs.phase_three_msgs.insert(index, msg.clone());
                     if self.msgs.phase_three_msgs.len() == self.party_num {
-                        self.phase_two_compute_delta_sum_msg()
-                            .map_err(|_| MulEcdsaError::ComputeDeltaSumFailed)?;
+                        self.phase_two_compute_delta_sum_msg()?;
                         let msg_four = self
                             .msgs
                             .phase_four_msgs
@@ -808,14 +798,12 @@ impl SignPhase {
                     }
 
                     // Handle the msg
-                    self.handle_phase_four_msg(index, &msg)
-                        .map_err(|_| MulEcdsaError::HandleSignPhaseFourMsgFailed)?;
+                    self.handle_phase_four_msg(index, &msg)?;
 
                     self.msgs.phase_four_msgs.insert(index, msg.clone());
                     // Generate the next msg
                     if self.msgs.phase_four_msgs.len() == self.party_num {
-                        self.compute_r_x()
-                            .map_err(|_| MulEcdsaError::ComputeRxFailed)?;
+                        self.compute_r_x()?;
                         let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
                         let sending_msg = ReceivingMessages::MultiSignMessage(
                             MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
@@ -850,17 +838,14 @@ impl SignPhase {
                     }
 
                     // Handle the msg
-                    self.handle_phase_five_step_two_msg(index, &msg)
-                        .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepTwoMsgFailed)?;
+                    self.handle_phase_five_step_two_msg(index, &msg)?;
 
                     self.msgs
                         .phase_five_step_two_msgs
                         .insert(index, msg.clone());
                     // Generate the next msg
                     if self.msgs.phase_five_step_two_msgs.len() == self.party_num {
-                        let msg_five_four = self
-                            .generate_phase_five_step_four_msg()
-                            .map_err(|_| MulEcdsaError::GenerateSignPhaseFiveStepFourMsgFailed)?;
+                        let msg_five_four = self.generate_phase_five_step_four_msg()?;
                         let sending_msg = ReceivingMessages::MultiSignMessage(
                             MultiSignMessage::PhaseFiveStepFourMsg(msg_five_four.clone()),
                         );
@@ -894,8 +879,7 @@ impl SignPhase {
                     }
 
                     // Handle the msg
-                    self.handle_phase_five_step_five_msg(index, &msg)
-                        .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepFiveMsgFailed)?;
+                    self.handle_phase_five_step_five_msg(index, &msg)?;
 
                     self.msgs
                         .phase_five_step_five_msgs
@@ -922,13 +906,9 @@ impl SignPhase {
                         .phase_five_step_seven_msgs
                         .insert(index, msg.clone());
                     if self.msgs.phase_five_step_seven_msgs.len() == self.party_num {
-                        let signature = self
-                            .phase_five_step_eight_generate_signature_msg()
-                            .map_err(|_| MulEcdsaError::HandleSignPhaseFiveStepEightMsgFailed)?;
+                        let signature = self.phase_five_step_eight_generate_signature_msg()?;
 
-                        signature
-                            .verify(&self.public_signing_key, &self.message)
-                            .map_err(|_| MulEcdsaError::VrfyMultiECDSAFailed)?;
+                        signature.verify(&self.public_signing_key, &self.message)?;
 
                         let signature_json = serde_json::to_string(&signature)
                             .map_err(|_| MulEcdsaError::ToStringFailed)?;

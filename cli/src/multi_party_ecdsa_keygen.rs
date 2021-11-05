@@ -52,8 +52,7 @@ impl InitMessage {
             share_count: config.share_count,
         };
 
-        // TBD: add a new func, init it latter.
-        //Init multi party info
+        // Init multi party info
         let keygen = KeyGenPhase::new(index, params)?;
         let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
@@ -103,7 +102,7 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 // Save keygen result to file
                 let file_name =
                     "./keygen_result".to_string() + &self.keygen.party_index.to_string() + ".json";
-                fs::write(file_name, res).expect("Unable to save !");
+                fs::write(file_name, res).map_err(|why| format_err!("result save err: {}", why))?;
                 return Ok(ProcessMessage::Default());
             }
             SendingMessages::EmptyMsg => {
