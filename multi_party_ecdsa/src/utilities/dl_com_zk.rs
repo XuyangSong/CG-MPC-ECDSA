@@ -151,9 +151,6 @@ impl DLComZK {
         }
 
         // Verify DL proof
-        // TBD: handle the error
-        //DLogProof::verify(&self.witness.d_log_proof).unwrap();
-
         DLogProof::verify(&self.witness.d_log_proof).map_err(|_| MulEcdsaError::VrfyDlogFailed)?;
         Ok(())
     }

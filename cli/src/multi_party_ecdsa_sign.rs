@@ -1,3 +1,4 @@
+use anyhow::format_err;
 use cli::config::MultiPartyConfig;
 use cli::console::Console;
 use message::message::Message;
@@ -71,7 +72,8 @@ impl InitMessage {
 
         // Load keygen result
         let input_path = Path::new(&opt.keygen_path);
-        let keygen_json_string = fs::read_to_string(input_path).unwrap();
+        let keygen_json_string = fs::read_to_string(input_path)
+            .map_err(|why| format_err!("Read to string err: {}", why))?;
 
         // Sign init
         let sign = SignPhase::new(
@@ -80,8 +82,7 @@ impl InitMessage {
             &opt.subset,
             &opt.message,
             &keygen_json_string,
-        )
-        .unwrap();
+        )?;
         let multi_party_sign_info = MultiPartySign { sign: sign };
         let init_messages = InitMessage {
             my_info,
@@ -187,5 +188,5 @@ fn main() {
             notifications_loop.await.expect("panic on JoinError")?;
             interactive_loop.await.expect("panic on JoinError")
         })
-        .unwrap()
+        .expect("panic")
 }

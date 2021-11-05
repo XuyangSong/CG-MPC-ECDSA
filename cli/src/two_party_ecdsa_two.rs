@@ -1,20 +1,18 @@
-use cli::console::Console;
-
-use tokio::task;
-
-use p2p::{Info, Node};
-
+use anyhow::format_err;
 use cli::config::TwoPartyConfig;
+use cli::console::Console;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
 use multi_party_ecdsa::protocols::two_party::message::PartyTwoMsg;
 use multi_party_ecdsa::protocols::two_party::party_two;
+use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use structopt::StructOpt;
+use tokio::task;
 
 #[derive(StructOpt, Debug)]
 #[structopt(
@@ -54,13 +52,14 @@ impl InitMessage {
 
         // Init two party info
         let party_two_keygen = party_two::KeyGenPhase::new();
-        let mut party_two_sign = party_two::SignPhase::new(&message).unwrap();
+        let mut party_two_sign = party_two::SignPhase::new(&message)?;
 
         // Load keygen result
         let keygen_path = Path::new("./keygen_result1.json");
         if keygen_path.exists() {
-            let keygen_json = fs::read_to_string(keygen_path).unwrap();
-            party_two_sign.load_keygen_result(&keygen_json).unwrap();
+            let keygen_json = fs::read_to_string(keygen_path)
+                .map_err(|why| format_err!("Read to string err: {}", why))?;
+            party_two_sign.load_keygen_result(&keygen_json)?;
         } else {
             // If keygen successes, party_one_sign will load keygen result automally.
             println!("Can not load keygen result! Please keygen first");
@@ -186,5 +185,5 @@ fn main() {
             notifications_loop.await.expect("panic on JoinError")?;
             interactive_loop.await.expect("panic on JoinError")
         })
-        .unwrap()
+        .expect("panic")
 }

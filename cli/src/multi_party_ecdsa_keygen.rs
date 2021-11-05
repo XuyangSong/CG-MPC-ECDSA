@@ -53,7 +53,7 @@ impl InitMessage {
 
         // TBD: add a new func, init it latter.
         //Init multi party info
-        let keygen = KeyGenPhase::new(index, params.clone()).unwrap();
+        let keygen = KeyGenPhase::new(index, params)?;
         let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
             my_info,
@@ -140,5 +140,5 @@ fn main() {
             notifications_loop.await.expect("panic on JoinError")?;
             interactive_loop.await.expect("panic on JoinError")
         })
-        .unwrap()
+        .expect("panic")
 }
