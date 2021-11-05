@@ -11,5 +11,9 @@ pub enum ProcessMessage<Custom: Codable> {
 }
 
 pub trait MsgProcess<Custom: Codable> {
-    fn process(&mut self, index: usize, msg: Custom) -> ProcessMessage<Custom>;
+    fn process(
+        &mut self,
+        index: usize,
+        msg: Custom,
+    ) -> Result<ProcessMessage<Custom>, anyhow::Error>;
 }

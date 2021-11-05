@@ -132,8 +132,7 @@ impl KeyGenPhase {
             params.threshold,
             params.share_count,
             private_signing_key.get_secret_key(),
-        )
-        .map_err(|_| MulEcdsaError::GenVSSFailed)?;
+        )?;
 
         Ok(Self {
             group: new_class_group,
@@ -196,8 +195,7 @@ impl KeyGenPhase {
             self.params.threshold,
             self.params.share_count,
             self.private_signing_key.get_secret_key(),
-        )
-        .map_err(|_| MulEcdsaError::GenVSSFailed)?;
+        )?;
 
         self.vss_scheme_map.clear();
         self.vss_scheme_map = vss_scheme_map;
@@ -246,9 +244,7 @@ impl KeyGenPhase {
         let open = msg.open.clone();
 
         let dlog_com = DlogCommitment { commitment, open };
-        dlog_com
-            .verify()
-            .map_err(|_| MulEcdsaError::OpenDLCommFailed)?;
+        dlog_com.verify()?;
 
         self.public_signing_key = self.public_signing_key + dlog_com.get_public_share();
 
@@ -364,9 +360,7 @@ impl KeyGenPhase {
         if self.need_refresh {
             self.refresh()?;
         }
-        let sending_msg_bytes = self
-            .get_phase_one_two_msg()
-            .map_err(|_| MulEcdsaError::GetPhaseOneTwoMsgFailed)?;
+        let sending_msg_bytes = self.get_phase_one_two_msg()?;
         return Ok(SendingMessages::BroadcastMessage(sending_msg_bytes));
     }
 
@@ -383,8 +377,7 @@ impl KeyGenPhase {
                     self.refresh()?;
                 }
 
-                self.verify_phase_one_msg(&msg.h_caret, &msg.h, &msg.gp)
-                    .map_err(|_| MulEcdsaError::VrfyPhaseOneMsgFailed)?;
+                self.verify_phase_one_msg(&msg.h_caret, &msg.h, &msg.gp)?;
                 self.msgs.phase_one_two_msgs.insert(index, msg.clone());
                 if self.msgs.phase_one_two_msgs.len() == self.params.share_count {
                     let keygen_phase_three_msg = self
@@ -407,8 +400,7 @@ impl KeyGenPhase {
                 }
 
                 // Handle the msg
-                self.handle_phase_three_msg(index, &msg)
-                    .map_err(|_| MulEcdsaError::HandlePhaseThreeMsgFailed)?;
+                self.handle_phase_three_msg(index, &msg)?;
                 self.msgs.phase_three_msgs.insert(index, msg.clone());
 
                 // Generate the next msg
@@ -425,8 +417,7 @@ impl KeyGenPhase {
                 }
 
                 // Handle the msg
-                self.handle_phase_four_msg(index, &msg)
-                    .map_err(|_| MulEcdsaError::HandlePhaseFourMsgFailed)?;
+                self.handle_phase_four_msg(index, &msg)?;
                 self.msgs.phase_four_msgs.insert(index, msg.clone());
 
                 // Generate the next msg
@@ -450,8 +441,7 @@ impl KeyGenPhase {
                 }
 
                 // Handle the msg
-                self.handle_phase_five_msg(index, &msg)
-                    .map_err(|_| MulEcdsaError::HandlePhaseFiveMsgFailed)?;
+                self.handle_phase_five_msg(index, &msg)?;
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
                     let keygen_json = self.generate_result_json_string()?;

@@ -25,7 +25,7 @@ impl Signature {
         {
             Ok(())
         } else {
-            return Err(MulEcdsaError::GeneralError);
+            return Err(MulEcdsaError::VrfyMultiECDSAFailed);
         }
     }
 }

@@ -34,7 +34,10 @@ impl Console {
             let mut console = Console { node, peers_info };
             loop {
                 let mut line = String::new();
-                io::stderr().write_all(">> ".as_ref()).await.unwrap();
+                io::stderr()
+                    .write_all(">> ".as_ref())
+                    .await
+                    .map_err(|_| "write_all error".to_string())?;
                 let n = stdin
                     .read_line(&mut line)
                     .await
@@ -96,12 +99,14 @@ impl Console {
             }
             UserCommand::KeyGen => {
                 println!("=> KeyGen Begin...");
-                let msg = bincode::serialize(&ReceivingMessages::KeyGenBegin).unwrap();
+                let msg = bincode::serialize(&ReceivingMessages::KeyGenBegin)
+                    .map_err(|why| format!("bincode serialize error: {}", why))?;
                 self.node.broadcast(Message(msg.clone())).await;
                 self.node.sendself(Message(msg)).await;
             }
             UserCommand::Sign => {
-                let msg = bincode::serialize(&ReceivingMessages::SignBegin).unwrap();
+                let msg = bincode::serialize(&ReceivingMessages::SignBegin)
+                    .map_err(|why| format!("bincode serialize error: {}", why))?;
                 self.node.broadcast(Message(msg.clone())).await;
                 self.node.sendself(Message(msg)).await;
             }
@@ -110,7 +115,7 @@ impl Console {
                     message,
                     keygen_result_json,
                 ))
-                .unwrap();
+                .map_err(|why| format!("bincode serialize error: {}", why))?;
                 self.node.sendself(Message(msg)).await;
             }
             UserCommand::MultiSignRefresh(message, keygen_result_json, subset) => {
@@ -119,7 +124,7 @@ impl Console {
                     keygen_result_json,
                     subset,
                 ))
-                .unwrap();
+                .map_err(|why| format!("bincode serialize error: {}", why))?;
                 self.node.sendself(Message(msg)).await;
             }
         }
@@ -161,7 +166,8 @@ impl Console {
                 .next()
                 .ok_or_else(|| "Missing keygen result file".to_string())?;
             let keygen_path = Path::new(keygen_result_file);
-            let keygen_result_json = fs::read_to_string(keygen_path).unwrap();
+            let keygen_result_json = fs::read_to_string(keygen_path)
+                .map_err(|why| format!("Couldn't open {}: {}", keygen_path.display(), why))?;
             Ok(UserCommand::TwoSignRefresh(
                 message.to_owned(),
                 keygen_result_json,
@@ -172,10 +178,11 @@ impl Console {
                 .next()
                 .ok_or_else(|| "Missing keygen result file".to_string())?;
             let keygen_path = Path::new(keygen_result_file);
-            let keygen_result_json = fs::read_to_string(keygen_path).unwrap();
+            let keygen_result_json = fs::read_to_string(keygen_path)
+                .map_err(|why| format!("Couldn't open {}: {}", keygen_path.display(), why))?;
             let mut subset = Vec::new();
             while let Some(s) = head_tail.next() {
-                let index: usize = s.parse().unwrap();
+                let index: usize = s.parse().map_err(|why| format!("Parse error: {}", why))?;
                 subset.push(index);
             }
             Ok(UserCommand::MultiSignRefresh(

@@ -154,8 +154,7 @@ impl KeyGenTest {
                 .is_ok()
                 && vss_scheme.commitments[0] == q_vec[i])
             {
-                // TBD: use new error type
-                return Err(MulEcdsaError::GeneralError);
+                return Err(MulEcdsaError::VrfyVSSFailed);
             }
         }
 

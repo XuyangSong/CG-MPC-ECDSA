@@ -381,8 +381,7 @@ impl KeyGen {
                 .is_ok()
                 && vss_scheme_vec[i].commitments[0] == q_vec[i])
             {
-                // TBD: use new error type
-                return Err(MulEcdsaError::GeneralError);
+                return Err(MulEcdsaError::VrfyVSSFailed);
             }
         }
 

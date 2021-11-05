@@ -4,9 +4,13 @@ use p2p::{Info, Node};
 use tokio::task;
 struct TestReceive {}
 impl MsgProcess<Message> for TestReceive {
-    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
+    fn process(
+        &mut self,
+        index: usize,
+        msg: Message,
+    ) -> Result<ProcessMessage<Message>, anyhow::Error> {
         let msg = ProcessMessage::SendMessage(index, msg);
-        return msg;
+        return Ok(msg);
     }
 }
 
@@ -20,7 +24,9 @@ fn main() {
         };
 
         //Init a node as server
-        let (mut node_handle, notifications_channel) = Node::<Message>::node_init(&my_info).await;
+        let (mut node_handle, notifications_channel) = Node::<Message>::node_init(&my_info)
+            .await
+            .expect("node init error");
 
         let mut message_process = TestReceive {};
         //Receive messages

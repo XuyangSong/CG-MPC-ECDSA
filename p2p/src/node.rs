@@ -23,6 +23,7 @@ use crate::codec::{MessageDecoder, MessageEncoder};
 use crate::cybershake;
 use crate::peer::{PeerAddr, PeerID, PeerLink, PeerMessage, PeerNotification};
 use crate::priority::{Priority, PriorityTable, HIGH_PRIORITY, LOW_PRIORITY};
+use anyhow::format_err;
 use message::message_process::{MsgProcess, ProcessMessage};
 use readerwriter::Codable;
 
@@ -221,15 +222,21 @@ where
 
     pub async fn node_init(
         my_info: &Info,
-    ) -> (
-        NodeHandle<Custom>,
-        sync::mpsc::Receiver<NodeNotification<Custom>>,
-    ) {
+    ) -> Result<
+        (
+            NodeHandle<Custom>,
+            sync::mpsc::Receiver<NodeNotification<Custom>>,
+        ),
+        anyhow::Error,
+    > {
         let vs: Vec<&str> = my_info.address.splitn(2, ":").collect();
 
-        // TBD: handle the unwrap, return a error.
-        let ip = vs[0].parse().unwrap();
-        let port = vs[1].to_string().parse::<u16>().unwrap();
+        let ip = vs[0]
+            .parse()
+            .map_err(|why| format_err!("Invalid ip, address: {}, err: {}", my_info.address, why))?;
+        let port = vs[1].to_string().parse::<u16>().map_err(|why| {
+            format_err!("invalid port, address: {}, err: {}", my_info.address, why)
+        })?;
 
         let config = NodeConfig {
             index: my_info.index,
@@ -252,7 +259,7 @@ where
             my_info.index,
         );
 
-        return (node_handle, notifications_channel);
+        return Ok((node_handle, notifications_channel));
     }
 }
 
@@ -382,17 +389,20 @@ impl<Custom: Codable> NodeHandle<Custom> {
                 NodeNotification::MessageReceived(index, msg) => {
                     let result = message_process.process(index, msg);
                     match result {
-                        ProcessMessage::BroadcastMessage(msg) => self.broadcast(msg).await,
-                        ProcessMessage::SendMessage(index, msg) => {
+                        Ok(ProcessMessage::BroadcastMessage(msg)) => self.broadcast(msg).await,
+                        Ok(ProcessMessage::SendMessage(index, msg)) => {
                             self.sendmsgbyindex(index, msg).await
                         }
-                        ProcessMessage::SendMultiMessage(send_list) => {
+                        Ok(ProcessMessage::SendMultiMessage(send_list)) => {
                             for (index, msg) in send_list {
                                 self.sendmsgbyindex(index, msg).await;
                             }
                         }
-                        ProcessMessage::Quit() => self.exit().await,
-                        ProcessMessage::Default() => {}
+                        Ok(ProcessMessage::Quit()) => self.exit().await,
+                        Ok(ProcessMessage::Default()) => {}
+                        Err(why) => {
+                            println!("\n=> Message process err: {:?}", why)
+                        }
                     }
                 }
                 NodeNotification::InboundConnectionFailure(err) => {

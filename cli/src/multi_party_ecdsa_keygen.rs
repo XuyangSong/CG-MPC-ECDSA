@@ -1,3 +1,4 @@
+use anyhow::format_err;
 use cli::config::MultiPartyConfig;
 use cli::console::Console;
 use message::message::Message;
@@ -38,12 +39,12 @@ struct MultiPartyKeygen {
 }
 
 impl InitMessage {
-    pub fn init_message() -> Self {
+    pub fn init_message() -> Result<Self, anyhow::Error> {
         let opt = Opt::from_args();
         let index = opt.index;
-        let config = MultiPartyConfig::new_from_file(&opt.config_path).unwrap();
+        let config = MultiPartyConfig::new_from_file(&opt.config_path)?;
 
-        let my_info = config.get_my_info(index);
+        let my_info = config.get_my_info(index)?;
 
         let peers_info: Vec<Info> = config.get_peers_info_keygen(index);
         let params = Parameters {
@@ -51,29 +52,33 @@ impl InitMessage {
             share_count: config.share_count,
         };
 
-        // TBD: add a new func, init it latter.
-        //Init multi party info
-        let keygen = KeyGenPhase::new(index, params.clone()).unwrap();
+        // Init multi party info
+        let keygen = KeyGenPhase::new(index, params)?;
         let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
             my_info,
             peers_info,
             multi_party_keygen_info: multi_party_keygen_info,
         };
-        return init_messages;
+        return Ok(init_messages);
     }
 }
 
 impl MsgProcess<Message> for MultiPartyKeygen {
-    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
-        let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
+    fn process(
+        &mut self,
+        index: usize,
+        msg: Message,
+    ) -> Result<ProcessMessage<Message>, anyhow::Error> {
+        let received_msg: ReceivingMessages = bincode::deserialize(&msg)
+            .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::KeyGenBegin => {
-                sending_msg = self.keygen.process_begin().unwrap();
+                sending_msg = self.keygen.process_begin()?;
             }
             ReceivingMessages::MultiKeyGenMessage(msg) => {
-                sending_msg = self.keygen.msg_handler(index, &msg).unwrap();
+                sending_msg = self.keygen.msg_handler(index, &msg)?;
             }
             _ => {
                 println!("Undefined Message Process: {:?}", received_msg);
@@ -86,10 +91,10 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 for (key, value) in msgs {
                     msgs_to_send.insert(key, Message(value));
                 }
-                return ProcessMessage::SendMultiMessage(msgs_to_send);
+                return Ok(ProcessMessage::SendMultiMessage(msgs_to_send));
             }
             SendingMessages::BroadcastMessage(msg) => {
-                return ProcessMessage::BroadcastMessage(Message(msg));
+                return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 println!("keygen Success! {}", res);
@@ -97,22 +102,22 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 // Save keygen result to file
                 let file_name =
                     "./keygen_result".to_string() + &self.keygen.party_index.to_string() + ".json";
-                fs::write(file_name, res).expect("Unable to save !");
-                return ProcessMessage::Default();
+                fs::write(file_name, res).map_err(|why| format_err!("result save err: {}", why))?;
+                return Ok(ProcessMessage::Default());
             }
             SendingMessages::EmptyMsg => {
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
             _ => {
                 println!("Undefined Message Process: {:?}", sending_msg);
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
         }
     }
 }
 
 fn main() {
-    let init_messages = InitMessage::init_message();
+    let init_messages = InitMessage::init_message().expect("Init message failed!");
 
     // Create the runtime.
     let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
@@ -121,7 +126,9 @@ fn main() {
         .block_on(&mut rt, async move {
             // Setup a node
             let (mut node_handle, notifications_channel) =
-                Node::<Message>::node_init(&init_messages.my_info).await;
+                Node::<Message>::node_init(&init_messages.my_info)
+                    .await
+                    .expect("node init error");
 
             // Begin the UI.
             let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
@@ -140,5 +147,5 @@ fn main() {
             notifications_loop.await.expect("panic on JoinError")?;
             interactive_loop.await.expect("panic on JoinError")
         })
-        .unwrap()
+        .expect("panic")
 }
