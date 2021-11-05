@@ -94,7 +94,11 @@ impl InitMessage {
 }
 
 impl MsgProcess<Message> for MultiPartySign {
-    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
+    fn process(
+        &mut self,
+        index: usize,
+        msg: Message,
+    ) -> Result<ProcessMessage<Message>, anyhow::Error> {
         // Decode msg
         let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
         let mut sending_msg = SendingMessages::EmptyMsg;
@@ -126,7 +130,7 @@ impl MsgProcess<Message> for MultiPartySign {
         }
         match sending_msg {
             SendingMessages::NormalMessage(index, msg) => {
-                return ProcessMessage::SendMessage(index, Message(msg))
+                return Ok(ProcessMessage::SendMessage(index, Message(msg)));
             }
             SendingMessages::P2pMessage(msgs) => {
                 //TBD: handle vector to Message
@@ -134,7 +138,7 @@ impl MsgProcess<Message> for MultiPartySign {
                 for (key, value) in msgs {
                     msgs_to_send.insert(key, Message(value));
                 }
-                return ProcessMessage::SendMultiMessage(msgs_to_send);
+                return Ok(ProcessMessage::SendMultiMessage(msgs_to_send));
             }
             SendingMessages::SubsetMessage(msg) => {
                 let mut msgs_to_send: HashMap<usize, Message> = HashMap::new();
@@ -143,18 +147,18 @@ impl MsgProcess<Message> for MultiPartySign {
                         msgs_to_send.insert(*index, Message(msg.clone()));
                     }
                 }
-                return ProcessMessage::SendMultiMessage(msgs_to_send);
+                return Ok(ProcessMessage::SendMultiMessage(msgs_to_send));
             }
             SendingMessages::SignSuccessWithResult(res) => {
                 println!("Sign Success! {}", res);
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
             SendingMessages::EmptyMsg => {
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
             _ => {
                 println!("Undefined Message Process: {:?}", sending_msg);
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
         }
     }

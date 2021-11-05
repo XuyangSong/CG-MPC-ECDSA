@@ -65,7 +65,11 @@ impl InitMessage {
 }
 
 impl MsgProcess<Message> for MultiPartyKeygen {
-    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
+    fn process(
+        &mut self,
+        index: usize,
+        msg: Message,
+    ) -> Result<ProcessMessage<Message>, anyhow::Error> {
         let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
@@ -86,10 +90,10 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 for (key, value) in msgs {
                     msgs_to_send.insert(key, Message(value));
                 }
-                return ProcessMessage::SendMultiMessage(msgs_to_send);
+                return Ok(ProcessMessage::SendMultiMessage(msgs_to_send));
             }
             SendingMessages::BroadcastMessage(msg) => {
-                return ProcessMessage::BroadcastMessage(Message(msg));
+                return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 println!("keygen Success! {}", res);
@@ -98,14 +102,14 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 let file_name =
                     "./keygen_result".to_string() + &self.keygen.party_index.to_string() + ".json";
                 fs::write(file_name, res).expect("Unable to save !");
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
             SendingMessages::EmptyMsg => {
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
             _ => {
                 println!("Undefined Message Process: {:?}", sending_msg);
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
         }
     }

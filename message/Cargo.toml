@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 readerwriter = {path = "../readerwriter", features=["bytes"]}
+anyhow = "1.0"

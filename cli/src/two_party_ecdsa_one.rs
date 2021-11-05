@@ -78,7 +78,11 @@ impl InitMessage {
 }
 
 impl MsgProcess<Message> for PartyOne {
-    fn process(&mut self, index: usize, msg: Message) -> ProcessMessage<Message> {
+    fn process(
+        &mut self,
+        index: usize,
+        msg: Message,
+    ) -> Result<ProcessMessage<Message>, anyhow::Error> {
         let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
@@ -116,7 +120,7 @@ impl MsgProcess<Message> for PartyOne {
 
         match sending_msg {
             SendingMessages::NormalMessage(index, msg) => {
-                return ProcessMessage::SendMessage(index, Message(msg))
+                return Ok(ProcessMessage::SendMessage(index, Message(msg)));
             }
             SendingMessages::P2pMessage(msgs) => {
                 //TBD: handle vector to Message
@@ -124,13 +128,13 @@ impl MsgProcess<Message> for PartyOne {
                 for (key, value) in msgs {
                     msgs_to_send.insert(key, Message(value));
                 }
-                return ProcessMessage::SendMultiMessage(msgs_to_send);
+                return Ok(ProcessMessage::SendMultiMessage(msgs_to_send));
             }
             SendingMessages::BroadcastMessage(msg) => {
-                return ProcessMessage::BroadcastMessage(Message(msg));
+                return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
             SendingMessages::EmptyMsg => {
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 println!("keygen Success! {}", res);
@@ -140,15 +144,15 @@ impl MsgProcess<Message> for PartyOne {
 
                 let file_name = "./keygen_result0".to_string() + ".json";
                 fs::write(file_name, res).expect("Unable to save !");
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
             SendingMessages::SignSuccessWithResult(res) => {
                 println!("Sign Success! {}", res);
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
             _ => {
                 println!("Undefined Message Process: {:?}", sending_msg);
-                return ProcessMessage::Default();
+                return Ok(ProcessMessage::Default());
             }
         }
     }

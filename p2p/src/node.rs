@@ -382,17 +382,20 @@ impl<Custom: Codable> NodeHandle<Custom> {
                 NodeNotification::MessageReceived(index, msg) => {
                     let result = message_process.process(index, msg);
                     match result {
-                        ProcessMessage::BroadcastMessage(msg) => self.broadcast(msg).await,
-                        ProcessMessage::SendMessage(index, msg) => {
+                        Ok(ProcessMessage::BroadcastMessage(msg)) => self.broadcast(msg).await,
+                        Ok(ProcessMessage::SendMessage(index, msg)) => {
                             self.sendmsgbyindex(index, msg).await
                         }
-                        ProcessMessage::SendMultiMessage(send_list) => {
+                        Ok(ProcessMessage::SendMultiMessage(send_list)) => {
                             for (index, msg) in send_list {
                                 self.sendmsgbyindex(index, msg).await;
                             }
                         }
-                        ProcessMessage::Quit() => self.exit().await,
-                        ProcessMessage::Default() => {}
+                        Ok(ProcessMessage::Quit()) => self.exit().await,
+                        Ok(ProcessMessage::Default()) => {}
+                        Err(why) => {
+                            println!("\n=> Message process err: {:?}", why)
+                        }
                     }
                 }
                 NodeNotification::InboundConnectionFailure(err) => {
