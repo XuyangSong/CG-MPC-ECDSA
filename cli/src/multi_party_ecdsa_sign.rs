@@ -59,10 +59,10 @@ impl InitMessage {
 
         // Process config
         let config = MultiPartyConfig::new_from_file(&opt.config_path)?;
-        assert!(
-            opt.subset.len() > config.threshold,
-            "PartyLessThanThreshold"
-        );
+        if opt.subset.len() <= config.threshold {
+            return Err(anyhow::Error::msg("Subset is less than threshold"));
+        }
+
         let my_info = config.get_my_info(opt.index)?;
         let peers_info: Vec<Info> = config.get_peers_info_sign(opt.index, opt.subset.clone());
         let params = Parameters {
