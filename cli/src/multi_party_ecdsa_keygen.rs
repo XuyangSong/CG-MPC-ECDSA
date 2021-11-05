@@ -1,3 +1,4 @@
+use anyhow::format_err;
 use cli::config::MultiPartyConfig;
 use cli::console::Console;
 use message::message::Message;
@@ -70,14 +71,15 @@ impl MsgProcess<Message> for MultiPartyKeygen {
         index: usize,
         msg: Message,
     ) -> Result<ProcessMessage<Message>, anyhow::Error> {
-        let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
+        let received_msg: ReceivingMessages = bincode::deserialize(&msg)
+            .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::KeyGenBegin => {
-                sending_msg = self.keygen.process_begin().unwrap();
+                sending_msg = self.keygen.process_begin()?;
             }
             ReceivingMessages::MultiKeyGenMessage(msg) => {
-                sending_msg = self.keygen.msg_handler(index, &msg).unwrap();
+                sending_msg = self.keygen.msg_handler(index, &msg)?;
             }
             _ => {
                 println!("Undefined Message Process: {:?}", received_msg);
@@ -125,7 +127,9 @@ fn main() {
         .block_on(&mut rt, async move {
             // Setup a node
             let (mut node_handle, notifications_channel) =
-                Node::<Message>::node_init(&init_messages.my_info).await;
+                Node::<Message>::node_init(&init_messages.my_info)
+                    .await
+                    .expect("node init error");
 
             // Begin the UI.
             let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);

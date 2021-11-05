@@ -84,24 +84,24 @@ impl MsgProcess<Message> for PartyTwo {
         _index: usize,
         msg: Message,
     ) -> Result<ProcessMessage<Message>, anyhow::Error> {
-        let received_msg: ReceivingMessages = bincode::deserialize(&msg).unwrap();
+        let received_msg: ReceivingMessages = bincode::deserialize(&msg)
+            .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::TwoKeyGenMessagePartyOne(msg) => {
-                sending_msg = self.party_two_keygen.msg_handler_keygen(&msg).unwrap();
+                sending_msg = self.party_two_keygen.msg_handler_keygen(&msg)?;
             }
             ReceivingMessages::TwoSignMessagePartyOne(msg) => {
-                sending_msg = self.party_two_sign.msg_handler_sign(&msg).unwrap();
+                sending_msg = self.party_two_sign.msg_handler_sign(&msg)?;
             }
             ReceivingMessages::TwoPartySignRefresh(message, keygen_result_json) => {
-                self.party_two_sign
-                    .refresh(&message, &keygen_result_json)
-                    .unwrap();
+                self.party_two_sign.refresh(&message, &keygen_result_json)?;
                 println!("Refresh Success!");
             }
             ReceivingMessages::SignBegin => {
                 if self.party_two_sign.need_refresh {
-                    let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh).unwrap();
+                    let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
+                        .map_err(|why| format_err!("bincode serialize error: {}", why))?;
                     sending_msg = SendingMessages::BroadcastMessage(msg_bytes);
                     println!("Need refresh");
                 }
@@ -136,7 +136,7 @@ impl MsgProcess<Message> for PartyTwo {
                 println!("keygen Success! {}", res);
 
                 // Load keygen result for signphase
-                self.party_two_sign.load_keygen_result(&res).unwrap();
+                self.party_two_sign.load_keygen_result(&res)?;
 
                 let file_name = "./keygen_result1".to_string() + ".json";
                 fs::write(file_name, res).expect("Unable to save !");
@@ -144,7 +144,8 @@ impl MsgProcess<Message> for PartyTwo {
                 // Send KeyGenFinish to party0
                 let msg_send =
                     ReceivingMessages::TwoKeyGenMessagePartyTwo(PartyTwoMsg::KeyGenFinish);
-                let msg_bytes = bincode::serialize(&msg_send).unwrap();
+                let msg_bytes = bincode::serialize(&msg_send)
+                    .map_err(|why| format_err!("bincode serialize error: {}", why))?;
                 return Ok(ProcessMessage::BroadcastMessage(Message(msg_bytes)));
             }
             SendingMessages::SignSuccessWithResult(res) => {
@@ -169,7 +170,9 @@ fn main() {
         .block_on(&mut rt, async move {
             // Setup a node
             let (mut node_handle, notifications_channel) =
-                Node::<Message>::node_init(&init_messages.my_info).await;
+                Node::<Message>::node_init(&init_messages.my_info)
+                    .await
+                    .expect("node init error");
 
             // Begin the UI.
             let interactive_loop: task::JoinHandle<Result<(), String>> =

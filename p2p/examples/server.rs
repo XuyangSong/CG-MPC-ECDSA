@@ -24,7 +24,9 @@ fn main() {
         };
 
         //Init a node as server
-        let (mut node_handle, notifications_channel) = Node::<Message>::node_init(&my_info).await;
+        let (mut node_handle, notifications_channel) = Node::<Message>::node_init(&my_info)
+            .await
+            .expect("node init error");
 
         let mut message_process = TestReceive {};
         //Receive messages

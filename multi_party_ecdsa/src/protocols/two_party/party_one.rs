@@ -380,7 +380,8 @@ impl SignPhase {
 
                 let ephemeral_public_share = self.compute_public_share_key(&self.received_msg.pk);
                 let signature = self.sign(&cipher, &ephemeral_public_share, &t_p, self.message)?;
-                let signature_json = serde_json::to_string(&signature).unwrap();
+                let signature_json = serde_json::to_string(&signature)
+                    .map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
                 self.need_refresh = true;
                 return Ok(SendingMessages::SignSuccessWithResult(signature_json));
             }
