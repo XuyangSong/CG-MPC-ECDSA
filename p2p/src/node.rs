@@ -585,6 +585,7 @@ where
             index: peer_index,
         };
         // The peer did not exist - simply add it.
+        println!("id = {}", id);
         let _ = self.peers.insert(id, peer);
         // If this is an outbound connection, tell our port.
         if direction == Direction::Outbound {
