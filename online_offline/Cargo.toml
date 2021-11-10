@@ -1,0 +1,81 @@
+[package]
+name = "online_offline"
+version = "0.1.0"
+edition = "2018"
+authors = [
+    "songxuyang <xuyangsong1012@gmail.com>",
+    "wanghailong"
+]
+keywords = [
+    "ecdsa",
+    "multi-party-ecdsa",
+    "signature",
+    "rust",
+    "secret-shares",
+    "cryptography",
+]
+
+[lib]
+crate-type= ["lib"]
+
+[dependencies]
+multi-party-ecdsa = {path = "../multi_party_ecdsa"}
+libc = "0.2.0"
+subtle = { version = "2" }
+serde = { version = "1.0", features = ["derive"] }
+serde_derive="1.0"
+serde_json="1.0"
+bincode = "1.3.1"
+zeroize = "1.3.0"
+time = "0.1"
+hex = "0.4"
+tokio = {version = "0.2", features=["full","sync"]}
+tokio-util = {version = "0.3.1", features=["codec"]}
+rand = "0.7"
+curve25519-dalek = { version = "3", features = ["serde"] }
+readerwriter = {path = "../readerwriter", features=["bytes"]}
+thiserror = "1"
+curv = { package = "curv-kzen", version = "0.7" }
+message = {path = "../message"}
+lazy_static = "1.4.0"
+structopt = "0.3.20"
+anyhow = "1.0"
+
+
+[dependencies.centipede]
+git = "https://github.com/KZen-networks/centipede"
+tag = "v0.2.12"
+
+# TBD: use kzen class
+[dependencies.class_group]
+git = "https://github.com/XuyangSong/class"
+tag = "v1.5.2"
+
+[dependencies.p2p]
+path = "../p2p"
+
+
+[dev-dependencies]
+criterion = "0.3"
+rust-crypto = "0.2"
+hex = "0.4"
+reqwest = { version = "0.9", default-features = false }
+uuid = { version = "0.8", features = ["v4"] }
+serde_json = "1.0"
+libsecp256k1 = "0.3.2"
+
+[[bin]]
+name = "two_party_ecdsa_one"
+path = "src/examples/two_party_ecdsa_one.rs"
+
+[[bin]]
+name = "two_party_ecdsa_two"
+path = "src/examples/two_party_ecdsa_two.rs"
+
+[[bin]]
+name = "multi_party_ecdsa_keygen"
+path = "src/examples/multi_party_ecdsa_keygen.rs"
+
+[[bin]]
+name = "multi_party_ecdsa_sign"
+path = "src/examples/multi_party_ecdsa_sign.rs"
