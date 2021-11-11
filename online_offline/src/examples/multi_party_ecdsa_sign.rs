@@ -100,10 +100,14 @@ impl MsgProcess<Message> for MultiPartySign {
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::SignOfflineBegin => {
-                sending_msg = self.sign.process_begin(index)?;
+                if self.sign.subset.contains(&self.sign.party_index){
+                    sending_msg = self.sign.process_begin(index)?;
+                }
             }
             ReceivingMessages::SignOnlineBegin(msg) => {
-                sending_msg = self.sign.process_online_begin(index, msg)?;
+                if self.sign.subset.contains(&self.sign.party_index){
+                    sending_msg = self.sign.process_online_begin(index, msg)?;
+                }
             }
             ReceivingMessages::MultiSignMessage(msg) => {
                 sending_msg = self.sign.msg_handler(index, &msg)?;
