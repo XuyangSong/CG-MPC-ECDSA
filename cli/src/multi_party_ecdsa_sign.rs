@@ -105,14 +105,17 @@ impl MsgProcess<Message> for MultiPartySign {
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::SignBegin => {
-                if self.sign.need_refresh {
-                    let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
-                        .map_err(|why| format_err!("bincode serialize error: {}", why))?;
-                    sending_msg = SendingMessages::SubsetMessage(msg_bytes);
-                    println!("Need refresh");
-                } else {
-                    sending_msg = self.sign.process_begin(index)?;
+                if self.sign.subset.contains(&self.sign.party_index){
+                    if self.sign.need_refresh {
+                        let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
+                            .map_err(|why| format_err!("bincode serialize error: {}", why))?;
+                        sending_msg = SendingMessages::SubsetMessage(msg_bytes);
+                        println!("Need refresh");
+                    } else {
+                        sending_msg = self.sign.process_begin(index)?;
+                    }
                 }
+                else {println!("You are not contained in subset, no need to participate signing")}
             }
             ReceivingMessages::MultiSignMessage(msg) => {
                 sending_msg = self.sign.msg_handler(index, &msg)?;
