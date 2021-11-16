@@ -147,7 +147,11 @@ impl Console {
         } else if command == "signoffline" {
             Ok(UserCommand::SignOffline)
         }else if command == "signonline" {
-            let message: String = rest.unwrap_or("").into();
+            let message = rest.unwrap_or("").into();
+            if message == ""{
+                println!("Please input valid message to sign!");
+                return Ok(UserCommand::Nop)
+            }
             Ok(UserCommand::SignOnline(message))
         } else if command == "exit" || command == "quit" || command == "q" {
             Ok(UserCommand::Exit)

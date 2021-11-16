@@ -65,17 +65,17 @@ serde_json = "1.0"
 libsecp256k1 = "0.3.2"
 
 [[bin]]
-name = "two_party_ecdsa_one"
-path = "src/examples/two_party_ecdsa_one.rs"
+name = "online_offline_two_party_ecdsa_one"
+path = "src/examples/online_offline_two_party_ecdsa_one.rs"
 
 [[bin]]
-name = "two_party_ecdsa_two"
-path = "src/examples/two_party_ecdsa_two.rs"
+name = "online_offline_two_party_ecdsa_two"
+path = "src/examples/online_offline_two_party_ecdsa_two.rs"
 
 [[bin]]
-name = "multi_party_ecdsa_keygen"
-path = "src/examples/multi_party_ecdsa_keygen.rs"
+name = "online_offline_multi_party_ecdsa_keygen"
+path = "src/examples/online_offline_multi_party_ecdsa_keygen.rs"
 
 [[bin]]
-name = "multi_party_ecdsa_sign"
-path = "src/examples/multi_party_ecdsa_sign.rs"
+name = "online_offline_multi_party_ecdsa_sign"
+path = "src/examples/online_offline_multi_party_ecdsa_sign.rs"
