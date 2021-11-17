@@ -22,7 +22,7 @@
 $ cargo run --bin two_party_ecdsa_one -- --help
 
 USAGE:
-    two_party_ecdsa_one --config_path <config_path>  --message <message>
+    two_party_ecdsa_one --config_path <config_path>  --message <message>  --online_offline
 
 FLAGS:
     -h, --help       Prints help information
@@ -31,15 +31,25 @@ FLAGS:
 OPTIONS:
     -c, --config_path <config_path>    Config Path
     -m, --message <message>            Message to sign
+    -o, --online_offline                           Sign model
+    
 ```
 
 ### 1.2 two_party_ecdsa cli example
-
+Normal Sign Model
 ```shell
 $ cargo run --bin two_party_ecdsa_one -- --config_path ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 
 
 $ cargo run --bin two_party_ecdsa_two -- --config_path ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+```
+Online_Offline Sign Model
+* No need to specify message at begining.
+```shell
+$ cargo run --bin two_party_ecdsa_one -- --config_path ./configs/two_party_config.json  --online_offline
+
+
+$ cargo run --bin two_party_ecdsa_two -- --config_path ./configs/two_party_config.json  --online_offline
 ```
 
 *Please start all nodes before connect.
@@ -76,7 +86,17 @@ After refresh, you can sign again.
 * "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d" is the new message to sign.
 * "./keygen_result0.json" is the file path of new keygen-result.
 
-### (e) Step 4: Quit
+### (e) Step 4: set message (only used in online-offline model)
+* Please set message before online phase and run by both parties.
+```shell
+>> setmessage eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+```
+### (f) Step 5: sign online phase (only used in online-offline model)
+```shell
+>> signonline
+```
+
+### (g) Step 4: Quit
 
 Disconnect peers.
 ```shell
@@ -232,7 +252,7 @@ Use the same config file as keygen.
 $ cargo run --bin multi_party_ecdsa_sign -- --help
 
 USAGE:
-    multi_party_ecdsa_sign [OPTIONS] --config_path <config_path> --index <index> --message <message>
+    multi_party_ecdsa_sign [OPTIONS] --config_path <config_path> --index <index> --message <message>  --online_offline
 
 FLAGS:
     -h, --help       Prints help information
@@ -244,11 +264,18 @@ OPTIONS:
     -k, --keygen_path <keygen_path>    Keygen result path
     -m, --message <message>            Message to sign
     -s, --subset <subset>...           Participants index
+    -o, --online_offline             Sign Model
 ```
 
 ### 3.2 sign cli example
+Normal Sign Model
 ```shell
 $ cargo run --bin multi_party_ecdsa_sign -- --config_path ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_path ./keygen_result0.json
+```
+Online_Offline Sign Model
+* No need to specify message at begining.
+```shell
+$ cargo run --bin multi_party_ecdsa_sign -- --config_path ../configs/config_3pc.json --index 0 --subset 0 1 --keygen_path ./keygen_result0.json  --online_offline
 ```
 
 *Please start all nodes before connect.
@@ -283,6 +310,16 @@ After refresh, you can sign again.
 * "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d" is the new message to sign.
 * "./keygen_result0.json" is the file path of new keygen-result.
 * "0 1" are the new subset member indexes.
+
+### (e) Step 4: set message (only used in online-offline model)
+* Please set message before online phase and run by all parties.
+```shell
+>> setmessage eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+```
+### (f) Step 5: sign online phase (only used in online-offline model)
+```shell
+>> signonline
+```
 ### (d) Step 3: Sign Quit
 
 Disconnect peers.

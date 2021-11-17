@@ -67,7 +67,7 @@ fn two_party_test() {
     ////////// Start Signing /////////////////
     // creating the ephemeral private shares:
     let sign_message =
-        "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string();
+        Some("eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string());
     let sign_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
@@ -84,7 +84,7 @@ fn two_party_test() {
     let party_two_keygen_result = party_two_key_gen_init
         .generate_result_json_string(&state)
         .unwrap();
-    let mut party_two_sign_new = party_two::SignPhase::new(&sign_message).unwrap();
+    let mut party_two_sign_new = party_two::SignPhase::new(&sign_message, false).unwrap();
     party_two_sign_new
         .load_keygen_result(&party_two_keygen_result)
         .unwrap();
@@ -105,7 +105,7 @@ fn two_party_test() {
     // Party two: compute partial signature
     let ephemeral_public_share_2 =
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
-    let (cipher, t_p) = party_two_sign_new.sign(&ephemeral_public_share_2).unwrap();
+    let (cipher, t_p) = party_two_sign_new.sign(&ephemeral_public_share_2, false).unwrap();
 
     // Party one: finish signature
     let ephemeral_public_share_1 =

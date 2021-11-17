@@ -11,6 +11,7 @@ use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::option::Option;
 use structopt::StructOpt;
 use tokio::task;
 
@@ -25,9 +26,13 @@ struct Opt {
     #[structopt(short, long)]
     index: usize,
 
+    /// Sign Model
+    #[structopt(short, long)]
+    online_offline: bool,
+
     /// Message to sign
     #[structopt(short, long)]
-    message: String,
+    message: Option<String>,
 
     /// Participants index
     #[structopt(short, long)]
@@ -80,6 +85,7 @@ impl InitMessage {
             opt.index,
             params,
             &opt.subset,
+            opt.online_offline,
             &opt.message,
             &keygen_json_string,
         )?;
@@ -113,6 +119,12 @@ impl MsgProcess<Message> for MultiPartySign {
                 } else {
                     sending_msg = self.sign.process_begin(index)?;
                 }
+            }
+            ReceivingMessages::SetMessage(msg) => {
+                self.sign.set_msg(msg)?;
+            }
+            ReceivingMessages::SignOnlineBegin => {
+                sending_msg = self.sign.process_online_begin(index)?;
             }
             ReceivingMessages::MultiSignMessage(msg) => {
                 sending_msg = self.sign.msg_handler(index, &msg)?;

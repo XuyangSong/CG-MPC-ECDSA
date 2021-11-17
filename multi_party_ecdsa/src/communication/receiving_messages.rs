@@ -14,6 +14,8 @@ pub enum ReceivingMessages {
     TwoSignMessagePartyTwo(PartyTwoMsg),
     KeyGenBegin,
     SignBegin,
+    SetMessage(String),
+    SignOnlineBegin,
     TwoPartySignRefresh(String, String), // SignRefresh(message, keygen_result_json)
     MultiPartySignRefresh(String, String, Vec<usize>), // SignRefresh(message, keygen_result_json, subset)
     // TBD: Extend it to errors

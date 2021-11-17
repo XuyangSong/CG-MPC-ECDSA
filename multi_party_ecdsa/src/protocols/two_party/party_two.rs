@@ -7,8 +7,9 @@ use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
 use class_group::primitives::cl_dl_public_setup::{
-    encrypt_without_r, eval_scal, eval_sum, CLGroup, Ciphertext as CLCiphertext, PK,
+    encrypt_without_r, eval_scal, eval_sum, CLGroup, Ciphertext as CLCiphertext, PK, SK
 };
+use class_group::primitives::cl_dl_public_setup::Ciphertext;
 use class_group::BinaryQF;
 use curv::arithmetic::traits::Samplable;
 use curv::arithmetic::traits::*;
@@ -18,6 +19,8 @@ use curv::elliptic::curves::secp256_k1::GE;
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
 
 //****************** Begin: Party Two structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -45,7 +48,10 @@ pub struct SignPhase {
     pub received_round_one_msg: DLCommitments,
     pub precompute_c1: CLCiphertext,
     pub keygen_result: Option<KenGenResult>,
+    pub message: FE,
     pub need_refresh: bool,
+    pub online_offline: bool,
+    pub msg_set: bool,
 }
 
 impl KenGenResult {
@@ -191,19 +197,22 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new(message_str: &String) -> Result<Self, MulEcdsaError> {
+    pub fn new(message_str: &Option<String>, online_offline: bool) -> Result<Self, MulEcdsaError> {
         let cl_group = update_class_group_by_p(&GROUP_128);
-        let message_bigint =
-            BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-        let message: FE = ECScalar::from(&message_bigint);
-
         let keypair = EcKeyPair::new();
+        let mut message: FE = FE::zero();
+        //Init c1 as 0
+        let mut c1 = (Ciphertext { c1: BinaryQF{a: BigInt::zero(),b: BigInt::zero(),c: BigInt::zero()}, c2: BinaryQF{a: BigInt::zero(),b: BigInt::zero(),c: BigInt::zero()} }, SK::from(BigInt::zero()));
+        if let Some(message_str) = message_str{
+            let message_bigint =
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+            message = ECScalar::from(&message_bigint);
+            // Precompute c1
+            let k2_inv = keypair.get_secret_key().invert();
+            let k2_inv_m = k2_inv * message;
+            c1 = encrypt_without_r(&cl_group, &k2_inv_m);
+        }
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
-
-        // Precompute c1
-        let k2_inv = keypair.get_secret_key().invert();
-        let k2_inv_m = k2_inv * message;
-        let c1 = encrypt_without_r(&cl_group, &k2_inv_m);
 
         Ok(Self {
             cl_group,
@@ -212,7 +221,10 @@ impl SignPhase {
             received_round_one_msg: DLCommitments::default(),
             precompute_c1: c1.0,
             keygen_result: None,
+            message,
             need_refresh: false,
+            online_offline,
+            msg_set: false,
         })
     }
 
@@ -263,7 +275,7 @@ impl SignPhase {
         received_r_1 * self.keypair.get_secret_key()
     }
 
-    pub fn sign(&self, ephemeral_public_share: &GE) -> Result<(CLCiphertext, FE), MulEcdsaError> {
+    pub fn sign(&self, ephemeral_public_share: &GE, online_offline: bool) -> Result<(CLCiphertext, FE), MulEcdsaError> {
         if let Some(keygen_result) = self.keygen_result.clone() {
             let q = FE::q();
             let r_x: FE = ECScalar::from(
@@ -281,10 +293,57 @@ impl SignPhase {
             let t_p = ECScalar::from(&t.mod_floor(&q));
             let t_plus = t + v.to_big_int();
             let c2 = eval_scal(&keygen_result.cl_cipher, &t_plus);
-
-            Ok((eval_sum(&self.precompute_c1, &c2), t_p))
+            if online_offline {
+                Ok((c2, t_p))
+            }else {
+                Ok((eval_sum(&self.precompute_c1, &c2), t_p))
+            }
         } else {
             Err(MulEcdsaError::NotLoadKeyGenResult)
+        }
+    }
+
+    pub fn online(&self, message: &FE, c_2: &CLCiphertext) -> Result<CLCiphertext, MulEcdsaError>{
+        let k2_inv = self.keypair.get_secret_key().invert();
+        let k2_inv_m = k2_inv * message;
+        let c_1 = encrypt_without_r(&self.cl_group, &k2_inv_m);
+        Ok(eval_sum(&c_1.0, &c_2))
+    }
+
+    pub fn set_msg(&mut self, message_str: String) -> Result<(), MulEcdsaError>{
+        let message_bigint = BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message: FE = ECScalar::from(&message_bigint);
+        self.message = message;
+        self.msg_set = true;
+        println!("Set Message Succeed");
+        Ok(())
+    }
+
+    pub fn process_begin_sign_online(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError>{
+        if index == 1{
+            if self.msg_set == true {
+                let file_name = "./offline_result".to_string() + ".json";
+                let data = fs::read_to_string(file_name)
+                    .expect("Unable to load offline result, did you run signoffline first? ");
+                let (c_2, t_p): (Ciphertext, FE) =
+                    serde_json::from_str(&data).unwrap();
+                let cipher = self.online(&self.message, &c_2).unwrap();
+    
+                let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
+                    PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p));
+                let msg_bytes = bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
+    
+                // Party two time end
+                println!("##    Sign Finish!");
+            return Ok(SendingMessages::BroadcastMessage(msg_bytes));
+            }else {
+                println!("Please set message to sign first");
+                Ok(SendingMessages::EmptyMsg)
+            } 
+        }
+        else{
+            println!("Please use index 1 party begin the sign online phase...");
+            return Ok(SendingMessages::EmptyMsg);
         }
     }
 
@@ -305,23 +364,40 @@ impl SignPhase {
             }
             PartyOneMsg::SignPartyOneRoundTwoMsg(witness) => {
                 println!("\n=>    Sign: Receiving RoundTwoMsg from index 0");
-
                 SignPhase::verify_received_dl_com_zk(&self.received_round_one_msg, &witness)?;
+                if self.online_offline {
+                    let ephemeral_public_share =
+                        self.compute_public_share_key(witness.get_public_key());
+                    let (c_2, t_p) = self.sign(&ephemeral_public_share, true)?;
+                    // store offline result
+                    let file_name = "./offline_result".to_string() + ".json";
+                    let offline_path = Path::new(&file_name);
+                    let offline_json = serde_json::to_string(&(
+                        c_2.clone(),
+                        t_p,
+                    ))
+                    .unwrap();
+                    fs::write(offline_path, offline_json).expect("Unable to save !");
 
-                let ephemeral_public_share =
-                    self.compute_public_share_key(witness.get_public_key());
-                let (cipher, t_p) = self.sign(&ephemeral_public_share)?;
+                    println!("offline finish");
+                    self.need_refresh = true;
+                    return Ok(SendingMessages::EmptyMsg);
+                }else {
+                    let ephemeral_public_share =
+                        self.compute_public_share_key(witness.get_public_key());
+                    let (cipher, t_p) = self.sign(&ephemeral_public_share, false)?;
 
-                let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                    PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),
-                );
-                let msg_bytes =
-                    bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
+                    let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
+                        PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),
+                    );
+                    let msg_bytes =
+                        bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
 
-                // Party two time end
-                println!("##    Sign Finish!");
-                self.need_refresh = true;
-                return Ok(SendingMessages::BroadcastMessage(msg_bytes));
+                    // Party two time end
+                    println!("##    Sign Finish!");
+                    self.need_refresh = true;
+                    return Ok(SendingMessages::BroadcastMessage(msg_bytes));
+                }
             }
             _ => {
                 println!("Unsupported parse Received MessageType");

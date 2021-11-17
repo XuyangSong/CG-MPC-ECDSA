@@ -49,6 +49,7 @@ pub struct SignPhase {
     pub message: FE,
     pub keygen_result: Option<KenGenResult>,
     pub need_refresh: bool,
+    pub msg_set:bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -231,11 +232,14 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new(message_str: &String) -> Result<Self, MulEcdsaError> {
+    pub fn new(message_str: &Option<String>) -> Result<Self, MulEcdsaError> {
         let cl_group = update_class_group_by_p(&GROUP_128);
-        let message_bigint =
-            BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-        let message: FE = ECScalar::from(&message_bigint);
+        let mut message: FE = FE::zero(); 
+        if let Some(message_str) = message_str{
+            let message_bigint =
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+            message = ECScalar::from(&message_bigint);
+        }
 
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
@@ -254,6 +258,7 @@ impl SignPhase {
             message,
             keygen_result: None,
             need_refresh: false,
+            msg_set: false,
         })
     }
 
@@ -346,6 +351,15 @@ impl SignPhase {
             println!("Please use index 0 party begin the sign...");
             return Ok(SendingMessages::EmptyMsg);
         }
+    }
+
+    pub fn set_msg(&mut self, message_str: String) -> Result<(), MulEcdsaError>{
+        let message_bigint = BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message: FE = ECScalar::from(&message_bigint);
+        self.message = message;
+        self.msg_set = true;
+        println!("Set Message Succeed");
+        Ok(())
     }
 
     pub fn msg_handler_sign(

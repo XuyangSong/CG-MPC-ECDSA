@@ -23,11 +23,15 @@ use tokio::task;
 struct Opt {
     /// Message to sign
     #[structopt(short, long)]
-    message: String,
+    message: Option<String>,
 
     /// Config Path
     #[structopt(short, long)]
     config_path: String,
+
+    /// Sign Model
+    #[structopt(short, long)]
+    online_offline: bool,
 }
 
 struct PartyTwo {
@@ -52,7 +56,7 @@ impl InitMessage {
 
         // Init two party info
         let party_two_keygen = party_two::KeyGenPhase::new();
-        let mut party_two_sign = party_two::SignPhase::new(&message)?;
+        let mut party_two_sign = party_two::SignPhase::new(&message, opt.online_offline)?;
 
         // Load keygen result
         let keygen_path = Path::new("./keygen_result1.json");
@@ -93,6 +97,12 @@ impl MsgProcess<Message> for PartyTwo {
             }
             ReceivingMessages::TwoSignMessagePartyOne(msg) => {
                 sending_msg = self.party_two_sign.msg_handler_sign(&msg)?;
+            }
+            ReceivingMessages::SetMessage(msg) => {
+                self.party_two_sign.set_msg(msg)?;
+            }
+            ReceivingMessages::SignOnlineBegin => {
+                sending_msg = self.party_two_sign.process_begin_sign_online(_index)?;
             }
             ReceivingMessages::TwoPartySignRefresh(message, keygen_result_json) => {
                 self.party_two_sign.refresh(&message, &keygen_result_json)?;

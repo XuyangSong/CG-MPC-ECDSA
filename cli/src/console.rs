@@ -14,6 +14,8 @@ enum UserCommand {
     Sign,
     TwoSignRefresh(String, String),
     MultiSignRefresh(String, String, Vec<usize>),
+    SignOnline,
+    SetMessage(String),
     Disconnect(PeerID), // peer id
     ListPeers,
     Exit,
@@ -110,6 +112,17 @@ impl Console {
                 self.node.broadcast(Message(msg.clone())).await;
                 self.node.sendself(Message(msg)).await;
             }
+            UserCommand::SetMessage(message) => {
+                let msg = bincode::serialize(&ReceivingMessages::SetMessage(message))
+                    .map_err(|why| format!("bincode serialize error: {}", why))?;
+                self.node.sendself(Message(msg)).await;
+            }
+            UserCommand::SignOnline => {
+                let msg = bincode::serialize(&ReceivingMessages::SignOnlineBegin)
+                    .map_err(|why| format!("bincode serialize error: {}", why))?;
+                self.node.broadcast(Message(msg.clone())).await;
+                self.node.sendself(Message(msg)).await;
+            }
             UserCommand::TwoSignRefresh(message, keygen_result_json) => {
                 let msg = bincode::serialize(&ReceivingMessages::TwoPartySignRefresh(
                     message,
@@ -190,6 +203,11 @@ impl Console {
                 keygen_result_json,
                 subset,
             ))
+        } else if command == "signonline" {
+            Ok(UserCommand::SignOnline)
+        } else if command == "setmessage" {
+            let message = rest.ok_or_else(|| "Missing message".to_string())?;
+            Ok(UserCommand::SetMessage(message.to_string()))
         } else if command == "exit" || command == "quit" || command == "q" {
             Ok(UserCommand::Exit)
         } else {
