@@ -6,5 +6,4 @@ members = [
     "p2p",
     "cli",
     "message",
-    "online_offline",
 ]
