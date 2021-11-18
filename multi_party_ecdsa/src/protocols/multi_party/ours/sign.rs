@@ -6,14 +6,14 @@ use crate::utilities::promise_sigma_multi::*;
 use crate::utilities::signature::Signature;
 use crate::utilities::SECURITY_BITS;
 use class_group::primitives::cl_dl_public_setup::{
-    decrypt, encrypt_without_r, CLGroup, Ciphertext as CLCipher,
+    decrypt, encrypt_without_r, Ciphertext as CLCipher,
 };
 
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::keygen::{KenGenResult, Parameters};
 use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::{update_class_group_by_p, GROUP_128};
+use crate::utilities::class::GROUP_UPDATE_128;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -42,7 +42,6 @@ pub struct SignMsgs {
 
 #[derive(Clone, Debug)]
 pub struct SignPhase {
-    group: CLGroup,
     pub party_index: usize,
     pub party_num: usize,
     pub params: Parameters,
@@ -110,12 +109,10 @@ impl SignPhase {
         message_str: &Option<String>,
         keygen_result_json: &String,
     ) -> Result<Self, MulEcdsaError> {
-        let new_class_group = update_class_group_by_p(&GROUP_128);
-
         // Load keygen result
         let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;
         let ec_keypair = EcKeyPair::from_sk(keygen_result.ec_sk);
-        let cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &new_class_group);
+        let cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &GROUP_UPDATE_128);
         let vss_scheme_map = keygen_result.vss;
         let share_public_key_map = keygen_result.share_pks;
 
@@ -176,7 +173,6 @@ impl SignPhase {
             .collect::<Vec<_>>();
 
         let mut ret = SignPhase {
-            group: new_class_group,
             party_index,
             party_num,
             params,
@@ -223,7 +219,7 @@ impl SignPhase {
         // Load keygen result
         let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;
         self.ec_keypair = EcKeyPair::from_sk(keygen_result.ec_sk);
-        self.cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &self.group);
+        self.cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &GROUP_UPDATE_128);
         let vss_scheme_map = keygen_result.vss;
         let share_public_key_map = keygen_result.share_pks;
         self.public_signing_key = keygen_result.pk;
@@ -291,7 +287,7 @@ impl SignPhase {
         self.k = FE::new_random();
 
         let cipher = PromiseCipher::encrypt(
-            &self.group,
+            &GROUP_UPDATE_128,
             self.cl_keypair.get_public_key(),
             self.ec_keypair.get_public_key(),
             &self.k,
@@ -307,7 +303,7 @@ impl SignPhase {
             r1: cipher.1,
             r2: cipher.2,
         };
-        let proof = PromiseProof::prove(&self.group, &promise_state, &promise_wit);
+        let proof = PromiseProof::prove(&GROUP_UPDATE_128, &promise_state, &promise_wit);
 
         // Generate commitment
         let gamma_pair = EcKeyPair::new();
@@ -340,12 +336,12 @@ impl SignPhase {
 
             let beta = FE::new_random();
             let (r_cipher_1, _r_blind) =
-                encrypt_without_r(&self.group, &zero.sub(&beta.get_element()));
+                encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&beta.get_element()));
             self.beta_map.insert(*index, beta);
 
             let v = FE::new_random();
             let (r_cipher_2, _r_blind) =
-                encrypt_without_r(&self.group, &zero.sub(&v.get_element()));
+                encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&v.get_element()));
             let b = base * v;
             self.v_map.insert(*index, v);
 
@@ -372,7 +368,7 @@ impl SignPhase {
     ) -> Result<Vec<u8>, MulEcdsaError> {
         // TBD: check ec cl pk
         // Verify promise proof
-        msg.proof.verify(&self.group, &msg.promise_state)?;
+        msg.proof.verify(&GROUP_UPDATE_128, &msg.promise_state)?;
 
         // Homo
         let cipher = &msg.promise_state.cipher;
@@ -388,7 +384,7 @@ impl SignPhase {
         {
             // Generate random.
             let t =
-                BigInt::sample_below(&(&self.group.stilde * BigInt::from(2).pow(40) * &FE::q()));
+                BigInt::sample_below(&(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()));
             t_p = ECScalar::from(&t.mod_floor(&FE::q()));
             let rho_plus_t = self.gamma.to_big_int() + t;
 
@@ -403,7 +399,7 @@ impl SignPhase {
         {
             // Generate random.
             let t =
-                BigInt::sample_below(&(&self.group.stilde * BigInt::from(2).pow(40) * &FE::q()));
+                BigInt::sample_below(&(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()));
             t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
             let omega_plus_t = self.omega.to_big_int() + t;
 
@@ -436,7 +432,7 @@ impl SignPhase {
         // Compute delta
         let k_mul_t = self.k * msg.t_p;
         let alpha = decrypt(
-            &self.group,
+            &GROUP_UPDATE_128,
             self.cl_keypair.get_secret_key(),
             &msg.homocipher,
         )
@@ -450,7 +446,7 @@ impl SignPhase {
         // Compute sigma
         let k_mul_t_plus = self.k * msg.t_p_plus;
         let miu = decrypt(
-            &self.group,
+            &GROUP_UPDATE_128,
             self.cl_keypair.get_secret_key(),
             &msg.homocipher_plus,
         )
