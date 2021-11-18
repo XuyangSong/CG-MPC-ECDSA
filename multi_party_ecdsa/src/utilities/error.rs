@@ -57,6 +57,8 @@ pub enum MulEcdsaError {
     FromHexFailed,
     #[error("Generate Result Json String Failed")]
     GenerateJsonStringFailed,
+    #[error("Missing message to sign")]
+    MissingMsg,
     #[error("General error")]
     GeneralError,
 }

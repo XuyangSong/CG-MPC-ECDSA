@@ -381,14 +381,19 @@ impl SignPhase {
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
             PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p) => {
-                println!("\n=>    Sign: Receiving RoundTwoMsg from index 1");
+                if self.msg_set == true {
+                    println!("\n=>    Sign: Receiving RoundTwoMsg from index 1");
 
-                let ephemeral_public_share = self.compute_public_share_key(&self.received_msg.pk);
-                let signature = self.sign(&cipher, &ephemeral_public_share, &t_p, self.message)?;
-                let signature_json = serde_json::to_string(&signature)
-                    .map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
-                self.need_refresh = true;
-                return Ok(SendingMessages::SignSuccessWithResult(signature_json));
+                    let ephemeral_public_share = self.compute_public_share_key(&self.received_msg.pk);
+                    let signature = self.sign(&cipher, &ephemeral_public_share, &t_p, self.message)?;
+                    let signature_json = serde_json::to_string(&signature)
+                        .map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
+                    self.need_refresh = true;
+                    return Ok(SendingMessages::SignSuccessWithResult(signature_json));
+                }else {
+                    println!("Please set message to sign first");
+                    Ok(SendingMessages::EmptyMsg)
+                } 
             }
             _ => {
                 println!("Unsupported parse Received MessageType");

@@ -203,15 +203,21 @@ impl SignPhase {
         let mut message: FE = FE::zero();
         //Init c1 as 0
         let mut c1 = (Ciphertext { c1: BinaryQF{a: BigInt::zero(),b: BigInt::zero(),c: BigInt::zero()}, c2: BinaryQF{a: BigInt::zero(),b: BigInt::zero(),c: BigInt::zero()} }, SK::from(BigInt::zero()));
-        if let Some(message_str) = message_str{
-            let message_bigint =
-            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-            message = ECScalar::from(&message_bigint);
-            // Precompute c1
-            let k2_inv = keypair.get_secret_key().invert();
-            let k2_inv_m = k2_inv * message;
-            c1 = encrypt_without_r(&cl_group, &k2_inv_m);
+        if !online_offline {
+            if let Some(message_str) = message_str{
+                let message_bigint =
+                BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+                message = ECScalar::from(&message_bigint);
+                // Precompute c1
+                let k2_inv = keypair.get_secret_key().invert();
+                let k2_inv_m = k2_inv * message;
+                c1 = encrypt_without_r(&cl_group, &k2_inv_m);
+            }
+            else {
+                return Err(MulEcdsaError::MissingMsg)
+            }
         }
+        
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
 
         Ok(Self {
@@ -275,7 +281,7 @@ impl SignPhase {
         received_r_1 * self.keypair.get_secret_key()
     }
 
-    pub fn sign(&self, ephemeral_public_share: &GE, online_offline: bool) -> Result<(CLCiphertext, FE), MulEcdsaError> {
+    pub fn sign(&self, ephemeral_public_share: &GE) -> Result<(CLCiphertext, FE), MulEcdsaError> {
         if let Some(keygen_result) = self.keygen_result.clone() {
             let q = FE::q();
             let r_x: FE = ECScalar::from(
@@ -293,7 +299,7 @@ impl SignPhase {
             let t_p = ECScalar::from(&t.mod_floor(&q));
             let t_plus = t + v.to_big_int();
             let c2 = eval_scal(&keygen_result.cl_cipher, &t_plus);
-            if online_offline {
+            if self.online_offline {
                 Ok((c2, t_p))
             }else {
                 Ok((eval_sum(&self.precompute_c1, &c2), t_p))
@@ -365,10 +371,10 @@ impl SignPhase {
             PartyOneMsg::SignPartyOneRoundTwoMsg(witness) => {
                 println!("\n=>    Sign: Receiving RoundTwoMsg from index 0");
                 SignPhase::verify_received_dl_com_zk(&self.received_round_one_msg, &witness)?;
-                if self.online_offline {
-                    let ephemeral_public_share =
+                let ephemeral_public_share =
                         self.compute_public_share_key(witness.get_public_key());
-                    let (c_2, t_p) = self.sign(&ephemeral_public_share, true)?;
+                if self.online_offline {
+                    let (c_2, t_p) = self.sign(&ephemeral_public_share)?;
                     // store offline result
                     let file_name = "./offline_result".to_string() + ".json";
                     let offline_path = Path::new(&file_name);
@@ -383,9 +389,7 @@ impl SignPhase {
                     self.need_refresh = true;
                     return Ok(SendingMessages::EmptyMsg);
                 }else {
-                    let ephemeral_public_share =
-                        self.compute_public_share_key(witness.get_public_key());
-                    let (cipher, t_p) = self.sign(&ephemeral_public_share, false)?;
+                    let (cipher, t_p) = self.sign(&ephemeral_public_share)?;
 
                     let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
                         PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),

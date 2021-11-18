@@ -104,7 +104,7 @@ fn two_party_test() {
     // Party two: compute partial signature
     let ephemeral_public_share_2 =
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
-    let (cipher, t_p) = party_two_sign_new.sign(&ephemeral_public_share_2, false).unwrap();
+    let (cipher, t_p) = party_two_sign_new.sign(&ephemeral_public_share_2).unwrap();
 
     // Party one: finish signature
     let ephemeral_public_share_1 =
@@ -231,7 +231,6 @@ fn online_offline_two_party() {
     let (c_2, t_p) = party_two_sign_new
         .sign(
             &ephemeral_public_share_2,
-            true
         )
         .unwrap();
     let ephemeral_public_share_1 =

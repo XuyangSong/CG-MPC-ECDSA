@@ -106,7 +106,7 @@ impl SignPhase {
         party_index: usize,
         params: Parameters,
         subset: &Vec<usize>,
-        online_offline: bool,
+        online_offline: bool, //tag if use online-offline sign model
         message_str: &Option<String>,
         keygen_result_json: &String,
     ) -> Result<Self, MulEcdsaError> {

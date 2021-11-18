@@ -22,16 +22,16 @@
 $ cargo run --bin two_party_ecdsa_one -- --help
 
 USAGE:
-    two_party_ecdsa_one --config_path <config_path>  --message <message>  --online_offline
+    two_party_ecdsa_one [FLAGS] [OPTIONS] --config_path <config_path>
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -h, --help              Prints help information
+    -o, --online_offline    Sign Model
+    -V, --version           Prints version information
 
 OPTIONS:
     -c, --config_path <config_path>    Config Path
     -m, --message <message>            Message to sign
-    -o, --online_offline                           Sign model
     
 ```
 
@@ -252,11 +252,12 @@ Use the same config file as keygen.
 $ cargo run --bin multi_party_ecdsa_sign -- --help
 
 USAGE:
-    multi_party_ecdsa_sign [OPTIONS] --config_path <config_path> --index <index> --message <message>  --online_offline
+    multi_party_ecdsa_sign [FLAGS] [OPTIONS] --config_path <config_path> --index <index> --keygen_path <keygen_path>
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -h, --help              Prints help information
+    -o, --online_offline    Sign Model
+    -V, --version           Prints version information
 
 OPTIONS:
     -c, --config_path <config_path>    Config path
@@ -264,7 +265,6 @@ OPTIONS:
     -k, --keygen_path <keygen_path>    Keygen result path
     -m, --message <message>            Message to sign
     -s, --subset <subset>...           Participants index
-    -o, --online_offline             Sign Model
 ```
 
 ### 3.2 sign cli example
