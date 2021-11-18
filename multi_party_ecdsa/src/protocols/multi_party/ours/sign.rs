@@ -69,6 +69,8 @@ pub struct SignPhase {
     pub precomputation: HashMap<usize, (CLCipher, CLCipher, GE)>,
     pub msgs: SignMsgs,
     pub need_refresh: bool,
+    pub online_offline: bool,
+    pub msg_set: bool,
 }
 
 impl SignMsgs {
@@ -104,7 +106,8 @@ impl SignPhase {
         party_index: usize,
         params: Parameters,
         subset: &Vec<usize>,
-        message_str: &String,
+        online_offline: bool, //tag if use online-offline sign model
+        message_str: &Option<String>,
         keygen_result_json: &String,
     ) -> Result<Self, MulEcdsaError> {
         let new_class_group = update_class_group_by_p(&GROUP_128);
@@ -127,10 +130,13 @@ impl SignPhase {
         }
 
         // Process the message to sign
-        let message_bigint =
-            BigInt::from_hex(message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-        let message: FE = ECScalar::from(&message_bigint);
-
+        let mut message: FE = FE::zero();
+        if let Some(message_str) = message_str{
+            let message_bigint =
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+            message = ECScalar::from(&message_bigint);
+        }
+            
         // Compute lambda
         let lamda = VerifiableSS::<GE>::map_share_to_new_params(
             &vss_scheme_map
@@ -197,6 +203,8 @@ impl SignPhase {
             precomputation: HashMap::new(),
             msgs: SignMsgs::new(),
             need_refresh: false,
+            online_offline,
+            msg_set: false,
         };
 
         ret.init();
@@ -528,13 +536,13 @@ impl SignPhase {
         let v_i = self.r_point * &s_i + base * l_i;
         let a_i = base * rho_i;
         let b_i = base * l_i_rho_i;
-
         // Generate com
         let blind = BigInt::sample(SECURITY_BITS);
         let input_hash = HSha256::create_hash_from_ge(&[&v_i, &a_i, &b_i]).to_big_int();
         let commitment =
             HashCommitment::create_commitment_with_user_defined_randomness(&input_hash, &blind);
 
+        
         // Generate zk proof
         let witness = HomoElGamalWitness { r: l_i, x: s_i };
         let delta = HomoElGamalStatement {
@@ -546,7 +554,7 @@ impl SignPhase {
         };
         let dl_proof = DLogProof::prove(&rho_i);
         let proof = HomoELGamalProof::prove(&witness, &delta);
-
+        
         let msg_step_one = SignPhaseFiveStepOneMsg { commitment };
         let msg_step_two = SignPhaseFiveStepTwoMsg {
             v_i,
@@ -557,7 +565,6 @@ impl SignPhase {
             proof,
         };
         let msg_step_seven = SignPhaseFiveStepSevenMsg { s_i };
-
         self.rho = rho_i;
         self.l = l_i;
 
@@ -570,7 +577,6 @@ impl SignPhase {
         self.msgs
             .phase_five_step_seven_msgs
             .insert(self.party_index, msg_step_seven);
-
         msg_step_one
     }
 
@@ -729,6 +735,34 @@ impl SignPhase {
         Ok(SendingMessages::EmptyMsg)
     }
 
+    pub fn process_online_begin(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError> {
+        if self.msg_set == true{
+            if self.subset.contains(&index) {
+                let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
+                let sending_msg = ReceivingMessages::MultiSignMessage(
+                    MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
+                );
+                let sending_msg_bytes = bincode::serialize(&sending_msg)
+                    .map_err(|_| MulEcdsaError::SerializeFailed)?;
+                return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+           }
+           Ok(SendingMessages::EmptyMsg)
+        }
+        else {
+            println!("Please set message to sign first");
+            Ok(SendingMessages::EmptyMsg)
+        }
+    }
+
+    pub fn set_msg(&mut self, message_str: String) -> Result<(), MulEcdsaError>{
+        let message_bigint = BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message: FE = ECScalar::from(&message_bigint);
+        self.message = message;
+        self.msg_set = true;
+        println!("Set Message Succeed");
+        Ok(())
+    }
+
     pub fn msg_handler(
         &mut self,
         index: usize,
@@ -783,12 +817,15 @@ impl SignPhase {
                             .phase_four_msgs
                             .get(&self.party_index)
                             .ok_or(MulEcdsaError::GetIndexFailed)?;
+
                         let sending_msg = ReceivingMessages::MultiSignMessage(
                             MultiSignMessage::PhaseFourMsg(msg_four.clone()),
                         );
                         let sending_msg_bytes = bincode::serialize(&sending_msg)
                             .map_err(|_| MulEcdsaError::GetIndexFailed)?;
                         return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                  
+                        
                     }
                 }
                 MultiSignMessage::PhaseFourMsg(msg) => {
@@ -804,13 +841,18 @@ impl SignPhase {
                     // Generate the next msg
                     if self.msgs.phase_four_msgs.len() == self.party_num {
                         self.compute_r_x()?;
-                        let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
-                        let sending_msg = ReceivingMessages::MultiSignMessage(
-                            MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
-                        );
-                        let sending_msg_bytes = bincode::serialize(&sending_msg)
-                            .map_err(|_| MulEcdsaError::GetIndexFailed)?;
-                        return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                        if self.online_offline {
+                            println!("Offline phase finished");
+                            return Ok(SendingMessages::EmptyMsg);
+                        }else{
+                            let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
+                            let sending_msg = ReceivingMessages::MultiSignMessage(
+                                MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
+                            );
+                            let sending_msg_bytes = bincode::serialize(&sending_msg)
+                                .map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                            return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
+                        }
                     }
                 }
                 MultiSignMessage::PhaseFiveStepOneMsg(msg) => {

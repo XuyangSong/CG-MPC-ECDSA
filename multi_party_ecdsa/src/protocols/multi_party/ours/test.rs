@@ -753,6 +753,7 @@ fn keygen_t_n_parties(group: &CLGroup, params: &Parameters) -> Vec<KeyGenTest> {
 
 fn test_sign(params: &Parameters, key_gen_vec: Vec<KeyGenTest>) {
     // Sign Init
+    let offline_start = time::now();
     let party_num = key_gen_vec.len();
     let t_i32 = party_num as i32;
     let subset = (0..party_num)
@@ -855,8 +856,11 @@ fn test_sign(params: &Parameters, key_gen_vec: Vec<KeyGenTest>) {
     }
     let sign_phase_four_time = (time::now() - sign_phase_four_start) / (t_i32 * t_i32);
     println!("sign_phase_four_time: {:?}", sign_phase_four_time);
+    let offline_time = (time::now() - offline_start) / (t_i32 * t_i32);
+    println!("offline_time: {:?}", offline_time);
 
     // Sign phase 5
+    let online_start = time::now();
     let mut phase_five_step_one_msg_vec: Vec<SignPhaseFiveStepOneMsg> =
         Vec::with_capacity(party_num);
     let mut phase_five_step_two_msg_vec: Vec<SignPhaseFiveStepTwoMsg> =
@@ -928,6 +932,8 @@ fn test_sign(params: &Parameters, key_gen_vec: Vec<KeyGenTest>) {
     // Verify Signature
     sig.verify(&key_gen_vec[0].public_signing_key, &message)
         .unwrap();
+    let online_time = (time::now() - online_start) / (t_i32 * t_i32);
+    println!("online_time: {:?}", online_time);
 }
 
 #[test]
@@ -944,5 +950,5 @@ fn test_multi_party() {
 
     let key_gen_vec = keygen_t_n_parties(&group, &params);
 
-    test_sign(&params, key_gen_vec);
+    test_sign(&params, key_gen_vec.clone());
 }

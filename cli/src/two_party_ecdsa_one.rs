@@ -22,11 +22,15 @@ use tokio::task;
 struct Opt {
     /// Message to sign
     #[structopt(short, long)]
-    message: String,
+    message: Option<String>,
 
     /// Config Path
     #[structopt(short, long)]
     config_path: String,
+
+    /// Sign Model
+    #[structopt(short, long)]
+    online_offline: bool,
 }
 
 struct PartyOne {
@@ -95,6 +99,9 @@ impl MsgProcess<Message> for PartyOne {
             }
             ReceivingMessages::KeyGenBegin => {
                 sending_msg = self.party_one_keygen.process_begin_keygen(index)?;
+            }
+            ReceivingMessages::SetMessage(msg) => {
+                self.party_one_sign.set_msg(msg)?;
             }
             ReceivingMessages::SignBegin => {
                 if self.party_one_sign.need_refresh {
