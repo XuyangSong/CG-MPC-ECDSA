@@ -1,25 +1,12 @@
 use super::*;
-use class_group::primitives::cl_dl_public_setup::CLGroup;
-use curv::arithmetic::Converter;
-use curv::elliptic::curves::secp256_k1::{FE, GE};
-use curv::elliptic::curves::traits::*;
-use curv::BigInt;
+// use curv::arithmetic::Converter;
+// use curv::elliptic::curves::secp256_k1::{FE, GE};
+// use curv::elliptic::curves::traits::*;
+// use curv::BigInt;
+// use crate::utilities::class::GROUP_128;
 
 #[test]
 fn two_party_test() {
-    let setup_start = time::now();
-    let seed: BigInt = BigInt::from_hex(
-            "314159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848"
-        ).unwrap();
-    let cl_group = CLGroup::new_from_setup(&1827, &seed); //discriminant 1827
-    let (_secret_key_test, _public_key_test) = cl_group.keygen(); //class group key generation
-    let g_test: GE = GE::generator();
-    let ecsk_test: FE = FE::new_random();
-    let _h: GE = g_test.clone().scalar_mul(&ecsk_test.get_element()); // elegamal key generation
-    assert!(cl_group.setup_verify(&seed).is_ok());
-    let setup_end = time::now();
-    println!("duration:{:?}", setup_end - setup_start);
-
     // keygen starts
     let keygen_start = time::now();
 

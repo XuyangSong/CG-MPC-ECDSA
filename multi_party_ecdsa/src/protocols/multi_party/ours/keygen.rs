@@ -1,12 +1,12 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::{update_class_group_by_p, GROUP_128};
+use crate::utilities::class::{GROUP_UPDATE_128, GROUP_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
-use class_group::primitives::cl_dl_public_setup::{CLGroup, PK, SK};
+use class_group::primitives::cl_dl_public_setup::{PK, SK};
 use class_group::BinaryQF;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
@@ -33,7 +33,6 @@ pub struct KeyGenMsgs {
 
 #[derive(Clone, Debug)]
 pub struct KeyGenPhase {
-    group: CLGroup,
     pub party_index: usize,
     pub params: Parameters,
     pub ec_keypair: EcKeyPair,
@@ -95,9 +94,6 @@ impl KeyGenPhase {
         // Generate elgamal keypair
         let ec_keypair = EcKeyPair::new();
 
-        // Update gp
-        let new_class_group = update_class_group_by_p(&GROUP_128);
-
         // Generate signing key pair
         let private_signing_key = EcKeyPair::new();
 
@@ -114,7 +110,7 @@ impl KeyGenPhase {
             h_caret: h_caret.clone(),
             h: cl_keypair.get_public_key().clone(),
             ec_pk: ec_keypair.get_public_key().clone(),
-            gp: new_class_group.gq.clone(),
+            gp: GROUP_UPDATE_128.gq.clone(),
             commitment: dlog_com.commitment,
         };
         msgs.phase_one_two_msgs.insert(party_index, msg_1_2);
@@ -135,7 +131,6 @@ impl KeyGenPhase {
         )?;
 
         Ok(Self {
-            group: new_class_group,
             party_index,
             params,
             ec_keypair,
@@ -175,7 +170,7 @@ impl KeyGenPhase {
             h_caret: self.h_caret.clone(),
             h: self.cl_keypair.get_public_key().clone(),
             ec_pk: self.ec_keypair.get_public_key().clone(),
-            gp: self.group.gq.clone(),
+            gp: GROUP_UPDATE_128.gq.clone(),
             commitment: dlog_com.commitment,
         };
         self.msgs
@@ -223,7 +218,7 @@ impl KeyGenPhase {
         gp: &BinaryQF,
     ) -> Result<(), MulEcdsaError> {
         let h_ret = h_caret.0.exp(&FE::q());
-        if h_ret != h.0 || *gp != self.group.gq {
+        if h_ret != h.0 || *gp != GROUP_UPDATE_128.gq {
             return Err(MulEcdsaError::VrfySignPhaseOneMsgFailed);
         }
         Ok(())

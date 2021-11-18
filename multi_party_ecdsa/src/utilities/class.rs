@@ -35,3 +35,6 @@ lazy_static! {
 lazy_static! {
     pub static ref GROUP_128: CLGroup = CLGroup::new_from_qtilde(&SEED, &QTLIDE_128);
 }
+lazy_static! {
+    pub static ref GROUP_UPDATE_128: CLGroup = update_class_group_by_p(&GROUP_128);
+}

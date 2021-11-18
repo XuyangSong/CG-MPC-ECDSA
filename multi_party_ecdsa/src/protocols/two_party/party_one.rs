@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
-use crate::utilities::class::{update_class_group_by_p, GROUP_128};
+use crate::utilities::class::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
@@ -20,14 +20,13 @@ use crate::utilities::promise_sigma::*;
 use crate::utilities::signature::Signature;
 use class_group::primitives::cl_dl_public_setup::SK;
 use class_group::primitives::cl_dl_public_setup::{
-    decrypt, CLGroup, Ciphertext as CLCiphertext, PK,
+    decrypt, Ciphertext as CLCiphertext, PK,
 };
 use class_group::BinaryQF;
 
 //****************** Begin: Party One structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyGenPhase {
-    pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
     pub cl_keypair: ClKeyPair,
     pub h_caret: PK,
@@ -41,7 +40,6 @@ pub struct KeyGenPhase {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhase {
-    pub cl_group: CLGroup,
     pub keypair: EcKeyPair,
     pub round_one_msg: DLCommitments,
     pub round_two_msg: CommWitness,
@@ -69,11 +67,9 @@ impl KeyGenPhase {
         let h_caret = cl_keypair.get_public_key().clone();
         cl_keypair.update_pk_exp_p();
 
-        let new_class_group = update_class_group_by_p(&GROUP_128);
-
         // Precomputation: promise proof
         let cipher = PromiseCipher::encrypt(
-            &new_class_group,
+            &GROUP_UPDATE_128,
             cl_keypair.get_public_key(),
             keypair.get_secret_key(),
         );
@@ -86,7 +82,7 @@ impl KeyGenPhase {
             m: keypair.get_secret_key().clone(),
             r: cipher.1,
         };
-        let promise_proof = PromiseProof::prove(&new_class_group, &promise_state, &promise_wit);
+        let promise_proof = PromiseProof::prove(&GROUP_UPDATE_128, &promise_state, &promise_wit);
 
         Self {
             public_signing_key: None, // Compute later
@@ -97,7 +93,6 @@ impl KeyGenPhase {
             h_caret,
             promise_state,
             promise_proof,
-            cl_group: new_class_group,
             need_refresh: false,
         }
     }
@@ -114,7 +109,7 @@ impl KeyGenPhase {
         cl_keypair.update_pk_exp_p();
         self.cl_keypair = cl_keypair;
         let cipher = PromiseCipher::encrypt(
-            &self.cl_group,
+            &GROUP_UPDATE_128,
             self.cl_keypair.get_public_key(),
             self.keypair.get_secret_key(),
         );
@@ -126,7 +121,7 @@ impl KeyGenPhase {
             m: self.keypair.get_secret_key().clone(),
             r: cipher.1,
         };
-        self.promise_proof = PromiseProof::prove(&self.cl_group, &self.promise_state, &promise_wit);
+        self.promise_proof = PromiseProof::prove(&GROUP_UPDATE_128, &self.promise_state, &promise_wit);
         self.need_refresh = false;
     }
 
@@ -134,7 +129,7 @@ impl KeyGenPhase {
         (
             self.h_caret.clone(),
             self.cl_keypair.get_public_key().clone(),
-            self.cl_group.gq.clone(),
+            GROUP_UPDATE_128.gq.clone(),
         )
     }
 
@@ -233,7 +228,6 @@ impl KeyGenPhase {
 
 impl SignPhase {
     pub fn new(message_str: &Option<String>) -> Result<Self, MulEcdsaError> {
-        let cl_group = update_class_group_by_p(&GROUP_128);
         let mut message: FE = FE::zero(); 
         if let Some(message_str) = message_str{
             let message_bigint =
@@ -250,7 +244,6 @@ impl SignPhase {
         };
 
         Ok(Self {
-            cl_group,
             keypair,
             round_one_msg: dl_com_zk.commitments,
             round_two_msg: dl_com_zk.witness,
@@ -324,7 +317,7 @@ impl SignPhase {
             );
             let k1_inv = self.keypair.get_secret_key().invert();
             let x1_mul_tp = keygen_result.ec_sk * t_p;
-            let s_tag = decrypt(&self.cl_group, &keygen_result.cl_sk, &partial_sig_c3)
+            let s_tag = decrypt(&GROUP_UPDATE_128, &keygen_result.cl_sk, &partial_sig_c3)
                 .sub(&x1_mul_tp.get_element());
             let s_tag_tag = k1_inv * s_tag;
             let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());
