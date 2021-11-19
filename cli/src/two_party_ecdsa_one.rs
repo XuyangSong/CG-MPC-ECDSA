@@ -55,7 +55,7 @@ impl InitMessage {
 
         // Init party one info
         let party_one_keygen = party_one::KeyGenPhase::new();
-        let mut party_one_sign = party_one::SignPhase::new(&message)?;
+        let mut party_one_sign = party_one::SignPhase::new(&message, opt.online_offline)?;
 
         // Load keygen result
         let keygen_path = Path::new("./keygen_result0.json");
