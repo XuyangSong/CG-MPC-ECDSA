@@ -228,15 +228,7 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-<<<<<<< HEAD
-<<<<<<< HEAD
-    pub fn new(message_str: &Option<String>) -> Result<Self, MulEcdsaError> {
-=======
-=======
->>>>>>> 8447f73b7ae2dbd903257623707ae6640ea91678
     pub fn new(message_str: &Option<String>, online_offline: bool) -> Result<Self, MulEcdsaError> {
-        let cl_group = update_class_group_by_p(&GROUP_128);
->>>>>>> add online_offline tag in party one
         let mut message: FE = FE::zero(); 
         if !online_offline {
             if let Some(message_str) = message_str{
