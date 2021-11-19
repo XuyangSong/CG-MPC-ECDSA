@@ -195,23 +195,23 @@ impl KeyGenPhase {
 impl SignPhase {
     pub fn new(message_str: &Option<String>, online_offline: bool) -> Result<Self, MulEcdsaError> {
         let keypair = EcKeyPair::new();
-        let mut message: FE = FE::zero();
-        //Init c1 as 0
-        let mut c1 = (Ciphertext { c1: BinaryQF{a: BigInt::zero(),b: BigInt::zero(),c: BigInt::zero()}, c2: BinaryQF{a: BigInt::zero(),b: BigInt::zero(),c: BigInt::zero()} }, SK::from(BigInt::zero()));
+        //Init message randomly
+        let mut message: FE = FE::new_random();
+
         if !online_offline {
-            if let Some(message_str) = message_str{
+            if let Some(message_str) = message_str {
                 let message_bigint =
-                BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+                    BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
                 message = ECScalar::from(&message_bigint);
-                // Precompute c1
-                let k2_inv = keypair.get_secret_key().invert();
-                let k2_inv_m = k2_inv * message;
-                c1 = encrypt_without_r(&GROUP_UPDATE_128, &k2_inv_m);
-            }
-            else {
-                return Err(MulEcdsaError::MissingMsg)
+            } else {
+                return Err(MulEcdsaError::MissingMsg);
             }
         }
+
+        // Precompute c1
+        let k2_inv = keypair.get_secret_key().invert();
+        let k2_inv_m = k2_inv * message;
+        let c1 = encrypt_without_r(&GROUP_UPDATE_128, &k2_inv_m);
         
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
 
