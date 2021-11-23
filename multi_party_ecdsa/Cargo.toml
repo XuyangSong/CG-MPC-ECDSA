@@ -37,6 +37,7 @@ thiserror = "1"
 curv = { package = "curv-kzen", version = "0.7" }
 message = {path = "../message"}
 lazy_static = "1.4.0"
+log = "0.4.6"
 
 
 [dependencies.centipede]

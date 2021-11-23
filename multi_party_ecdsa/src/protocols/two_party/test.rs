@@ -180,11 +180,10 @@ fn online_offline_two_party() {
     let party_two_keygen_result = party_two_key_gen_init
         .generate_result_json_string(&state)
         .unwrap();
-    let mut party_two_sign_new =
-        party_two::SignPhase::new(&None, true).unwrap();
+    let mut party_two_sign_new = party_two::SignPhase::new(&None, true).unwrap();
     party_two_sign_new
-    .load_keygen_result(&party_two_keygen_result)
-    .unwrap();
+        .load_keygen_result(&party_two_keygen_result)
+        .unwrap();
     let party_two_sign_round_one_msg = party_two_sign_new.msg.clone();
 
     // Party one round 2: verify received msg and send round 2 msg
@@ -202,25 +201,24 @@ fn online_offline_two_party() {
     // Party two: compute partial signature
     let ephemeral_public_share_2 =
         party_two_sign_new.compute_public_share_key(party_one_sign_round_two_msg.get_public_key());
-    let (c_2, t_p) = party_two_sign_new
-        .sign(
-            &ephemeral_public_share_2,
-        )
-        .unwrap();
+    let (c_2, t_p) = party_two_sign_new.sign(&ephemeral_public_share_2).unwrap();
     let ephemeral_public_share_1 =
-    party_one_sign_new.compute_public_share_key(&party_two_sign_round_one_msg.pk);
+        party_one_sign_new.compute_public_share_key(&party_two_sign_round_one_msg.pk);
     let sign_offline_end = time::now();
 
-    let message_str = "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string();
+    let message_str =
+        "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string();
     party_one_sign_new.set_msg(message_str.clone()).unwrap();
     party_two_sign_new.set_msg(message_str).unwrap();
 
     let sign_online_start = time::now();
 
-    let cipher = party_two_sign_new.online(&party_two_sign_new.message, &c_2).unwrap();
-   
+    let cipher = party_two_sign_new
+        .online(&party_two_sign_new.message, &c_2)
+        .unwrap();
+
     // Party one: finish signature
-    
+
     let signature = party_one_sign_new
         .sign(
             &cipher,
@@ -231,10 +229,7 @@ fn online_offline_two_party() {
         .unwrap();
     let sign_online_end = time::now();
     println!("signature: {:?}", signature);
-    println!(
-        "keygen_duration:{:?}",
-        keygen_end - keygen_start
-    );
+    println!("keygen_duration:{:?}", keygen_end - keygen_start);
     println!(
         "sign_offline_duration:{:?}",
         sign_offline_end - sign_offline_start

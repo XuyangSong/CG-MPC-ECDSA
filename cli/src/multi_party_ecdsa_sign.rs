@@ -1,6 +1,8 @@
 use anyhow::format_err;
 use cli::config::MultiPartyConfig;
 use cli::console::Console;
+use cli::log::init_log;
+use log::Level;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -10,8 +12,9 @@ use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
 use std::option::Option;
+use std::path::Path;
+use std::path::PathBuf;
 use structopt::StructOpt;
 use tokio::task;
 
@@ -45,6 +48,14 @@ struct Opt {
     /// Keygen result path
     #[structopt(short, long)]
     keygen_path: String,
+
+    /// Log path
+    #[structopt(long, default_value = "/tmp")]
+    log: PathBuf,
+
+    /// Log level
+    #[structopt(short, long, default_value = "DEBUG")]
+    level: Level,
 }
 
 // TBD: After resovled #19(Message), use SignPhase directly
@@ -61,6 +72,11 @@ pub struct InitMessage {
 impl InitMessage {
     pub fn init_message() -> Result<Self, anyhow::Error> {
         let opt = Opt::from_args();
+
+        // Init log
+        let mut path = opt.log;
+        path.push(format!("ecdsa_log_{}.log", opt.index));
+        init_log(path, opt.level)?;
 
         // Process config
         let config = MultiPartyConfig::new_from_file(&opt.config_path)?;
@@ -95,6 +111,9 @@ impl InitMessage {
             peers_info,
             multi_party_sign_info: multi_party_sign_info,
         };
+
+        log::info!("Config loading success!");
+
         return Ok(init_messages);
     }
 }
@@ -111,20 +130,22 @@ impl MsgProcess<Message> for MultiPartySign {
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
             ReceivingMessages::SignBegin => {
-                if self.sign.subset.contains(&self.sign.party_index){
+                if self.sign.subset.contains(&self.sign.party_index) {
                     if self.sign.need_refresh {
                         let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
                             .map_err(|why| format_err!("bincode serialize error: {}", why))?;
                         sending_msg = SendingMessages::SubsetMessage(msg_bytes);
-                        println!("Need refresh");
+                        log::error!("Need refresh first!!!");
                     } else {
                         sending_msg = self.sign.process_begin(index)?;
                     }
+                } else {
+                    log::warn!("You are not contained in subset, no need to participate signing");
                 }
-                else {println!("You are not contained in subset, no need to participate signing")}
             }
             ReceivingMessages::SetMessage(msg) => {
                 self.sign.set_msg(msg)?;
+                log::info!("Set Message Succeed");
             }
             ReceivingMessages::SignOnlineBegin => {
                 sending_msg = self.sign.process_online_begin(index)?;
@@ -134,13 +155,13 @@ impl MsgProcess<Message> for MultiPartySign {
             }
             ReceivingMessages::MultiPartySignRefresh(message, keygen_result_json, subset) => {
                 self.sign.refresh(subset, &message, &keygen_result_json)?;
-                println!("Refresh Success!");
+                log::info!("Refresh Success!");
             }
             ReceivingMessages::NeedRefresh => {
-                println!("Index {} need refresh", index);
+                log::error!("Index {} need refresh", index);
             }
             _ => {
-                println!("Undefined Message Process: {:?}", received_msg);
+                log::warn!("Undefined Receiving Message Process: {:?}", received_msg);
             }
         }
         match sending_msg {
@@ -165,14 +186,15 @@ impl MsgProcess<Message> for MultiPartySign {
                 return Ok(ProcessMessage::SendMultiMessage(msgs_to_send));
             }
             SendingMessages::SignSuccessWithResult(res) => {
-                println!("Sign Success! {}", res);
+                log::info!("Sign Success!");
+                log::debug!("Signature: {}", res);
                 return Ok(ProcessMessage::Default());
             }
             SendingMessages::EmptyMsg => {
                 return Ok(ProcessMessage::Default());
             }
             _ => {
-                println!("Undefined Message Process: {:?}", sending_msg);
+                log::warn!("Undefined Sending Message Process: {:?}", sending_msg);
                 return Ok(ProcessMessage::Default());
             }
         }

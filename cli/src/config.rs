@@ -21,6 +21,9 @@ impl TwoPartyConfig {
         let input_path = Path::new(file_name);
         let reader = fs::read_to_string(input_path)
             .map_err(|why| format_err!("Couldn't open {}: {}", input_path.display(), why))?;
+
+        log::info!("config info: {}", reader);
+
         let config: TwoPartyConfig = serde_json::from_str(&reader)
             .map_err(|why| format_err!("Couldn't deserialize config: {}", why))?;
 
@@ -49,6 +52,9 @@ impl MultiPartyConfig {
         let input_path = Path::new(file_name);
         let reader = fs::read_to_string(input_path)
             .map_err(|why| format_err!("Couldn't open {}: {}", input_path.display(), why))?;
+
+        log::info!("config info: {}", reader);
+
         let config: MultiPartyConfig = serde_json::from_str(&reader)
             .map_err(|why| format_err!("Couldn't deserialize config: {}", why))?;
 

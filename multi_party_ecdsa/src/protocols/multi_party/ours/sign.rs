@@ -128,12 +128,12 @@ impl SignPhase {
 
         // Process the message to sign
         let mut message: FE = FE::zero();
-        if let Some(message_str) = message_str{
+        if let Some(message_str) = message_str {
             let message_bigint =
-            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+                BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
             message = ECScalar::from(&message_bigint);
         }
-            
+
         // Compute lambda
         let lamda = VerifiableSS::<GE>::map_share_to_new_params(
             &vss_scheme_map
@@ -383,8 +383,9 @@ impl SignPhase {
             .ok_or(MulEcdsaError::GetIndexFailed)?;
         {
             // Generate random.
-            let t =
-                BigInt::sample_below(&(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()));
+            let t = BigInt::sample_below(
+                &(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()),
+            );
             t_p = ECScalar::from(&t.mod_floor(&FE::q()));
             let rho_plus_t = self.gamma.to_big_int() + t;
 
@@ -398,8 +399,9 @@ impl SignPhase {
 
         {
             // Generate random.
-            let t =
-                BigInt::sample_below(&(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()));
+            let t = BigInt::sample_below(
+                &(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()),
+            );
             t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
             let omega_plus_t = self.omega.to_big_int() + t;
 
@@ -538,7 +540,6 @@ impl SignPhase {
         let commitment =
             HashCommitment::create_commitment_with_user_defined_randomness(&input_hash, &blind);
 
-        
         // Generate zk proof
         let witness = HomoElGamalWitness { r: l_i, x: s_i };
         let delta = HomoElGamalStatement {
@@ -550,7 +551,7 @@ impl SignPhase {
         };
         let dl_proof = DLogProof::prove(&rho_i);
         let proof = HomoELGamalProof::prove(&witness, &delta);
-        
+
         let msg_step_one = SignPhaseFiveStepOneMsg { commitment };
         let msg_step_two = SignPhaseFiveStepTwoMsg {
             v_i,
@@ -732,30 +733,29 @@ impl SignPhase {
     }
 
     pub fn process_online_begin(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError> {
-        if self.msg_set == true{
+        if self.msg_set == true {
             if self.subset.contains(&index) {
                 let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
                 let sending_msg = ReceivingMessages::MultiSignMessage(
                     MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
                 );
-                let sending_msg_bytes = bincode::serialize(&sending_msg)
-                    .map_err(|_| MulEcdsaError::SerializeFailed)?;
+                let sending_msg_bytes =
+                    bincode::serialize(&sending_msg).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
-           }
-           Ok(SendingMessages::EmptyMsg)
-        }
-        else {
-            println!("Please set message to sign first");
+            }
+            Ok(SendingMessages::EmptyMsg)
+        } else {
+            log::error!("Please set message to sign first");
             Ok(SendingMessages::EmptyMsg)
         }
     }
 
-    pub fn set_msg(&mut self, message_str: String) -> Result<(), MulEcdsaError>{
-        let message_bigint = BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+    pub fn set_msg(&mut self, message_str: String) -> Result<(), MulEcdsaError> {
+        let message_bigint =
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message: FE = ECScalar::from(&message_bigint);
         self.message = message;
         self.msg_set = true;
-        println!("Set Message Succeed");
         Ok(())
     }
 
@@ -764,7 +764,11 @@ impl SignPhase {
         index: usize,
         msg_received: &MultiSignMessage,
     ) -> Result<SendingMessages, MulEcdsaError> {
-        // println!("handle receiving msg: {:?}", msg_received);
+        log::debug!(
+            "Multi Party msg_handler, from {}, msg: {:?}",
+            index,
+            msg_received
+        );
         if self.subset.contains(&index) {
             match msg_received {
                 MultiSignMessage::PhaseOneMsg(msg) => {
@@ -820,8 +824,6 @@ impl SignPhase {
                         let sending_msg_bytes = bincode::serialize(&sending_msg)
                             .map_err(|_| MulEcdsaError::GetIndexFailed)?;
                         return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
-                  
-                        
                     }
                 }
                 MultiSignMessage::PhaseFourMsg(msg) => {
@@ -838,10 +840,11 @@ impl SignPhase {
                     if self.msgs.phase_four_msgs.len() == self.party_num {
                         self.compute_r_x()?;
                         if self.online_offline {
-                            println!("Offline phase finished");
+                            log::info!("Offline phase finished");
                             return Ok(SendingMessages::EmptyMsg);
-                        }else{
-                            let msg_five_one = self.phase_five_step_onetwo_generate_com_and_zk_msg();
+                        } else {
+                            let msg_five_one =
+                                self.phase_five_step_onetwo_generate_com_and_zk_msg();
                             let sending_msg = ReceivingMessages::MultiSignMessage(
                                 MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
                             );

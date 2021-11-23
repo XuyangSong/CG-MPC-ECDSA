@@ -19,9 +19,7 @@ use crate::utilities::error::MulEcdsaError;
 use crate::utilities::promise_sigma::*;
 use crate::utilities::signature::Signature;
 use class_group::primitives::cl_dl_public_setup::SK;
-use class_group::primitives::cl_dl_public_setup::{
-    decrypt, Ciphertext as CLCiphertext, PK,
-};
+use class_group::primitives::cl_dl_public_setup::{decrypt, Ciphertext as CLCiphertext, PK};
 use class_group::BinaryQF;
 
 //****************** Begin: Party One structs ******************//
@@ -48,7 +46,7 @@ pub struct SignPhase {
     pub keygen_result: Option<KenGenResult>,
     pub need_refresh: bool,
     pub online_offline: bool,
-    pub msg_set:bool,
+    pub msg_set: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -122,7 +120,8 @@ impl KeyGenPhase {
             m: self.keypair.get_secret_key().clone(),
             r: cipher.1,
         };
-        self.promise_proof = PromiseProof::prove(&GROUP_UPDATE_128, &self.promise_state, &promise_wit);
+        self.promise_proof =
+            PromiseProof::prove(&GROUP_UPDATE_128, &self.promise_state, &promise_wit);
         self.need_refresh = false;
     }
 
@@ -166,7 +165,7 @@ impl KeyGenPhase {
                 bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
             return Ok(SendingMessages::BroadcastMessage(msg_bytes));
         } else {
-            println!("Please use index 0 party begin the keygen...");
+            log::warn!("Please use index 0 party begin the keygen...");
             return Ok(SendingMessages::EmptyMsg);
         }
     }
@@ -177,7 +176,7 @@ impl KeyGenPhase {
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
             PartyTwoMsg::KenGenPartyTwoRoundOneMsg(msg) => {
-                println!("\n=>    KeyGen: Receiving RoundOneMsg from index 1");
+                log::info!("KeyGen: Receiving RoundOneMsg from index 1");
                 let com_open = self.verify_and_get_next_msg(&msg)?;
                 self.compute_public_key(&msg.pk);
 
@@ -200,6 +199,7 @@ impl KeyGenPhase {
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
             PartyTwoMsg::KeyGenFinish => {
+                log::info!("KeyGen: Receiving KeyGenFinish from index 1");
                 // Set refresh
                 self.need_refresh = true;
                 let keygen_json = self.generate_result_json_string()?;
@@ -229,15 +229,14 @@ impl KeyGenPhase {
 
 impl SignPhase {
     pub fn new(message_str: &Option<String>, online_offline: bool) -> Result<Self, MulEcdsaError> {
-        let mut message: FE = FE::zero(); 
+        let mut message: FE = FE::zero();
         if !online_offline {
-            if let Some(message_str) = message_str{
+            if let Some(message_str) = message_str {
                 let message_bigint =
-                BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+                    BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
                 message = ECScalar::from(&message_bigint);
-            }
-            else {
-                return Err(MulEcdsaError::MissingMsg)
+            } else {
+                return Err(MulEcdsaError::MissingMsg);
             }
         }
 
@@ -348,17 +347,17 @@ impl SignPhase {
                 bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
             return Ok(SendingMessages::BroadcastMessage(msg_bytes));
         } else {
-            println!("Please use index 0 party begin the sign...");
+            log::warn!("Please use index 0 party begin the sign...");
             return Ok(SendingMessages::EmptyMsg);
         }
     }
 
-    pub fn set_msg(&mut self, message_str: String) -> Result<(), MulEcdsaError>{
-        let message_bigint = BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+    pub fn set_msg(&mut self, message_str: String) -> Result<(), MulEcdsaError> {
+        let message_bigint =
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message: FE = ECScalar::from(&message_bigint);
         self.message = message;
         self.msg_set = true;
-        println!("Set Message Succeed");
         Ok(())
     }
 
@@ -368,7 +367,7 @@ impl SignPhase {
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
             PartyTwoMsg::SignPartyTwoRoundOneMsg(msg) => {
-                println!("\n=>    Sign: Receiving RoundOneMsg from index 1");
+                log::info!("Sign: Receiving RoundOneMsg from index 1");
 
                 let witness = self.verify_and_get_next_msg(&msg)?;
                 self.set_received_msg((*msg).clone());
@@ -381,11 +380,12 @@ impl SignPhase {
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
             PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p) => {
+                log::info!("Sign: Receiving RoundTwoMsg from index 1");
+
                 if self.online_offline && self.msg_set == false {
-                    println!("Please set message to sign first");
-                    return Ok(SendingMessages::EmptyMsg)
+                    log::error!("Please set message to sign first");
+                    return Ok(SendingMessages::EmptyMsg);
                 }
-                println!("\n=>    Sign: Receiving RoundTwoMsg from index 1");
 
                 let ephemeral_public_share = self.compute_public_share_key(&self.received_msg.pk);
                 let signature = self.sign(&cipher, &ephemeral_public_share, &t_p, self.message)?;
@@ -395,7 +395,7 @@ impl SignPhase {
                 return Ok(SendingMessages::SignSuccessWithResult(signature_json));
             }
             _ => {
-                println!("Unsupported parse Received MessageType");
+                log::warn!("Unsupported parse Received MessageType");
                 return Ok(SendingMessages::EmptyMsg);
             }
         }
