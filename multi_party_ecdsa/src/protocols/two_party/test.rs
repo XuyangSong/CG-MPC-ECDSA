@@ -60,7 +60,7 @@ fn two_party_test() {
     let party_one_keygen_result = party_one_key_gen_init
         .generate_result_json_string()
         .unwrap();
-    let mut party_one_sign_new = party_one::SignPhase::new(&sign_message).unwrap();
+    let mut party_one_sign_new = party_one::SignPhase::new(&sign_message, false).unwrap();
     party_one_sign_new
         .load_keygen_result(&party_one_keygen_result)
         .unwrap();
@@ -170,7 +170,7 @@ fn online_offline_two_party() {
     let party_one_keygen_result = party_one_key_gen_init
         .generate_result_json_string()
         .unwrap();
-    let mut party_one_sign_new = party_one::SignPhase::new(&None).unwrap();
+    let mut party_one_sign_new = party_one::SignPhase::new(&None, true).unwrap();
     party_one_sign_new
         .load_keygen_result(&party_one_keygen_result)
         .unwrap();

@@ -47,6 +47,7 @@ pub struct SignPhase {
     pub message: FE,
     pub keygen_result: Option<KenGenResult>,
     pub need_refresh: bool,
+    pub online_offline: bool,
     pub msg_set:bool,
 }
 
@@ -227,12 +228,17 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new(message_str: &Option<String>) -> Result<Self, MulEcdsaError> {
+    pub fn new(message_str: &Option<String>, online_offline: bool) -> Result<Self, MulEcdsaError> {
         let mut message: FE = FE::zero(); 
-        if let Some(message_str) = message_str{
-            let message_bigint =
-            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-            message = ECScalar::from(&message_bigint);
+        if !online_offline {
+            if let Some(message_str) = message_str{
+                let message_bigint =
+                BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+                message = ECScalar::from(&message_bigint);
+            }
+            else {
+                return Err(MulEcdsaError::MissingMsg)
+            }
         }
 
         let keypair = EcKeyPair::new();
@@ -251,6 +257,7 @@ impl SignPhase {
             message,
             keygen_result: None,
             need_refresh: false,
+            online_offline,
             msg_set: false,
         })
     }
@@ -374,19 +381,18 @@ impl SignPhase {
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
             PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p) => {
-                if self.msg_set == true {
-                    println!("\n=>    Sign: Receiving RoundTwoMsg from index 1");
-
-                    let ephemeral_public_share = self.compute_public_share_key(&self.received_msg.pk);
-                    let signature = self.sign(&cipher, &ephemeral_public_share, &t_p, self.message)?;
-                    let signature_json = serde_json::to_string(&signature)
-                        .map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
-                    self.need_refresh = true;
-                    return Ok(SendingMessages::SignSuccessWithResult(signature_json));
-                }else {
+                if self.online_offline && self.msg_set == false {
                     println!("Please set message to sign first");
-                    Ok(SendingMessages::EmptyMsg)
-                } 
+                    return Ok(SendingMessages::EmptyMsg)
+                }
+                println!("\n=>    Sign: Receiving RoundTwoMsg from index 1");
+
+                let ephemeral_public_share = self.compute_public_share_key(&self.received_msg.pk);
+                let signature = self.sign(&cipher, &ephemeral_public_share, &t_p, self.message)?;
+                let signature_json = serde_json::to_string(&signature)
+                    .map_err(|_| MulEcdsaError::GenerateJsonStringFailed)?;
+                self.need_refresh = true;
+                return Ok(SendingMessages::SignSuccessWithResult(signature_json));
             }
             _ => {
                 println!("Unsupported parse Received MessageType");
