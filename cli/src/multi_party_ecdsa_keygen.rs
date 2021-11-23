@@ -1,6 +1,8 @@
 use anyhow::format_err;
 use cli::config::MultiPartyConfig;
 use cli::console::Console;
+use cli::log::init_log;
+use log::Level;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -9,6 +11,7 @@ use multi_party_ecdsa::protocols::multi_party::ours::keygen::*;
 use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
+use std::path::PathBuf;
 use structopt::StructOpt;
 use tokio::task;
 
@@ -26,6 +29,14 @@ struct Opt {
     /// Config Path
     #[structopt(short, long)]
     config_path: String,
+
+    /// Log path
+    #[structopt(long, default_value = "/tmp")]
+    log: PathBuf,
+
+    /// Log level
+    #[structopt(short, long, default_value = "DEBUG")]
+    level: Level,
 }
 
 pub struct InitMessage {
@@ -41,25 +52,32 @@ struct MultiPartyKeygen {
 impl InitMessage {
     pub fn init_message() -> Result<Self, anyhow::Error> {
         let opt = Opt::from_args();
-        let index = opt.index;
+
+        // Init log
+        let mut path = opt.log;
+        path.push(format!("ecdsa_log_{}.log", opt.index));
+        init_log(path, opt.level)?;
+        
         let config = MultiPartyConfig::new_from_file(&opt.config_path)?;
 
-        let my_info = config.get_my_info(index)?;
+        let my_info = config.get_my_info(opt.index)?;
 
-        let peers_info: Vec<Info> = config.get_peers_info_keygen(index);
+        let peers_info: Vec<Info> = config.get_peers_info_keygen(opt.index);
         let params = Parameters {
             threshold: config.threshold,
             share_count: config.share_count,
         };
 
         // Init multi party info
-        let keygen = KeyGenPhase::new(index, params)?;
+        let keygen = KeyGenPhase::new(opt.index, params)?;
         let multi_party_keygen_info = MultiPartyKeygen { keygen: keygen };
         let init_messages = InitMessage {
             my_info,
             peers_info,
             multi_party_keygen_info: multi_party_keygen_info,
         };
+
+        log::info!("Config loading success!");
         return Ok(init_messages);
     }
 }
@@ -81,7 +99,7 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 sending_msg = self.keygen.msg_handler(index, &msg)?;
             }
             _ => {
-                println!("Undefined Message Process: {:?}", received_msg);
+                log::warn!("Undefined Receiving Message Process: {:?}", received_msg);
             }
         }
         match sending_msg {
@@ -97,7 +115,8 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
-                println!("keygen Success! {}", res);
+                log::info!("Keygen Success");
+                log::debug!("keygen ret: {}", res);
 
                 // Save keygen result to file
                 let file_name =
@@ -109,7 +128,7 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 return Ok(ProcessMessage::Default());
             }
             _ => {
-                println!("Undefined Message Process: {:?}", sending_msg);
+                log::warn!("Undefined Sending Message Process: {:?}", sending_msg);
                 return Ok(ProcessMessage::Default());
             }
         }

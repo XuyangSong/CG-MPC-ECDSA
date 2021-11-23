@@ -9,7 +9,7 @@ use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use std::collections::HashMap;
 
-use crate::utilities::class::{GROUP_UPDATE_128, GROUP_128};
+use crate::utilities::class::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::promise_sigma_multi::*;
 use crate::utilities::SECURITY_BITS;
 use class_group::primitives::cl_dl_public_setup::{

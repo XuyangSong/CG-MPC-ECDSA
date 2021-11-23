@@ -1,7 +1,7 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::{GROUP_UPDATE_128, GROUP_128};
+use crate::utilities::class::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
@@ -364,7 +364,7 @@ impl KeyGenPhase {
         index: usize,
         msg: &MultiKeyGenMessage,
     ) -> Result<SendingMessages, MulEcdsaError> {
-        // println!("handle receiving msg: {:?}", msg);
+        log::debug!("Multi Party msg_handler, from {}, msg: {:?}", index, msg);
         match msg {
             MultiKeyGenMessage::PhaseOneTwoMsg(msg) => {
                 // Refresh

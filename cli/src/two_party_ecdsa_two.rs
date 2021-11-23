@@ -1,6 +1,8 @@
 use anyhow::format_err;
 use cli::config::TwoPartyConfig;
 use cli::console::Console;
+use cli::log::init_log;
+use log::Level;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
@@ -11,6 +13,7 @@ use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use structopt::StructOpt;
 use tokio::task;
 
@@ -32,6 +35,14 @@ struct Opt {
     /// Sign Model
     #[structopt(short, long)]
     online_offline: bool,
+
+    /// Log path
+    #[structopt(long, default_value = "/tmp")]
+    log: PathBuf,
+
+    /// Log level
+    #[structopt(short, long, default_value = "DEBUG")]
+    level: Level,
 }
 
 struct PartyTwo {
@@ -49,14 +60,19 @@ impl InitMessage {
     pub fn init_message() -> Result<Self, anyhow::Error> {
         let opt = Opt::from_args();
         let index = 1;
-        let message = opt.message;
+
+        // Init log
+        let mut path = opt.log;
+        path.push(format!("ecdsa_log_{}.log", index));
+        init_log(path, opt.level)?;
+
         let config = TwoPartyConfig::new_from_file(&opt.config_path)?;
         let my_info = config.get_my_info(index)?;
         let peer_info = config.get_peer_info(index);
 
         // Init two party info
         let party_two_keygen = party_two::KeyGenPhase::new();
-        let mut party_two_sign = party_two::SignPhase::new(&message, opt.online_offline)?;
+        let mut party_two_sign = party_two::SignPhase::new(&opt.message, opt.online_offline)?;
 
         // Load keygen result
         let keygen_path = Path::new("./keygen_result1.json");
@@ -66,13 +82,15 @@ impl InitMessage {
             party_two_sign.load_keygen_result(&keygen_json)?;
         } else {
             // If keygen successes, party_one_sign will load keygen result automally.
-            println!("Can not load keygen result! Please keygen first");
+            log::error!("Can not load keygen result! Please keygen first");
         }
 
         let party_two_info = PartyTwo {
             party_two_keygen,
             party_two_sign,
         };
+
+        log::info!("Config loading success!");
 
         Ok(Self {
             my_info,
@@ -85,7 +103,7 @@ impl InitMessage {
 impl MsgProcess<Message> for PartyTwo {
     fn process(
         &mut self,
-        _index: usize,
+        index: usize,
         msg: Message,
     ) -> Result<ProcessMessage<Message>, anyhow::Error> {
         let received_msg: ReceivingMessages = bincode::deserialize(&msg)
@@ -100,27 +118,28 @@ impl MsgProcess<Message> for PartyTwo {
             }
             ReceivingMessages::SetMessage(msg) => {
                 self.party_two_sign.set_msg(msg)?;
+                log::info!("Set Message Succeed");
             }
             ReceivingMessages::SignOnlineBegin => {
-                sending_msg = self.party_two_sign.process_begin_sign_online(_index)?;
+                sending_msg = self.party_two_sign.process_begin_sign_online(index)?;
             }
             ReceivingMessages::TwoPartySignRefresh(message, keygen_result_json) => {
                 self.party_two_sign.refresh(&message, &keygen_result_json)?;
-                println!("Refresh Success!");
+                log::error!("Need refresh first!!!");
             }
             ReceivingMessages::SignBegin => {
                 if self.party_two_sign.need_refresh {
                     let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
                         .map_err(|why| format_err!("bincode serialize error: {}", why))?;
                     sending_msg = SendingMessages::BroadcastMessage(msg_bytes);
-                    println!("Need refresh");
+                    log::info!("Refresh Success!");
                 }
             }
             ReceivingMessages::NeedRefresh => {
-                println!("Index {} need refresh", _index);
+                log::error!("Index {} need refresh", index);
             }
             _ => {
-                println!("Undefined Message Process: {:?}", received_msg);
+                log::warn!("Undefined Receiving Message Process: {:?}", received_msg);
             }
         }
 
@@ -143,7 +162,7 @@ impl MsgProcess<Message> for PartyTwo {
                 return Ok(ProcessMessage::Default());
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
-                println!("keygen Success! {}", res);
+                log::debug!("KeyGen: {}", res);
 
                 // Load keygen result for signphase
                 self.party_two_sign.load_keygen_result(&res)?;
@@ -156,14 +175,19 @@ impl MsgProcess<Message> for PartyTwo {
                     ReceivingMessages::TwoKeyGenMessagePartyTwo(PartyTwoMsg::KeyGenFinish);
                 let msg_bytes = bincode::serialize(&msg_send)
                     .map_err(|why| format_err!("bincode serialize error: {}", why))?;
+
+                println!("KeyGen Success!");
+                log::info!("KeyGen Success!");
                 return Ok(ProcessMessage::BroadcastMessage(Message(msg_bytes)));
             }
             SendingMessages::SignSuccessWithResult(res) => {
-                println!("Sign Success! {}", res);
+                println!("Sign Success!");
+                log::info!("Sign Success!");
+                log::debug!("Signature: {}", res);
                 return Ok(ProcessMessage::Default());
             }
             _ => {
-                println!("Undefined Message Process: {:?}", sending_msg);
+                log::warn!("Undefined Sending Message Process: {:?}", sending_msg);
                 return Ok(ProcessMessage::Default());
             }
         }
