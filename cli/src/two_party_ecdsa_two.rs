@@ -129,17 +129,15 @@ impl MsgProcess<Message> for PartyTwo {
             }
             ReceivingMessages::TwoPartySignRefresh(message, keygen_result_json) => {
                 self.party_two_sign.refresh(&message, &keygen_result_json)?;
-                log::error!("Need refresh first!!!");
+                println!("Refresh Success!");
+                log::info!("Refresh sucess!");
             }
             ReceivingMessages::SignBegin => {
-                if self.party_two_sign.need_refresh {
-                    let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
-                        .map_err(|why| format_err!("bincode serialize error: {}", why))?;
-                    sending_msg = SendingMessages::BroadcastMessage(msg_bytes);
-                    log::info!("Refresh Success!");
-                }
+                log::info!("Sign begin!");
+                // TBD: fix it, We don't need it in two party
             }
             ReceivingMessages::NeedRefresh => {
+                println!("Index {} need refresh", index);
                 log::error!("Index {} need refresh", index);
             }
             _ => {

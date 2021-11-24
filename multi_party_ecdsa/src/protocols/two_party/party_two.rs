@@ -347,6 +347,14 @@ impl SignPhase {
         &mut self,
         msg_received: &PartyOneMsg,
     ) -> Result<SendingMessages, MulEcdsaError> {
+        if self.need_refresh {
+            let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
+                .map_err(|_| MulEcdsaError::SerializeFailed)?;
+            println!("Need refresh first!!!");
+            log::error!("Need refresh first!!!");
+            return Ok(SendingMessages::BroadcastMessage(msg_bytes));
+        }
+
         match msg_received {
             PartyOneMsg::SignPartyOneRoundOneMsg(dlcom) => {
                 log::info!("Sign: Receiving RoundOneMsg from index 0");

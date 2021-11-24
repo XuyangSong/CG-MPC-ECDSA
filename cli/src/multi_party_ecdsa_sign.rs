@@ -138,6 +138,7 @@ impl MsgProcess<Message> for MultiPartySign {
                         let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
                             .map_err(|why| format_err!("bincode serialize error: {}", why))?;
                         sending_msg = SendingMessages::SubsetMessage(msg_bytes);
+                        println!("Need refresh first!!!");
                         log::error!("Need refresh first!!!");
                     } else {
                         sending_msg = self.sign.process_begin(index)?;
@@ -158,9 +159,11 @@ impl MsgProcess<Message> for MultiPartySign {
             }
             ReceivingMessages::MultiPartySignRefresh(message, keygen_result_json, subset) => {
                 self.sign.refresh(subset, &message, &keygen_result_json)?;
+                println!("Refresh Success!");
                 log::info!("Refresh Success!");
             }
             ReceivingMessages::NeedRefresh => {
+                println!("Index {} need refresh", index);
                 log::error!("Index {} need refresh", index);
             }
             _ => {
