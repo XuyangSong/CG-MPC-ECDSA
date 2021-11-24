@@ -57,7 +57,7 @@ impl InitMessage {
         let mut path = opt.log;
         path.push(format!("ecdsa_log_{}.log", opt.index));
         init_log(path, opt.level)?;
-        
+
         let config = MultiPartyConfig::new_from_file(&opt.config_path)?;
 
         let my_info = config.get_my_info(opt.index)?;
@@ -115,6 +115,7 @@ impl MsgProcess<Message> for MultiPartyKeygen {
                 return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
+                println!("Keygen Success");
                 log::info!("Keygen Success");
                 log::debug!("keygen ret: {}", res);
 

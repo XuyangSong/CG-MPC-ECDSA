@@ -379,8 +379,9 @@ impl SignPhase {
                     let offline_json = serde_json::to_string(&(c_2.clone(), t_p)).unwrap();
                     fs::write(offline_path, offline_json).expect("Unable to save !");
 
-                    log::info!("offline finish");
                     self.need_refresh = true;
+                    log::info!("offline finish");
+                    println!("offline finish");
                     return Ok(SendingMessages::EmptyMsg);
                 } else {
                     let (cipher, t_p) = self.sign(&ephemeral_public_share)?;
@@ -392,8 +393,9 @@ impl SignPhase {
                         .map_err(|_| MulEcdsaError::SerializeFailed)?;
 
                     // Party two time end
-                    log::info!("Sign Finish!");
                     self.need_refresh = true;
+                    println!("Sign Finish!");
+                    log::info!("Sign Finish!");
                     return Ok(SendingMessages::BroadcastMessage(msg_bytes));
                 }
             }

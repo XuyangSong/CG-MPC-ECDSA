@@ -100,7 +100,6 @@ impl Console {
                 }
             }
             UserCommand::KeyGen => {
-                println!("=> KeyGen Begin...");
                 let msg = bincode::serialize(&ReceivingMessages::KeyGenBegin)
                     .map_err(|why| format!("bincode serialize error: {}", why))?;
                 self.node.broadcast(Message(msg.clone())).await;

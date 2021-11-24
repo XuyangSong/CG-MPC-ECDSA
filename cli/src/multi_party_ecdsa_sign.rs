@@ -186,6 +186,7 @@ impl MsgProcess<Message> for MultiPartySign {
                 return Ok(ProcessMessage::SendMultiMessage(msgs_to_send));
             }
             SendingMessages::SignSuccessWithResult(res) => {
+                println!("Sign Success!");
                 log::info!("Sign Success!");
                 log::debug!("Signature: {}", res);
                 return Ok(ProcessMessage::Default());
