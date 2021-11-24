@@ -24,12 +24,16 @@ use tokio::task;
 )]
 struct Opt {
     /// Message to sign
-    #[structopt(short, long)]
-    message: Option<String>,
+    #[structopt(
+        short,
+        long,
+        default_value = "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d"
+    )]
+    message: String,
 
     /// Config Path
-    #[structopt(short, long)]
-    config_path: String,
+    #[structopt(short, long, default_value = "./configs/two_party_config.json")]
+    config_file: PathBuf,
 
     /// Sign Model
     #[structopt(short, long)]
@@ -40,7 +44,7 @@ struct Opt {
     log: PathBuf,
 
     /// Log level
-    #[structopt(short, long, default_value = "DEBUG")]
+    #[structopt(long, default_value = "DEBUG")]
     level: Level,
 }
 
@@ -65,7 +69,7 @@ impl InitMessage {
         path.push(format!("ecdsa_log_{}.log", index));
         init_log(path, opt.level)?;
 
-        let config = TwoPartyConfig::new_from_file(&opt.config_path)?;
+        let config = TwoPartyConfig::new_from_file(&opt.config_file)?;
         let my_info = config.get_my_info(index)?;
         let peer_info = config.get_peer_info(index);
 
@@ -168,8 +172,8 @@ impl MsgProcess<Message> for PartyOne {
                 // Load keygen result for signphase
                 self.party_one_sign.load_keygen_result(&res)?;
 
-                let file_name = "./keygen_result0".to_string() + ".json";
-                fs::write(file_name, res).map_err(|why| format_err!("result save err: {}", why))?;
+                fs::write("keygen_result0.json", res)
+                    .map_err(|why| format_err!("result save err: {}", why))?;
 
                 println!("KeyGen Success!");
                 log::info!("KeyGen Success!");

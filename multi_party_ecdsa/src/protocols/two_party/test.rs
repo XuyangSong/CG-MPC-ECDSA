@@ -53,7 +53,7 @@ fn two_party_test() {
     ////////// Start Signing /////////////////
     // creating the ephemeral private shares:
     let sign_message =
-        Some("eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string());
+        "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string();
     let sign_start = time::now();
 
     // Party one round 1: send party_one_key_gen_init.round_one_msg
@@ -170,7 +170,9 @@ fn online_offline_two_party() {
     let party_one_keygen_result = party_one_key_gen_init
         .generate_result_json_string()
         .unwrap();
-    let mut party_one_sign_new = party_one::SignPhase::new(&None, true).unwrap();
+    let message_str =
+        "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string();
+    let mut party_one_sign_new = party_one::SignPhase::new(&message_str, true).unwrap();
     party_one_sign_new
         .load_keygen_result(&party_one_keygen_result)
         .unwrap();
@@ -180,7 +182,7 @@ fn online_offline_two_party() {
     let party_two_keygen_result = party_two_key_gen_init
         .generate_result_json_string(&state)
         .unwrap();
-    let mut party_two_sign_new = party_two::SignPhase::new(&None, true).unwrap();
+    let mut party_two_sign_new = party_two::SignPhase::new(&message_str, true).unwrap();
     party_two_sign_new
         .load_keygen_result(&party_two_keygen_result)
         .unwrap();

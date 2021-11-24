@@ -27,15 +27,15 @@ struct Opt {
     index: usize,
 
     /// Config Path
-    #[structopt(short, long)]
-    config_path: String,
+    #[structopt(short, long, default_value = "./configs/config_3pc.json")]
+    config_file: PathBuf,
 
     /// Log path
     #[structopt(long, default_value = "/tmp")]
     log: PathBuf,
 
     /// Log level
-    #[structopt(short, long, default_value = "DEBUG")]
+    #[structopt(long, default_value = "DEBUG")]
     level: Level,
 }
 
@@ -58,7 +58,7 @@ impl InitMessage {
         path.push(format!("ecdsa_log_{}.log", opt.index));
         init_log(path, opt.level)?;
 
-        let config = MultiPartyConfig::new_from_file(&opt.config_path)?;
+        let config = MultiPartyConfig::new_from_file(&opt.config_file)?;
 
         let my_info = config.get_my_info(opt.index)?;
 

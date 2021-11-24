@@ -22,7 +22,7 @@
 $ cargo run --bin two_party_ecdsa_one -- --help
 
 USAGE:
-    two_party_ecdsa_one [FLAGS] [OPTIONS] --config_path <config_path>
+    two_party_ecdsa_one [FLAGS] [OPTIONS]
 
 FLAGS:
     -h, --help              Prints help information
@@ -30,26 +30,28 @@ FLAGS:
     -V, --version           Prints version information
 
 OPTIONS:
-    -c, --config_path <config_path>    Config Path
-    -m, --message <message>            Message to sign
-    
+    -c, --config_file <config_file>    Config Path [default: ./configs/two_party_config.json]
+        --level <level>                Log level [default: DEBUG]
+        --log <log>                    Log path [default: /tmp]
+    -m, --message <message>            Message to sign [default:
+                                       eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d]
 ```
 
 ### 1.2 two_party_ecdsa cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin two_party_ecdsa_one -- --config_path ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin two_party_ecdsa_one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 
 
-$ cargo run --bin two_party_ecdsa_two -- --config_path ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin two_party_ecdsa_two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
 Online_Offline Sign Model
 * No need to specify message at begining.
 ```shell
-$ cargo run --bin two_party_ecdsa_one -- --config_path ./configs/two_party_config.json  --online_offline
+$ cargo run --bin two_party_ecdsa_one -- --config_file ./configs/two_party_config.json  --online_offline
 
 
-$ cargo run --bin two_party_ecdsa_two -- --config_path ./configs/two_party_config.json  --online_offline
+$ cargo run --bin two_party_ecdsa_two -- --config_file ./configs/two_party_config.json  --online_offline
 ```
 
 *Please start all nodes before connect.
@@ -134,20 +136,22 @@ Specify the party_index, party_index should be less than the total share counts.
 $ cargo run --bin multi_party_ecdsa_keygen -- --help
 
 USAGE:
-    multi_party_ecdsa_keygen --config_path <config_path> --index <index>
+    multi_party_ecdsa_keygen [OPTIONS] --index <index>
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
 OPTIONS:
-    -c, --config_path <config_path>    Config Path
+    -c, --config_file <config_file>    Config Path [default: ./configs/config_3pc.json]
     -i, --index <index>                My index
+        --level <level>                Log level [default: DEBUG]
+        --log <log>                    Log path [default: /tmp]
 ```
 
 ### 2.2 keygen cli example
 ```shell
-$ cargo run --bin multi_party_ecdsa_keygen -- --config_path ./configs/config_3pc.json --index 0
+$ cargo run --bin multi_party_ecdsa_keygen -- --config_file ./configs/config_3pc.json --index 0
 ```
 
 *Please start all nodes before connect.
@@ -252,7 +256,7 @@ Use the same config file as keygen.
 $ cargo run --bin multi_party_ecdsa_sign -- --help
 
 USAGE:
-    multi_party_ecdsa_sign [FLAGS] [OPTIONS] --config_path <config_path> --index <index> --keygen_path <keygen_path>
+    multi_party_ecdsa_sign [FLAGS] [OPTIONS] --index <index>
 
 FLAGS:
     -h, --help              Prints help information
@@ -260,22 +264,25 @@ FLAGS:
     -V, --version           Prints version information
 
 OPTIONS:
-    -c, --config_path <config_path>    Config path
+    -c, --config_file <config_file>    Config file [default: ./configs/config_3pc.json]
     -i, --index <index>                My index
-    -k, --keygen_path <keygen_path>    Keygen result path
-    -m, --message <message>            Message to sign
+    -k, --keygen_path <keygen_path>    Keygen result path [default: ./]
+        --level <level>                Log level [default: DEBUG]
+        --log <log>                    Log path [default: /tmp]
+    -m, --message <message>            Message to sign [default:
+                                       eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d]
     -s, --subset <subset>...           Participants index
 ```
 
 ### 3.2 sign cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin multi_party_ecdsa_sign -- --config_path ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_path ./keygen_result0.json
+$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_path ./keygen_result0.json
 ```
 Online_Offline Sign Model
 * No need to specify message at begining.
 ```shell
-$ cargo run --bin multi_party_ecdsa_sign -- --config_path ../configs/config_3pc.json --index 0 --subset 0 1 --keygen_path ./keygen_result0.json  --online_offline
+$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --subset 0 1 --keygen_path ./keygen_result0.json  --online_offline
 ```
 
 *Please start all nodes before connect.

@@ -17,10 +17,9 @@ pub struct MultiPartyConfig {
 }
 
 impl TwoPartyConfig {
-    pub fn new_from_file(file_name: &String) -> Result<Self, anyhow::Error> {
-        let input_path = Path::new(file_name);
-        let reader = fs::read_to_string(input_path)
-            .map_err(|why| format_err!("Couldn't open {}: {}", input_path.display(), why))?;
+    pub fn new_from_file(file_name: &Path) -> Result<Self, anyhow::Error> {
+        let reader = fs::read_to_string(file_name)
+            .map_err(|why| format_err!("Couldn't open {}: {}", file_name.display(), why))?;
 
         log::info!("config info: {}", reader);
 
@@ -48,10 +47,9 @@ impl TwoPartyConfig {
 }
 
 impl MultiPartyConfig {
-    pub fn new_from_file(file_name: &String) -> Result<Self, anyhow::Error> {
-        let input_path = Path::new(file_name);
-        let reader = fs::read_to_string(input_path)
-            .map_err(|why| format_err!("Couldn't open {}: {}", input_path.display(), why))?;
+    pub fn new_from_file(file_name: &Path) -> Result<Self, anyhow::Error> {
+        let reader = fs::read_to_string(file_name)
+            .map_err(|why| format_err!("Couldn't open {}: {}", file_name.display(), why))?;
 
         log::info!("config info: {}", reader);
 

@@ -61,8 +61,6 @@ pub struct SignPhase {
     pub r_point: GE,
     pub rho: FE,
     pub l: FE,
-    // pub beta_vec: Vec<FE>,
-    // pub v_vec: Vec<FE>,
     pub beta_map: HashMap<usize, FE>,
     pub v_map: HashMap<usize, FE>,
     pub precomputation: HashMap<usize, (CLCipher, CLCipher, GE)>,
@@ -106,7 +104,7 @@ impl SignPhase {
         params: Parameters,
         subset: &Vec<usize>,
         online_offline: bool, //tag if use online-offline sign model
-        message_str: &Option<String>,
+        message_str: &String,
         keygen_result_json: &String,
     ) -> Result<Self, MulEcdsaError> {
         // Load keygen result
@@ -127,12 +125,9 @@ impl SignPhase {
         }
 
         // Process the message to sign
-        let mut message: FE = FE::zero();
-        if let Some(message_str) = message_str {
-            let message_bigint =
-                BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-            message = ECScalar::from(&message_bigint);
-        }
+        let message_bigint =
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message = ECScalar::from(&message_bigint);
 
         // Compute lambda
         let lamda = VerifiableSS::<GE>::map_share_to_new_params(
@@ -192,8 +187,6 @@ impl SignPhase {
             r_point: GE::generator(), // Init r_point, compute later.
             rho: FE::zero(),          // Init rho, generate later.
             l: FE::zero(),            // Init l, generate later.
-            // beta_vec: Vec::new(),     // Init random beta, generate later.
-            // v_vec: Vec::new(),        // Init random v, generate later.
             beta_map: HashMap::new(),
             v_map: HashMap::new(),
             precomputation: HashMap::new(),

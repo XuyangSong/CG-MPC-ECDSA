@@ -12,8 +12,6 @@ use multi_party_ecdsa::protocols::multi_party::ours::sign::*;
 use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
-use std::option::Option;
-use std::path::Path;
 use std::path::PathBuf;
 use structopt::StructOpt;
 use tokio::task;
@@ -34,27 +32,31 @@ struct Opt {
     online_offline: bool,
 
     /// Message to sign
-    #[structopt(short, long)]
-    message: Option<String>,
+    #[structopt(
+        short,
+        long,
+        default_value = "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d"
+    )]
+    message: String,
 
     /// Participants index
     #[structopt(short, long)]
     subset: Vec<usize>,
 
-    /// Config path
-    #[structopt(short, long)]
-    config_path: String,
+    /// Config file
+    #[structopt(short, long, default_value = "./configs/config_3pc.json")]
+    config_file: PathBuf,
 
     /// Keygen result path
-    #[structopt(short, long)]
-    keygen_path: String,
+    #[structopt(short, long, default_value = "./")]
+    keygen_path: PathBuf,
 
     /// Log path
     #[structopt(long, default_value = "/tmp")]
     log: PathBuf,
 
     /// Log level
-    #[structopt(short, long, default_value = "DEBUG")]
+    #[structopt(long, default_value = "DEBUG")]
     level: Level,
 }
 
@@ -79,7 +81,7 @@ impl InitMessage {
         init_log(path, opt.level)?;
 
         // Process config
-        let config = MultiPartyConfig::new_from_file(&opt.config_path)?;
+        let config = MultiPartyConfig::new_from_file(&opt.config_file)?;
         if opt.subset.len() <= config.threshold {
             return Err(anyhow::Error::msg("Subset is less than threshold"));
         }
@@ -92,8 +94,9 @@ impl InitMessage {
         };
 
         // Load keygen result
-        let input_path = Path::new(&opt.keygen_path);
-        let keygen_json_string = fs::read_to_string(input_path)
+        let mut keygen_file = opt.keygen_path;
+        keygen_file.push(format!("keygen_result{}.json", opt.index));
+        let keygen_json_string = fs::read_to_string(keygen_file)
             .map_err(|why| format_err!("Read to string err: {}", why))?;
 
         // Sign init

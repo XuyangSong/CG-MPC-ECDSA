@@ -193,20 +193,12 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new(message_str: &Option<String>, online_offline: bool) -> Result<Self, MulEcdsaError> {
+    pub fn new(message_str: &String, online_offline: bool) -> Result<Self, MulEcdsaError> {
         let keypair = EcKeyPair::new();
-        //Init message randomly
-        let mut message: FE = FE::new_random();
-
-        if !online_offline {
-            if let Some(message_str) = message_str {
-                let message_bigint =
-                    BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-                message = ECScalar::from(&message_bigint);
-            } else {
-                return Err(MulEcdsaError::MissingMsg);
-            }
-        }
+        // Load message
+        let message_bigint =
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message = ECScalar::from(&message_bigint);
 
         // Precompute c1
         let k2_inv = keypair.get_secret_key().invert();

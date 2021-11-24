@@ -228,17 +228,10 @@ impl KeyGenPhase {
 }
 
 impl SignPhase {
-    pub fn new(message_str: &Option<String>, online_offline: bool) -> Result<Self, MulEcdsaError> {
-        let mut message: FE = FE::zero();
-        if !online_offline {
-            if let Some(message_str) = message_str {
-                let message_bigint =
-                    BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-                message = ECScalar::from(&message_bigint);
-            } else {
-                return Err(MulEcdsaError::MissingMsg);
-            }
-        }
+    pub fn new(message_str: &String, online_offline: bool) -> Result<Self, MulEcdsaError> {
+        let message_bigint =
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message = ECScalar::from(&message_bigint);
 
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
