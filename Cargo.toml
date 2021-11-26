@@ -6,4 +6,5 @@ members = [
     "p2p",
     "cli",
     "message",
+    "keyshare",
 ]

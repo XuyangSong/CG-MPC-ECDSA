@@ -15,5 +15,5 @@ pub enum KeyShareError {
     // This error occurs when pointer is null
     #[error("Null pointer")]
     InvalidPointer,
-
+    
 }
