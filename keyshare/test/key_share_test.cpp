@@ -29,6 +29,8 @@ void test_reconstruct() {
     assert(ret);
     printf("ret: %s\n", ret);
     std::cout << "reconstruct test success!" << std::endl;
+
+    str_free(ret);
 }
 
 void test_restore() {
@@ -37,6 +39,8 @@ void test_restore() {
     assert(ret);
     printf("ret: %s\n", ret);
     std::cout << "restore test success!" << std::endl;
+
+    str_free(ret);
 }
 
 int main() {

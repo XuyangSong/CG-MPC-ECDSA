@@ -126,15 +126,12 @@ pub fn vss_share(
  }
     
  #[test]
- fn test_key_share() {
-     use crate::slices::*;
-   
-      //construct key to share
-      let key_fe = key_to_slice(String::from_utf8(b"test123123123123123123123123123123123".to_vec()).unwrap());
+ fn test_key_share_reconstruct_restore() {
+     //construct key to share
+     let key = vec![ECScalar::from(&BigInt::from(1)), ECScalar::from(&BigInt::from(2))];
       
       //key share
-      let key_shares = key_share(1, 3, key_fe);
-      println!("key_shares = {:?}", key_shares);
+      let key_shares = key_share(1, 3, key.clone());
       
       //construct inputs to reconstruct key
       let mut reconstruct_input_vec: Vec<VssReconstructInput> = Vec::new();
@@ -150,8 +147,8 @@ pub fn vss_share(
       }
 
       //key reconstruct
-      let key_reconstructed_fe = key_reconstruct(reconstruct_input_vec);
-      let key_reconstructed: String = slice_to_key(key_reconstructed_fe).unwrap();
+      let key_reconstructed = key_reconstruct(reconstruct_input_vec);
+      assert_eq!(key, key_reconstructed);
 
       //construct inputs to restore a share
       let mut restore_input_vec: Vec<VssRestoreInput> = Vec::new();
@@ -167,8 +164,59 @@ pub fn vss_share(
 
       //key restore
       let key_restored = key_restore(restore_input_vec, 2);
-      println!("key_restored = {:?}", key_restored);
-      println!("key_reconstructed = {:?}", key_reconstructed);
+      assert_eq!(vec![key_shares[0].secret_shares[2], key_shares[1].secret_shares[2]], key_restored);
  }
+
+#[test]
+#[should_panic]
+fn test_key_share_fail_instances() {
+    //threshold > shares count
+    let key = vec![ECScalar::from(&BigInt::from(1)), ECScalar::from(&BigInt::from(2))];  
+    let _key_shares = key_share(3, 3, key);
+}
+
+#[test]
+#[should_panic(expected = "Reconstruct key failed with error shares")]
+fn test_key_reconstruct_fail_instance(){
+    let key = vec![ECScalar::from(&BigInt::from(1)), ECScalar::from(&BigInt::from(2))];
+    let key_shares_true = key_share(1, 3, key.clone());
+    let mut reconstruct_input_error: Vec<VssReconstructInput> = Vec::new();
+    for i in 0..key_shares_true.len() {
+        let secret_shares: Vec<FE> = vec![key_shares_true[i].secret_shares[0], FE::new_random()];
+        let secret_shares_indice: Vec<usize> = vec![0, 1];
+        let reconstruct_input =  VssReconstructInput {
+            vss_scheme: key_shares_true[i].vss_scheme.clone(),
+            secret_shares,
+            secret_shares_indice,
+        };
+        reconstruct_input_error.push(reconstruct_input);
+    }
+
+    //key reconstruct
+    let key_reconstructed = key_reconstruct(reconstruct_input_error);
+    assert_eq!(key, key_reconstructed, "Reconstruct key failed with error shares");
+}
+
+#[test]
+#[should_panic(expected = "Restore share failed with error shares")]
+fn test_key_restore_fail_instance(){
+    let key = vec![ECScalar::from(&BigInt::from(1)), ECScalar::from(&BigInt::from(2))];
+    let key_shares_true = key_share(1, 3, key.clone());
+    let mut restore_input_vec: Vec<VssRestoreInput> = Vec::new();
+      for i in 0..key_shares_true.len() {
+          let secret_shares: Vec<FE> = vec![key_shares_true[i].secret_shares[0], FE::new_random()];
+          let secret_shares_indice: Vec<usize> = vec![0, 1];
+          let reconstruct_input =  VssRestoreInput {
+               secret_shares,
+               secret_shares_indice,
+          };
+          restore_input_vec.push(reconstruct_input);
+      }
+
+      //key restore
+      let key_restored = key_restore(restore_input_vec, 2);
+      assert_eq!(vec![key_shares_true[0].secret_shares[2], key_shares_true[1].secret_shares[2]], key_restored, "Restore share failed with error shares");
+}
+ 
  
  
