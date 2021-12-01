@@ -12,6 +12,13 @@ pub struct VssShareOutput {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct VssVerifyInput{
+    pub vss_scheme: VerifiableSS<GE>,
+    pub secret_share: FE,
+    pub secret_share_indice: usize,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct VssReconstructInput {
     pub vss_scheme: VerifiableSS<GE>,
     pub secret_shares: Vec<FE>,
@@ -23,20 +30,6 @@ pub struct VssRestoreInput {
     pub secret_shares: Vec<FE>,
     pub secret_shares_indice: Vec<usize>,
 }
-
-pub fn vss_share(
-     threshold: usize,
-     share_count: usize,
-     secret: FE,
- ) -> VssShareOutput {
-     let (vss_scheme, secret_shares) =
-          VerifiableSS::<GE>::share(threshold, share_count, &secret);
-     let output = VssShareOutput {
-          vss_scheme,
-          secret_shares,
-     }; 
-     output
- }
 
  pub fn key_share(
       threshold: usize,
@@ -55,6 +48,21 @@ pub fn vss_share(
      }
      key_shares
  }
+
+pub fn key_verify(key_shares: Vec<VssVerifyInput>) -> bool {
+    let mut verify_result = true;
+    for i in 0..key_shares.len() {
+        let result = key_shares[i].vss_scheme.validate_share(&key_shares[i].secret_share, key_shares[i].secret_share_indice+1);
+        match result {
+            Ok(()) => {},
+             _=> {
+                verify_result = false;
+                break;
+             }
+        }
+    }
+    return verify_result
+}
 
  pub fn key_reconstruct(key_shares: Vec<VssReconstructInput>) -> Vec<FE>{
       let mut key_vec: Vec<FE> = Vec::new();
@@ -126,13 +134,28 @@ pub fn vss_share(
  }
     
  #[test]
- fn test_key_share_reconstruct_restore() {
+ fn test_key_share_verify_reconstruct_restore() {
      //construct key to share
      let key = vec![ECScalar::from(&BigInt::from(1)), ECScalar::from(&BigInt::from(2))];
       
       //key share
       let key_shares = key_share(1, 3, key.clone());
+
+      //construct inputs to verify a share
+      let mut verify_input_vec: Vec<VssVerifyInput> = Vec::new();
+      for i in 0..key_shares.len() {
+          let verify_input = VssVerifyInput {
+            vss_scheme: key_shares[i].vss_scheme.clone(),
+            secret_share: key_shares[i].secret_shares[0],
+            secret_share_indice: 0,
+          };
+          verify_input_vec.push(verify_input);
+      }
       
+      //verify share
+      let verify_result = key_verify(verify_input_vec);
+      assert_eq!(verify_result, true);
+
       //construct inputs to reconstruct key
       let mut reconstruct_input_vec: Vec<VssReconstructInput> = Vec::new();
       for i in 0..key_shares.len() {
@@ -173,6 +196,25 @@ fn test_key_share_fail_instances() {
     //threshold > shares count
     let key = vec![ECScalar::from(&BigInt::from(1)), ECScalar::from(&BigInt::from(2))];  
     let _key_shares = key_share(3, 3, key);
+}
+
+#[test]
+#[should_panic(expected = "Verify a error share should return fail")]
+fn test_key_verify_fail_instance(){
+    let key = vec![ECScalar::from(&BigInt::from(1)), ECScalar::from(&BigInt::from(2))];
+    let key_shares_true = key_share(1, 3, key.clone());
+    let mut verify_input_error: Vec<VssVerifyInput> = Vec::new();
+    for i in 0..key_shares_true.len() {
+        let verify_input = VssVerifyInput {
+        vss_scheme: key_shares_true[i].vss_scheme.clone(),
+        secret_share: FE::new_random(),
+        secret_share_indice: 0,
+        };
+        verify_input_error.push(verify_input);
+    }
+    let verify_result = key_verify(verify_input_error);
+      assert_eq!(verify_result, true, "Verify a error share should return fail");
+
 }
 
 #[test]
