@@ -278,6 +278,7 @@ mod tests {
         }
     }
 
+    #[cfg(test)]
     #[test]
     fn code_hello() {
         let msg = PeerMessage::<Message>::Hello(20, 10);
