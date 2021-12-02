@@ -1,9 +1,9 @@
-use crate::slices::*;
-use libc::c_char;
 use crate::common::{c_pointer_to_string, string_to_c_pointer};
 use crate::keyshare::*;
-use std::{panic, ptr};
+use crate::slices::*;
+use libc::c_char;
 use std::ffi::CString;
+use std::{panic, ptr};
 
 #[no_mangle]
 /// Key sharing with any inputs.
@@ -44,7 +44,7 @@ use std::ffi::CString;
 /// 	},
 /// 	"secret_shares": ["92f7d81455f2161b5be7a9653f00e0ade04d240ce659d03668d61e7285405442", "25efb028abe42c36b7cf52ca7e01c15d05eb6b331d6b003111d9de583a4a6741", "b8e7883d01d6425213b6fc2fbd02a20ae6388f4003c4d0677aaffccabf8abb81"]
 /// }]
-pub extern "C" fn share(key: *const c_char, threshold: usize, share_count: usize) -> *mut c_char{
+pub extern "C" fn share(key: *const c_char, threshold: usize, share_count: usize) -> *mut c_char {
     let result = panic::catch_unwind(|| {
         let key_string = c_pointer_to_string(key).unwrap();
         let key_fe = key_to_slice(key_string);
@@ -55,7 +55,7 @@ pub extern "C" fn share(key: *const c_char, threshold: usize, share_count: usize
     match result {
         Ok(r) => r,
         Err(_) => ptr::null_mut(),
-    } 
+    }
 }
 
 #[no_mangle]
@@ -75,7 +75,7 @@ pub extern "C" fn share(key: *const c_char, threshold: usize, share_count: usize
 ///        "y": "347b7ccba7b680f879da4d7e58440c9a4315ad5db8ad750d016c42a782abbc36"
 ///    }]
 ///},
-///"secret_share": "dc27c25b22d2c89a2d852a5209b7e132457ee9472280ff3052c84c688a7e0986", 
+///"secret_share": "dc27c25b22d2c89a2d852a5209b7e132457ee9472280ff3052c84c688a7e0986",
 ///"secret_share_indice": 0
 ///}, {
 ///"vss_scheme": {
@@ -94,8 +94,7 @@ pub extern "C" fn share(key: *const c_char, threshold: usize, share_count: usize
 ///"secret_share": "92f7d81455f2161b5be7a9653f00e0ade04d240ce659d03668d61e7285405442",
 ///"secret_share_indice": 0
 ///}]
-pub extern "C" fn verify(key_shares: *const c_char) -> bool
- {
+pub extern "C" fn verify(key_shares: *const c_char) -> bool {
     let result = panic::catch_unwind(|| {
         let key_shares_string = c_pointer_to_string(key_shares).unwrap();
         let input: Vec<VssVerifyInput> = serde_json::from_str(&key_shares_string).unwrap();
@@ -103,7 +102,7 @@ pub extern "C" fn verify(key_shares: *const c_char) -> bool
     });
     match result {
         Ok(ret) => ret,
-        _=>false,
+        _ => false,
     }
 }
 
@@ -148,7 +147,8 @@ pub extern "C" fn verify(key_shares: *const c_char) -> bool
 pub extern "C" fn reconstruct(key_shares: *const c_char) -> *mut c_char {
     let result = panic::catch_unwind(|| {
         let key_shares_string = c_pointer_to_string(key_shares).unwrap();
-        let key_shares: Vec<VssReconstructInput> = serde_json::from_str(&key_shares_string).unwrap();
+        let key_shares: Vec<VssReconstructInput> =
+            serde_json::from_str(&key_shares_string).unwrap();
         let key_reconstructed_fe = key_reconstruct(key_shares);
         let key_reconstructed: String = slice_to_key(key_reconstructed_fe).unwrap();
         let result_json = serde_json::to_string(&key_reconstructed).unwrap();
@@ -193,7 +193,7 @@ pub extern "C" fn restore(key_shares: *const c_char, restore_index: usize) -> *m
 /// String pointer free
 ///
 /// You must free the pointers return by 'vss_create, vss_verify, secret_reconstruct' manually.
-pub unsafe extern fn str_free(ptr: *mut libc::c_char) {
+pub unsafe extern "C" fn str_free(ptr: *mut libc::c_char) {
     if ptr.is_null() {
         return;
     }
@@ -202,7 +202,7 @@ pub unsafe extern fn str_free(ptr: *mut libc::c_char) {
 }
 
 #[test]
-fn test_share(){
+fn test_share() {
     use std::ffi::CString;
 
     let secret_str = "1c67f89bfd156ef37e33dd4cf0cdfccf899aaf12d";
@@ -257,20 +257,19 @@ fn test_verify() {
          	"secret_share": "92f7d81455f2161b5be7a9653f00e0ade04d240ce659d03668d61e7285405442",
              "secret_share_indice": 0
          }]"#;
-         let c_pointer = CString::new(input_string).expect("CString::new failed");
-         let ret = verify(c_pointer.as_ptr());
-         assert_eq!(ret, true);
+    let c_pointer = CString::new(input_string).expect("CString::new failed");
+    let ret = verify(c_pointer.as_ptr());
+    assert_eq!(ret, true);
 
-         //Failed instance, null pointer
-         let ret = verify(ptr::null_mut());
-         assert_eq!(ret, false);
+    //Failed instance, null pointer
+    let ret = verify(ptr::null_mut());
+    assert_eq!(ret, false);
 
-         // Failed instance, invalid json format string
-        let invalid_json = r#"{"76f3f440a601bb04dd3730cbec67baf987c96b1eed4b3258ecefc"}"#;
-        let invalid_json_c_pointer = CString::new(invalid_json).expect("CString::new failed");
-        let ret = verify(invalid_json_c_pointer.as_ptr());
-        assert_eq!(ret, false);
-
+    // Failed instance, invalid json format string
+    let invalid_json = r#"{"76f3f440a601bb04dd3730cbec67baf987c96b1eed4b3258ecefc"}"#;
+    let invalid_json_c_pointer = CString::new(invalid_json).expect("CString::new failed");
+    let ret = verify(invalid_json_c_pointer.as_ptr());
+    assert_eq!(ret, false);
 }
 
 #[test]
@@ -315,7 +314,6 @@ fn test_reconstruct() {
     let ret = reconstruct(c_pointer.as_ptr());
     assert_ne!(ret, ptr::null_mut());
 
-
     // Failed instance, null pointer
     let ret = reconstruct(ptr::null_mut());
     assert_eq!(ret, ptr::null_mut());
@@ -328,7 +326,7 @@ fn test_reconstruct() {
 }
 
 #[test]
-fn test_restore(){
+fn test_restore() {
     use std::ffi::CString;
 
     let input_string = r#"[{
@@ -356,4 +354,3 @@ fn test_restore(){
     let ret = reconstruct(invalid_json_c_pointer.as_ptr());
     assert_eq!(ret, ptr::null_mut());
 }
-

@@ -21,7 +21,9 @@ use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
-use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
+use curv::cryptographic_primitives::secret_sharing::feldman_vss::{
+    ShamirSecretSharing, VerifiableSS,
+};
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
@@ -111,17 +113,11 @@ impl SignPhase {
         let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;
         let ec_keypair = EcKeyPair::from_sk(keygen_result.ec_sk);
         let cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &GROUP_UPDATE_128);
-        let vss_scheme_map = keygen_result.vss;
         let share_public_key_map = keygen_result.share_pks;
 
         let party_num = subset.len();
         if party_num < params.threshold {
             return Err(MulEcdsaError::PartyLessThanThreshold);
-        }
-        if vss_scheme_map.len() != params.share_count
-            || share_public_key_map.len() != params.share_count
-        {
-            return Err(MulEcdsaError::LeftNotEqualRight);
         }
 
         // Process the message to sign
@@ -130,42 +126,29 @@ impl SignPhase {
         let message = ECScalar::from(&message_bigint);
 
         // Compute lambda
+        let shamir_secret_sharing_params = ShamirSecretSharing {
+            threshold: params.threshold,
+            share_count: params.share_count,
+        };
         let lamda = VerifiableSS::<GE>::map_share_to_new_params(
-            &vss_scheme_map
-                .get(&party_index)
-                .ok_or(MulEcdsaError::GetIndexFailed)?
-                .parameters,
+            &shamir_secret_sharing_params,
             party_index,
             subset,
         );
         let omega = lamda * keygen_result.share_sk;
         let mut big_omega_map = HashMap::new();
-        let _big_omega_vec = subset
-            .iter()
-            .filter_map(|i| {
-                if *i != party_index {
-                    let share_public_key = share_public_key_map
-                        .get(i)
-                        .ok_or(MulEcdsaError::GetIndexFailed)
-                        .ok()?;
-                    let vss_scheme = vss_scheme_map
-                        .get(i)
-                        .ok_or(MulEcdsaError::GetIndexFailed)
-                        .ok()?;
-                    let ret = share_public_key
-                        * &(VerifiableSS::<GE>::map_share_to_new_params(
-                            &vss_scheme.parameters,
-                            *i,
-                            subset,
-                        ));
-                    //let ret = share_public_key * &vss_scheme.map_share_to_new_params(*i, subset);
-                    big_omega_map.insert(*i, ret.clone());
-                    Some(ret)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        for i in subset.iter() {
+            let share_public_key = share_public_key_map
+                .get(i)
+                .ok_or(MulEcdsaError::GetIndexFailed)?;
+            let big_omega = share_public_key
+                * &(VerifiableSS::<GE>::map_share_to_new_params(
+                    &shamir_secret_sharing_params,
+                    *i,
+                    subset,
+                ));
+            big_omega_map.insert(*i, big_omega);
+        }
 
         let mut ret = SignPhase {
             party_index,
@@ -207,13 +190,10 @@ impl SignPhase {
         message_str: &String,
         keygen_result_json: &String,
     ) -> Result<(), MulEcdsaError> {
-        self.subset = subset.clone();
-
         // Load keygen result
         let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;
         self.ec_keypair = EcKeyPair::from_sk(keygen_result.ec_sk);
         self.cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &GROUP_UPDATE_128);
-        let vss_scheme_map = keygen_result.vss;
         let share_public_key_map = keygen_result.share_pks;
         self.public_signing_key = keygen_result.pk;
 
@@ -223,43 +203,31 @@ impl SignPhase {
         self.message = ECScalar::from(&message_bigint);
 
         // Compute lambda
+        let shamir_secret_sharing_params = ShamirSecretSharing {
+            threshold: self.params.threshold,
+            share_count: self.params.share_count,
+        };
         let lamda = VerifiableSS::<GE>::map_share_to_new_params(
-            &vss_scheme_map
-                .get(&self.party_index)
-                .ok_or(MulEcdsaError::GetIndexFailed)?
-                .parameters,
+            &shamir_secret_sharing_params,
             self.party_index,
-            &self.subset,
+            &subset,
         );
-
         self.omega = lamda * keygen_result.share_sk;
         self.big_omega_map.clear();
-        let _big_omega_vec = subset
-            .iter()
-            .filter_map(|i| {
-                if *i != self.party_index {
-                    let share_public_key = share_public_key_map
-                        .get(i)
-                        .ok_or(MulEcdsaError::GetIndexFailed)
-                        .ok()?;
-                    let vss_scheme = vss_scheme_map
-                        .get(i)
-                        .ok_or(MulEcdsaError::GetIndexFailed)
-                        .ok()?;
-                    let ret = share_public_key
-                        * &(VerifiableSS::<GE>::map_share_to_new_params(
-                            &vss_scheme.parameters,
-                            *i,
-                            &self.subset,
-                        ));
-                    self.big_omega_map.insert(*i, ret.clone());
-                    Some(ret)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        for i in subset.iter() {
+            let share_public_key = share_public_key_map
+                .get(i)
+                .ok_or(MulEcdsaError::GetIndexFailed)?;
+            let big_omega = share_public_key
+                * &(VerifiableSS::<GE>::map_share_to_new_params(
+                    &shamir_secret_sharing_params,
+                    *i,
+                    &subset,
+                ));
+            self.big_omega_map.insert(*i, big_omega);
+        }
 
+        self.subset = subset;
         self.beta_map.clear();
         self.v_map.clear();
         self.precomputation.clear();

@@ -42,7 +42,6 @@ pub struct KeyGenPhase {
     pub public_signing_key: GE,               // Q
     pub share_private_key: FE,                // x_i
     pub share_public_key: HashMap<usize, GE>, // X_i // TBD: use vec instead of hashmap
-    pub vss_scheme_map: HashMap<usize, VerifiableSS<GE>>, // TBD: use vec instead of hashmap
     pub msgs: KeyGenMsgs,
     pub need_refresh: bool,
 }
@@ -54,7 +53,6 @@ pub struct KenGenResult {
     pub ec_sk: FE,
     pub share_sk: FE,
     pub share_pks: HashMap<usize, GE>,
-    pub vss: HashMap<usize, VerifiableSS<GE>>,
 }
 
 impl KeyGenMsgs {
@@ -122,7 +120,7 @@ impl KeyGenPhase {
         msgs.phase_three_msgs.insert(party_index, msg_3);
 
         // Generate phase four msg, vss
-        let (vss_scheme_map, share_private_key) = KeyGenPhase::phase_four_generate_vss(
+        let share_private_key = KeyGenPhase::phase_four_generate_vss(
             &mut msgs,
             party_index,
             params.threshold,
@@ -140,7 +138,6 @@ impl KeyGenPhase {
             public_signing_key,
             share_private_key, // Init share private key, compute later.
             share_public_key: HashMap::new(),
-            vss_scheme_map,
             msgs,
             need_refresh: false,
         })
@@ -184,7 +181,7 @@ impl KeyGenPhase {
         self.msgs.phase_three_msgs.insert(self.party_index, msg_3);
 
         // Refresh phase four msg, vss
-        let (vss_scheme_map, share_private_key) = KeyGenPhase::phase_four_generate_vss(
+        let share_private_key = KeyGenPhase::phase_four_generate_vss(
             &mut self.msgs,
             self.party_index,
             self.params.threshold,
@@ -192,8 +189,6 @@ impl KeyGenPhase {
             self.private_signing_key.get_secret_key(),
         )?;
 
-        self.vss_scheme_map.clear();
-        self.vss_scheme_map = vss_scheme_map;
         self.share_private_key = share_private_key;
         self.need_refresh = false;
         Ok(())
@@ -252,11 +247,10 @@ impl KeyGenPhase {
         threshold: usize,
         share_count: usize,
         private_signing_key: &FE,
-    ) -> Result<(HashMap<usize, VerifiableSS<GE>>, FE), MulEcdsaError> {
+    ) -> Result<FE, MulEcdsaError> {
         let (vss_scheme, secret_shares) =
             VerifiableSS::share(threshold, share_count, private_signing_key);
 
-        let mut vss_scheme_map = HashMap::new();
         let mut share_private_key = FE::zero();
         for i in 0..share_count {
             let msg = KeyGenPhaseFourMsg {
@@ -266,7 +260,6 @@ impl KeyGenPhase {
 
             if i == party_index {
                 // Handle my onw msg_four
-                vss_scheme_map.insert(i, vss_scheme.clone());
                 share_private_key = msg.secret_share;
                 msgs.phase_four_msgs.insert(i, msg);
             } else {
@@ -278,7 +271,7 @@ impl KeyGenPhase {
             }
         }
 
-        Ok((vss_scheme_map, share_private_key))
+        Ok(share_private_key)
     }
 
     fn get_phase_four_msg(&self) -> HashMap<usize, Vec<u8>> {
@@ -311,9 +304,6 @@ impl KeyGenPhase {
         // Compute share_private_key(x_i)
         self.share_private_key = self.share_private_key + msg.secret_share;
 
-        // Store vss_scheme
-        self.vss_scheme_map.insert(index, msg.vss_scheme.clone());
-
         Ok(())
     }
 
@@ -343,7 +333,6 @@ impl KeyGenPhase {
             ec_sk: self.ec_keypair.secret_share.clone(),
             share_sk: self.share_private_key.clone(),
             share_pks: self.share_public_key.clone(),
-            vss: self.vss_scheme_map.clone(),
         };
         let ret_string = serde_json::to_string(&ret).map_err(|_| MulEcdsaError::ToStringFailed)?;
 
