@@ -24,5 +24,3 @@ pub fn string_to_c_pointer(string: String) -> *mut c_char {
         Err(_) => return ptr::null_mut(),
     }
 }
-
-
