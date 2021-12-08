@@ -783,7 +783,7 @@ impl SignPhase {
                             MultiSignMessage::PhaseFourMsg(msg_four.clone()),
                         );
                         let sending_msg_bytes = bincode::serialize(&sending_msg)
-                            .map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                            .map_err(|_| MulEcdsaError::SerializeFailed)?;
                         return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
                     }
                 }
@@ -810,7 +810,7 @@ impl SignPhase {
                                 MultiSignMessage::PhaseFiveStepOneMsg(msg_five_one.clone()),
                             );
                             let sending_msg_bytes = bincode::serialize(&sending_msg)
-                                .map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                                .map_err(|_| MulEcdsaError::SerializeFailed)?;
                             return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
                         }
                     }
@@ -829,7 +829,7 @@ impl SignPhase {
                             MultiSignMessage::PhaseFiveStepTwoMsg(msg_five_two.clone()),
                         );
                         let sending_msg_bytes = bincode::serialize(&sending_msg)
-                            .map_err(|_| MulEcdsaError::GetIndexFailed)?;
+                            .map_err(|_| MulEcdsaError::SerializeFailed)?;
                         return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
                     }
                 }
