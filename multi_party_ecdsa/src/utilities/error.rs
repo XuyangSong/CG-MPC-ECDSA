@@ -59,6 +59,8 @@ pub enum MulEcdsaError {
     GenerateJsonStringFailed,
     #[error("Missing message to sign")]
     MissingMsg,
+    #[error("Invert a zero element")]
+    InvertZero,
     #[error("General error")]
     GeneralError,
 }

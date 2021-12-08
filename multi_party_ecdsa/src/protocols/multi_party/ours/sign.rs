@@ -448,6 +448,11 @@ impl SignPhase {
             .iter()
             .fold(FE::zero(), |acc, (_i, v)| acc + v.delta);
 
+        // Can't invert zero
+        if self.delta_sum == FE::zero() {
+            return Err(MulEcdsaError::InvertZero);
+        }
+
         Ok(())
     }
 
