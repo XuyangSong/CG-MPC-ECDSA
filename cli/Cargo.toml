@@ -42,6 +42,10 @@ name = "multi_party_ecdsa_keygen"
 path = "src/multi_party_ecdsa_keygen.rs"
 
 [[bin]]
+name = "ecdsa_keyrefresh"
+path = "src/ecdsa_keyrefresh.rs"
+
+[[bin]]
 name = "multi_party_ecdsa_sign"
 path = "src/multi_party_ecdsa_sign.rs"
 

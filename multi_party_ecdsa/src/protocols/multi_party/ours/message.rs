@@ -52,6 +52,32 @@ pub enum MultiKeyGenMessage {
     PhaseFiveMsg(KeyGenPhaseFiveMsg),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyRefreshPhaseOneMsg {
+    pub h_caret: PK,
+    pub h: PK,
+    pub ec_pk: GE,
+    pub gp: BinaryQF
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyRefreshPhaseTwoMsg {
+    pub vss_scheme: VerifiableSS<GE>,
+    pub secret_share: FE,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct KeyRefreshPhaseThreeMsg {
+    pub dl_proof: DLogProof<GE>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum KeyRefreshMessage {
+    PhaseOneMsg(KeyRefreshPhaseOneMsg),
+    PhaseTwoMsg(KeyRefreshPhaseTwoMsg),
+    PhaseThreeMsg(KeyRefreshPhaseThreeMsg),
+}
+
 #[derive(Clone, Debug)]
 pub struct SignMsgs {
     pub phase_one_msgs: HashMap<usize, SignPhaseOneMsg>,

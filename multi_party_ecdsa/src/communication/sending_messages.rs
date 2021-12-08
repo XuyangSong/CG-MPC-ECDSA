@@ -9,5 +9,6 @@ pub enum SendingMessages {
     BroadcastMessage(Vec<u8>),
     EmptyMsg,
     KeyGenSuccessWithResult(String),
+    KeyRefreshSuccessWithResult(String),
     SignSuccessWithResult(String),
 }

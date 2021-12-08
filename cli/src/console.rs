@@ -12,6 +12,7 @@ enum UserCommand {
     Connect,
     KeyGen,
     Sign,
+    KeyRefresh,
     TwoSignRefresh(String, String),
     MultiSignRefresh(String, String, Vec<usize>),
     SignOnline,
@@ -105,6 +106,12 @@ impl Console {
                 self.node.broadcast(Message(msg.clone())).await;
                 self.node.sendself(Message(msg)).await;
             }
+            UserCommand::KeyRefresh => {
+                let msg = bincode::serialize(&ReceivingMessages::KeyRefreshBegin)
+                    .map_err(|why| format!("bincode serialize error: {}", why))?;
+                self.node.broadcast(Message(msg.clone())).await;
+                self.node.sendself(Message(msg)).await;
+            }
             UserCommand::Sign => {
                 let msg = bincode::serialize(&ReceivingMessages::SignBegin)
                     .map_err(|why| format!("bincode serialize error: {}", why))?;
@@ -172,7 +179,9 @@ impl Console {
             Ok(UserCommand::KeyGen)
         } else if command == "sign" {
             Ok(UserCommand::Sign)
-        } else if command == "tworefresh" {
+        }  else if command == "keyrefresh" {
+            Ok(UserCommand::KeyRefresh)
+        }  else if command == "tworefresh" {
             let message = rest.ok_or_else(|| "Missing message".to_string())?;
             let keygen_result_file = head_tail
                 .next()

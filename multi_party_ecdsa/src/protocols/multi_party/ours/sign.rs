@@ -21,9 +21,13 @@ use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
+<<<<<<< HEAD
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::{
     ShamirSecretSharing, VerifiableSS,
 };
+=======
+use curv::cryptographic_primitives::secret_sharing::feldman_vss::{VerifiableSS, ShamirSecretSharing};
+>>>>>>> add key_refresh
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
@@ -119,6 +123,14 @@ impl SignPhase {
         if party_num < params.threshold {
             return Err(MulEcdsaError::PartyLessThanThreshold);
         }
+<<<<<<< HEAD
+=======
+        // if vss_scheme_map.len() != params.share_count
+        //     || share_public_key_map.len() != params.share_count
+        // {
+        //     return Err(MulEcdsaError::LeftNotEqualRight);
+        // }
+>>>>>>> add key_refresh
 
         // Process the message to sign
         let message_bigint =
@@ -149,7 +161,11 @@ impl SignPhase {
                 ));
             big_omega_map.insert(*i, big_omega);
         }
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> add key_refresh
         let mut ret = SignPhase {
             party_index,
             party_num,
@@ -400,6 +416,7 @@ impl SignPhase {
             &msg.homocipher,
         )
         .sub(&k_mul_t.get_element());
+
         let beta = self
             .beta_map
             .get(&index)
@@ -756,7 +773,6 @@ impl SignPhase {
 
                     // Handle the msg
                     self.handle_phase_two_msg(index, &msg)?;
-
                     self.msgs.phase_two_msgs.insert(index, msg.clone());
                     // Generate the next msg
                     if self.msgs.phase_two_msgs.len() == (self.party_num - 1) {
@@ -770,7 +786,7 @@ impl SignPhase {
                             MultiSignMessage::PhaseThreeMsg(msg_three),
                         );
                         let sending_msg_bytes = bincode::serialize(&sending_msg)
-                            .map_err(|_| MulEcdsaError::SerializeFailed)?;
+                            .map_err(|_| MulEcdsaError::SerializeFailed)?; 
                         return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
                     }
                 }
