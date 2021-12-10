@@ -21,10 +21,10 @@ pub struct KeyRefreshPhase {
     pub ec_keypair: EcKeyPair,
     pub cl_keypair: ClKeyPair,
     pub h_caret: PK,
-    pub private_key_old: Option<PrivateKey>,
-    pub public_key_old: PublicKey,
-    pub share_private_key_new: FE,                // x_i
-    pub share_public_key_new: HashMap<usize, GE>, // X_i 
+    pub private_key_old: Option<PrivateKey>, //old private key
+    pub public_key_old: PublicKey, //old public key
+    pub share_private_key_new: FE,                // new x_i
+    pub share_public_key_new: HashMap<usize, GE>, // new X_i 
     pub threshold_set: Vec<usize>,
     pub vss_scheme_map: HashMap<usize, VerifiableSS<GE>>,
     pub msgs: KeyRefreshMsgs,
@@ -132,6 +132,7 @@ impl KeyRefreshPhase {
           Ok(())
       } 
 
+      //Compute new share
       fn handle_phase_two_msg(&mut self, index: usize, msg: &KeyRefreshPhaseTwoMsg) -> Result<(), MulEcdsaError>{
            //Check VSS
            //Check polynomial constant item equals to old key share
@@ -148,7 +149,6 @@ impl KeyRefreshPhase {
                 }
            }
            
-
            //Compute new share_private_key
            let lambda = VerifiableSS::<GE>::map_share_to_new_params(&self.params, index, &self.threshold_set);
            self.share_private_key_new = self.share_private_key_new + lambda*msg.secret_share;

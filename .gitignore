@@ -19,6 +19,7 @@ multi_party_demo
 
 keygen_priv_result*.json
 keygen_pub_result*.json
+keygen_result*.json
 sign_result.json
 offline_result*.json
 keyrefresh_priv_result*.json
