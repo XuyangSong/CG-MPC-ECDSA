@@ -11,7 +11,7 @@ use class_group::primitives::cl_dl_public_setup::{
 
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::multi_party::ours::keygen::{KenGenResult, Parameters};
+use crate::protocols::multi_party::ours::keygen::{PublicKey, PrivateKey, Parameters};
 use crate::protocols::multi_party::ours::message::*;
 use crate::utilities::class::GROUP_UPDATE_128;
 use curv::arithmetic::traits::*;
@@ -21,13 +21,9 @@ use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
-<<<<<<< HEAD
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::{
     ShamirSecretSharing, VerifiableSS,
 };
-=======
-use curv::cryptographic_primitives::secret_sharing::feldman_vss::{VerifiableSS, ShamirSecretSharing};
->>>>>>> add key_refresh
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
@@ -111,26 +107,20 @@ impl SignPhase {
         subset: &Vec<usize>,
         online_offline: bool, //tag if use online-offline sign model
         message_str: &String,
-        keygen_result_json: &String,
+        keygen_pub_result_json: &String,
+        keygen_priv_result_json: &String,
     ) -> Result<Self, MulEcdsaError> {
         // Load keygen result
-        let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;
-        let ec_keypair = EcKeyPair::from_sk(keygen_result.ec_sk);
-        let cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &GROUP_UPDATE_128);
-        let share_public_key_map = keygen_result.share_pks;
+        let keygen_pub_result: PublicKey = serde_json::from_str(keygen_pub_result_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_priv_result: PrivateKey = serde_json::from_str(keygen_priv_result_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let ec_keypair = EcKeyPair::from_sk(keygen_priv_result.ec_sk);
+        let cl_keypair = ClKeyPair::from_sk(keygen_priv_result.cl_sk, &GROUP_UPDATE_128);
+        let share_public_key_map = keygen_pub_result.share_pks;
 
         let party_num = subset.len();
         if party_num < params.threshold {
             return Err(MulEcdsaError::PartyLessThanThreshold);
         }
-<<<<<<< HEAD
-=======
-        // if vss_scheme_map.len() != params.share_count
-        //     || share_public_key_map.len() != params.share_count
-        // {
-        //     return Err(MulEcdsaError::LeftNotEqualRight);
-        // }
->>>>>>> add key_refresh
 
         // Process the message to sign
         let message_bigint =
@@ -147,7 +137,7 @@ impl SignPhase {
             party_index,
             subset,
         );
-        let omega = lamda * keygen_result.share_sk;
+        let omega = lamda * keygen_priv_result.share_sk;
         let mut big_omega_map = HashMap::new();
         for i in subset.iter() {
             let share_public_key = share_public_key_map
@@ -161,11 +151,7 @@ impl SignPhase {
                 ));
             big_omega_map.insert(*i, big_omega);
         }
-<<<<<<< HEAD
-
-=======
         
->>>>>>> add key_refresh
         let mut ret = SignPhase {
             party_index,
             party_num,
@@ -173,7 +159,7 @@ impl SignPhase {
             subset: subset.to_vec(),
             ec_keypair,
             cl_keypair,
-            public_signing_key: keygen_result.pk,
+            public_signing_key: keygen_pub_result.pk,
             message,
             omega,
             big_omega_map,
@@ -204,14 +190,16 @@ impl SignPhase {
         &mut self,
         subset: Vec<usize>,
         message_str: &String,
-        keygen_result_json: &String,
+        keygen_pub_result_json: &String,
+        keygen_priv_result_json: &String,
     ) -> Result<(), MulEcdsaError> {
         // Load keygen result
-        let keygen_result = KenGenResult::from_json_string(keygen_result_json)?;
-        self.ec_keypair = EcKeyPair::from_sk(keygen_result.ec_sk);
-        self.cl_keypair = ClKeyPair::from_sk(keygen_result.cl_sk, &GROUP_UPDATE_128);
-        let share_public_key_map = keygen_result.share_pks;
-        self.public_signing_key = keygen_result.pk;
+        let keygen_pub_result: PublicKey = serde_json::from_str(keygen_pub_result_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_priv_result: PrivateKey = serde_json::from_str(keygen_priv_result_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        self.ec_keypair = EcKeyPair::from_sk(keygen_priv_result.ec_sk);
+        self.cl_keypair = ClKeyPair::from_sk(keygen_priv_result.cl_sk, &GROUP_UPDATE_128);
+        let share_public_key_map = keygen_pub_result.share_pks;
+        self.public_signing_key = keygen_pub_result.pk;
 
         // Process the message to sign
         let message_bigint =
@@ -228,7 +216,8 @@ impl SignPhase {
             self.party_index,
             &subset,
         );
-        self.omega = lamda * keygen_result.share_sk;
+
+        self.omega = lamda * keygen_priv_result.share_sk;
         self.big_omega_map.clear();
         for i in subset.iter() {
             let share_public_key = share_public_key_map

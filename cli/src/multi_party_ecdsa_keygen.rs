@@ -117,12 +117,17 @@ impl MsgProcess<Message> for MultiPartyKeygen {
             SendingMessages::KeyGenSuccessWithResult(res) => {
                 println!("Keygen Success");
                 log::info!("Keygen Success");
-                log::debug!("keygen ret: {}", res);
+                log::debug!("public keygen ret: {}, private keygen ret: {}", res[0], res[1]);
 
-                // Save keygen result to file
+                // Save public keygen result to file
                 let file_name =
-                    "./keygen_result".to_string() + &self.keygen.party_index.to_string() + ".json";
-                fs::write(file_name, res).map_err(|why| format_err!("result save err: {}", why))?;
+                    "./keygen_pub_result".to_string() + &self.keygen.party_index.to_string() + ".json";
+                fs::write(file_name, res[0].clone()).map_err(|why| format_err!("public result save err: {}", why))?;
+
+                //Save private key to a new file
+                let file_name =
+                    "./keygen_priv_result".to_string() + &self.keygen.party_index.to_string() + ".json";
+                fs::write(file_name, res[1].clone()).map_err(|why| format_err!("private result save err: {}", why))?;
                 return Ok(ProcessMessage::Default());
             }
             SendingMessages::EmptyMsg => {

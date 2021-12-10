@@ -334,3 +334,28 @@ Disconnect peers.
 >> q
 
 ```
+
+## Multi party keyrefresh
+
+Use the same config file as keygen.
+
+### 3.2 How to use ecdsa_keyrefresh
+```shell
+$ cargo run --bin ecdsa_keyrefresh -- --help
+
+USAGE:
+    ecdsa_keyrefresh [OPTIONS] --index <index>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -c, --config_file <config_file>            Config Path [default: ./configs/config_3pc.json]
+    -i, --index <index>                        My index
+    -k, --keygen_path <keygen_path>            Keygen result path [default: ./]
+        --level <level>                        Log level [default: DEBUG]
+        --log <log>                            Log path [default: /tmp]
+    -p, --pub_keygen_path <pub_keygen_path>    Keygen result path [default: ./]
+    -t, --threshold_set <threshold_set>...     Participants index
+    ```

@@ -14,7 +14,7 @@ enum UserCommand {
     Sign,
     KeyRefresh,
     TwoSignRefresh(String, String),
-    MultiSignRefresh(String, String, Vec<usize>),
+    MultiSignRefresh(String, String, String, Vec<usize>),
     SignOnline,
     SetMessage(String),
     Disconnect(PeerID), // peer id
@@ -137,10 +137,11 @@ impl Console {
                 .map_err(|why| format!("bincode serialize error: {}", why))?;
                 self.node.sendself(Message(msg)).await;
             }
-            UserCommand::MultiSignRefresh(message, keygen_result_json, subset) => {
+            UserCommand::MultiSignRefresh(message, keygen_pub_result_json, keygen_priv_result_json, subset) => {
                 let msg = bincode::serialize(&ReceivingMessages::MultiPartySignRefresh(
                     message,
-                    keygen_result_json,
+                    keygen_pub_result_json,
+                    keygen_priv_result_json,
                     subset,
                 ))
                 .map_err(|why| format!("bincode serialize error: {}", why))?;
@@ -195,12 +196,20 @@ impl Console {
             ))
         } else if command == "multirefresh" {
             let message = rest.ok_or_else(|| "Missing message".to_string())?;
-            let keygen_result_file = head_tail
+            let keygen_pub_result_file = head_tail
                 .next()
-                .ok_or_else(|| "Missing keygen result file".to_string())?;
-            let keygen_path = Path::new(keygen_result_file);
-            let keygen_result_json = fs::read_to_string(keygen_path)
-                .map_err(|why| format!("Couldn't open {}: {}", keygen_path.display(), why))?;
+                .ok_or_else(|| "Missing keygen public result file".to_string())?;
+            let keygen_pub_path = Path::new(keygen_pub_result_file);
+            let keygen_pub_result_json = fs::read_to_string(keygen_pub_path)
+                .map_err(|why| format!("Couldn't open {}: {}", keygen_pub_path.display(), why))?;
+
+            let keygen_priv_result_file = head_tail
+            .next()
+            .ok_or_else(|| "Missing keygen result file".to_string())?;
+            let keygen_priv_path = Path::new(keygen_priv_result_file);
+            let keygen_priv_result_json = fs::read_to_string(keygen_priv_path)
+                .map_err(|why| format!("Couldn't open {}: {}", keygen_priv_path.display(), why))?;
+
             let mut subset = Vec::new();
             while let Some(s) = head_tail.next() {
                 let index: usize = s.parse().map_err(|why| format!("Parse error: {}", why))?;
@@ -208,7 +217,8 @@ impl Console {
             }
             Ok(UserCommand::MultiSignRefresh(
                 message.to_owned(),
-                keygen_result_json,
+                keygen_pub_result_json,
+                keygen_priv_result_json,
                 subset,
             ))
         } else if command == "signonline" {

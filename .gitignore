@@ -17,9 +17,12 @@ multi_party_demo
 .exclude_tar_file
 .test
 
-keygen_result*.json
+keygen_priv_result*.json
+keygen_pub_result*.json
 sign_result.json
 offline_result*.json
+keyrefresh_priv_result*.json
+keyrefresh_pub_result*.json
 
 # C
 build

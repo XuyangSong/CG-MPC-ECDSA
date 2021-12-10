@@ -7,8 +7,8 @@ use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
+use multi_party_ecdsa::protocols::multi_party::ours::keygen::Parameters;
 use multi_party_ecdsa::protocols::multi_party::ours::keyrefresh::*;
-use curv::cryptographic_primitives::secret_sharing::feldman_vss::ShamirSecretSharing;
 use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
@@ -38,6 +38,10 @@ struct Opt {
     /// Keygen result path
     #[structopt(short, long, default_value = "./")]
     keygen_path: PathBuf,
+
+    /// Keygen result path
+    #[structopt(short, long, default_value = "./")]
+    pub_keygen_path: PathBuf,
 
     /// Log path
     #[structopt(long, default_value = "/tmp")]
@@ -76,23 +80,28 @@ impl InitMessage {
         let my_info = config.get_my_info(opt.index)?;
 
         let peers_info: Vec<Info> = config.get_peers_info_keygen(opt.index);
-        let params = ShamirSecretSharing {
+        let params = Parameters {
             threshold: config.threshold,
             share_count: config.share_count,
         };
 
-        let mut private_key_old_string: Option<String> = None;
+        let mut private_key_old: Option<String> = None;
         if opt.threshold_set.contains(&opt.index){
-          // Load keygen result
-          let mut keygen_file = opt.keygen_path;
-          keygen_file.push(format!("keygen_result{}.json", opt.index));
-          println!("keygen_file = {:?}", keygen_file);
-          private_key_old_string = Some(fs::read_to_string(keygen_file)
-          .map_err(|why| format_err!("Read to string err: {}", why))?);
+            // Load keygen result
+            let mut keygen_priv_file = opt.keygen_path;
+            keygen_priv_file.push(format!("keygen_priv_result{}.json", opt.index));
+            private_key_old = Some(fs::read_to_string(keygen_priv_file)
+            .map_err(|why| format_err!("Read to string err: {}", why))?);
         }
          
+        //Load public key result
+        let mut keygen_pub_file = opt.pub_keygen_path;
+        keygen_pub_file.push(format!("keygen_pub_result{}.json", opt.index));
+        let keygen_pub_result = fs::read_to_string(keygen_pub_file)
+        .map_err(|why| format_err!("Read to string err: {}", why))?;
+
         // Init multi party info
-        let keyrefresh = KeyRefreshPhase::new(opt.index, private_key_old_string, params, opt.threshold_set)?;
+        let keyrefresh = KeyRefreshPhase::new(opt.index, private_key_old, params, opt.threshold_set, keygen_pub_result)?;
         let keyrefresh_info = KeyRefresh { keyrefresh: keyrefresh };
         let init_messages = InitMessage {
             my_info,
@@ -140,12 +149,17 @@ impl MsgProcess<Message> for KeyRefresh {
             SendingMessages::KeyRefreshSuccessWithResult(res) => {
                println!("Keyrefresh Success");
                log::info!("Keyrefresh Success");
-               log::debug!("keyrefresh ret: {}", res);
+               log::debug!("public keyrefresh ret: {}, private keyrefresh ret: {}", res[0], res[1]);
 
-               // Save keygen result to file
+               // Save public keygen result to file
                let file_name =
-                   "./keyrefresh_result".to_string() + &self.keyrefresh.party_index.to_string() + ".json";
-               fs::write(file_name, res).map_err(|why| format_err!("result save err: {}", why))?;
+                   "./keyrefresh_pub_result".to_string() + &self.keyrefresh.party_index.to_string() + ".json";
+               fs::write(file_name, res[0].clone()).map_err(|why| format_err!("public result save err: {}", why))?;
+
+               // Save private keygen result to file
+               let file_name =
+                   "./keyrefresh_priv_result".to_string() + &self.keyrefresh.party_index.to_string() + ".json";
+               fs::write(file_name, res[1].clone()).map_err(|why| format_err!("private result save err: {}", why))?;
                return Ok(ProcessMessage::Default());
            }
             SendingMessages::EmptyMsg => {

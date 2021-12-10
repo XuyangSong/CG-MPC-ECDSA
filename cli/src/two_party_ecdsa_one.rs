@@ -170,12 +170,12 @@ impl MsgProcess<Message> for PartyOne {
                 return Ok(ProcessMessage::Default());
             }
             SendingMessages::KeyGenSuccessWithResult(res) => {
-                log::debug!("KeyGen: {}", res);
+                log::debug!("KeyGen: {}", res[0]);
 
                 // Load keygen result for signphase
-                self.party_one_sign.load_keygen_result(&res)?;
+                self.party_one_sign.load_keygen_result(&res[0])?;
 
-                fs::write("keygen_result0.json", res)
+                fs::write("keygen_result0.json", res[0].clone())
                     .map_err(|why| format_err!("result save err: {}", why))?;
 
                 println!("KeyGen Success!");
