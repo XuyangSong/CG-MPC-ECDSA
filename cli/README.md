@@ -172,15 +172,13 @@ KeyGen Begin
 ```
 
 Keygen Result
+public key:
 ```json
 {
 	"pk": {
 		"x": "f5dd9621cf8bbfc8a54c94fa21e389ad38648a4f6b5aee12b7901e1714ed7397",
 		"y": "f6adef11d25d504b611f252656995c826adc28a74433c936b29ee7685288ccd8"
 	},
-	"cl_sk": "19cf0570bc45955ea9974ca39931c869519bcaeef29c47a1ccfa6624009653bb912cc834595f2dfd32650bbd36939bfa8ef6002557aa9eb793173bcbfc03d1e1af055dcae696d750690cd41f9bee3496ed6eaebd7cb9834fcce0a458153df3755cfa5a7832b1c235e",
-	"ec_sk": "c70af11e3ab3b38803b96cdf2cfc8bf4c3aa1d2cfaa3144dec96fadfbb2cf04c",
-	"share_sk": "2ed299d44bf29d96b06fdafe49b9a6f1e77e18ac546601cccb12cc178becbc55",
 	"share_pks": {
 		"1": {
 			"x": "5ba66927dce0037801b3ec82b803ddff4994eacebae0d21209b967bbf26a6780",
@@ -238,6 +236,14 @@ Keygen Result
 	}
 }
 ```
+private key:
+```json
+{
+"cl_sk": "19cf0570bc45955ea9974ca39931c869519bcaeef29c47a1ccfa6624009653bb912cc834595f2dfd32650bbd36939bfa8ef6002557aa9eb793173bcbfc03d1e1af055dcae696d750690cd41f9bee3496ed6eaebd7cb9834fcce0a458153df3755cfa5a7832b1c235e",
+"ec_sk": "c70af11e3ab3b38803b96cdf2cfc8bf4c3aa1d2cfaa3144dec96fadfbb2cf04c",
+"share_sk": "2ed299d44bf29d96b06fdafe49b9a6f1e77e18ac546601cccb12cc178becbc55"
+}
+```
 
 ### (c) Step 3: KeyGen Quit
 
@@ -264,25 +270,26 @@ FLAGS:
     -V, --version           Prints version information
 
 OPTIONS:
-    -c, --config_file <config_file>    Config file [default: ./configs/config_3pc.json]
-    -i, --index <index>                My index
-    -k, --keygen_path <keygen_path>    Keygen result path [default: ./]
-        --level <level>                Log level [default: DEBUG]
-        --log <log>                    Log path [default: /tmp]
-    -m, --message <message>            Message to sign [default:
-                                       eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d]
-    -s, --subset <subset>...           Participants index
+    -c, --config_file <config_file>            Config file [default: ./configs/config_3pc.json]
+    -i, --index <index>                        My index
+    -k, --keygen_path <keygen_path>            Keygen private result path [default: ./]
+        --level <level>                        Log level [default: DEBUG]
+        --log <log>                            Log path [default: /tmp]
+    -m, --message <message>                    Message to sign [default:
+                                               eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d]
+    -p, --pub_keygen_path <pub_keygen_path>    Keygen public result path [default: ./]
+    -s, --subset <subset>...                   Participants index
 ```
 
 ### 3.2 sign cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_path ./keygen_result0.json
+$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_pub_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
 ```
 Online_Offline Sign Model
 * No need to specify message at begining.
 ```shell
-$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --subset 0 1 --keygen_path ./keygen_result0.json  --online_offline
+$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --subset 0 1 --keygen_pub_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json --online_offline
 ```
 
 *Please start all nodes before connect.
@@ -311,11 +318,11 @@ Signature result
 After refresh, you can sign again.
 
 ```shell
->> multirefresh eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1f ./keygen_result0.json 0 1
+>> multirefresh eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1f ./keygen_pub_result0.json ./keygen_priv_result0.json 0 1
 ```
-* tworefresh is command
+* multirefresh is command
 * "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d" is the new message to sign.
-* "./keygen_result0.json" is the file path of new keygen-result.
+* "./keygen_pub_result0.json" and "./keygen_priv_result0.json" are the file paths of new public keygen result and private keygen result.
 * "0 1" are the new subset member indexes.
 
 ### (e) Step 4: set message (only used in online-offline model)
@@ -335,11 +342,11 @@ Disconnect peers.
 
 ```
 
-## Multi party keyrefresh
+## 4.Multi party keyrefresh
 
 Use the same config file as keygen.
 
-### 3.2 How to use ecdsa_keyrefresh
+### 4.1 How to use ecdsa_keyrefresh
 ```shell
 $ cargo run --bin ecdsa_keyrefresh -- --help
 
@@ -358,4 +365,20 @@ OPTIONS:
         --log <log>                            Log path [default: /tmp]
     -p, --pub_keygen_path <pub_keygen_path>    Keygen result path [default: ./]
     -t, --threshold_set <threshold_set>...     Participants index
-    ```
+```
+### 4.2 Key refresh cli example
+```shell
+cargo run --bin ecdsa_keyrefresh -- --config_file ../configs/config_3pc.json --index 0  --threshold_set 0 1 --keygen_pub_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
+```
+
+### (a) Step 1: Key refresh connect
+
+Connect the subset peers.
+```
+>> connect
+```
+
+### (b) Step 2: Key Refresh Begin
+```
+>> keyrefresh
+```
