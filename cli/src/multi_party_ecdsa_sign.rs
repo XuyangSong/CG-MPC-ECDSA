@@ -47,7 +47,11 @@ struct Opt {
     #[structopt(short, long, default_value = "./configs/config_3pc.json")]
     config_file: PathBuf,
 
-    /// Keygen result path
+    /// Keygen public result path
+    #[structopt(short, long, default_value = "./")]
+    pub_keygen_path: PathBuf,
+
+    /// Keygen private result path
     #[structopt(short, long, default_value = "./")]
     keygen_path: PathBuf,
 
@@ -94,10 +98,14 @@ impl InitMessage {
         };
 
         // Load keygen result
-        let mut keygen_file = opt.keygen_path;
-        keygen_file.push(format!("keygen_result{}.json", opt.index));
-        let keygen_json_string = fs::read_to_string(keygen_file)
+        let mut keygen_pub_file = opt.pub_keygen_path;
+        let mut keygen_priv_file = opt.keygen_path;
+        keygen_pub_file.push(format!("keygen_pub_result{}.json", opt.index));
+        keygen_priv_file.push(format!("keygen_priv_result{}.json", opt.index));
+        let keygen_pub_json_string = fs::read_to_string(keygen_pub_file)
             .map_err(|why| format_err!("Read to string err: {}", why))?;
+        let keygen_priv_json_string = fs::read_to_string(keygen_priv_file)
+        .map_err(|why| format_err!("Read to string err: {}", why))?;
 
         // Sign init
         let sign = SignPhase::new(
@@ -106,7 +114,8 @@ impl InitMessage {
             &opt.subset,
             opt.online_offline,
             &opt.message,
-            &keygen_json_string,
+            &keygen_pub_json_string,
+            &keygen_priv_json_string,
         )?;
         let multi_party_sign_info = MultiPartySign { sign: sign };
         let init_messages = InitMessage {
@@ -157,8 +166,8 @@ impl MsgProcess<Message> for MultiPartySign {
             ReceivingMessages::MultiSignMessage(msg) => {
                 sending_msg = self.sign.msg_handler(index, &msg)?;
             }
-            ReceivingMessages::MultiPartySignRefresh(message, keygen_result_json, subset) => {
-                self.sign.refresh(subset, &message, &keygen_result_json)?;
+            ReceivingMessages::MultiPartySignRefresh(message, keygen_pub_result_json, keygen_priv_result_json, subset) => {
+                self.sign.refresh(subset, &message, &keygen_pub_result_json, &keygen_priv_result_json)?;
                 println!("Refresh Success!");
                 log::info!("Refresh Success!");
             }

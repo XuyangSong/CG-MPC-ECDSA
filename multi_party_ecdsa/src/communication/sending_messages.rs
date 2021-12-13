@@ -8,6 +8,7 @@ pub enum SendingMessages {
     SubsetMessage(Vec<u8>),
     BroadcastMessage(Vec<u8>),
     EmptyMsg,
-    KeyGenSuccessWithResult(String),
+    KeyGenSuccessWithResult(Vec<String>),
+    KeyRefreshSuccessWithResult(Vec<String>),
     SignSuccessWithResult(String),
 }

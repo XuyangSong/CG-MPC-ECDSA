@@ -1,4 +1,4 @@
-use crate::protocols::multi_party::ours::message::{MultiKeyGenMessage, MultiSignMessage};
+use crate::protocols::multi_party::ours::message::{MultiKeyGenMessage, MultiSignMessage, KeyRefreshMessage};
 use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
 use serde::{Deserialize, Serialize};
 
@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum ReceivingMessages {
     MultiKeyGenInitSync(usize),
     MultiKeyGenMessage(MultiKeyGenMessage),
+    KeyRefreshMessage(KeyRefreshMessage),
     MultiSignInitSync(usize),
     MultiSignMessage(MultiSignMessage),
     TwoKeyGenMessagePartyOne(PartyOneMsg),
@@ -14,10 +15,11 @@ pub enum ReceivingMessages {
     TwoSignMessagePartyTwo(PartyTwoMsg),
     KeyGenBegin,
     SignBegin,
+    KeyRefreshBegin,
     SetMessage(String),
     SignOnlineBegin,
     TwoPartySignRefresh(String, String), // SignRefresh(message, keygen_result_json)
-    MultiPartySignRefresh(String, String, Vec<usize>), // SignRefresh(message, keygen_result_json, subset)
+    MultiPartySignRefresh(String, String, String, Vec<usize>), // SignRefresh(message, keygen_result_json, subset)
     // TBD: Extend it to errors
     NeedRefresh,
 }

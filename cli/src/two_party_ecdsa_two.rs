@@ -163,13 +163,13 @@ impl MsgProcess<Message> for PartyTwo {
             SendingMessages::EmptyMsg => {
                 return Ok(ProcessMessage::Default());
             }
-            SendingMessages::KeyGenSuccessWithResult(res) => {
-                log::debug!("KeyGen: {}", res);
+            SendingMessages::KeyGenSuccessWithResult(res) => { // In two party, vector res contains only one element, res[0] is the keygen result
+                log::debug!("KeyGen: {}", res[0]);
 
                 // Load keygen result for signphase
-                self.party_two_sign.load_keygen_result(&res)?;
+                self.party_two_sign.load_keygen_result(&res.clone()[0])?;
 
-                fs::write("keygen_result1.json", res)
+                fs::write("keygen_result1.json", res[0].clone())
                     .map_err(|why| format_err!("result save err: {}", why))?;
 
                 // Send KeyGenFinish to party0

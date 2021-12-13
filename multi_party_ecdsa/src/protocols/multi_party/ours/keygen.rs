@@ -55,6 +55,19 @@ pub struct KenGenResult {
     pub share_pks: HashMap<usize, GE>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PublicKey {
+    pub pk: GE,
+    pub share_pks: HashMap<usize, GE>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PrivateKey {
+    pub cl_sk: SK,
+    pub ec_sk: FE,
+    pub share_sk: FE,
+}
+
 impl KeyGenMsgs {
     pub fn new() -> Self {
         Self {
@@ -326,13 +339,22 @@ impl KeyGenPhase {
         Ok(())
     }
 
-    fn generate_result_json_string(&self) -> Result<String, MulEcdsaError> {
-        let ret = KenGenResult {
+
+    fn generate_public_result_json_string(&self) -> Result<String, MulEcdsaError> {
+        let ret = PublicKey {
             pk: self.public_signing_key.clone(),
+            share_pks: self.share_public_key.clone(),
+        };
+        let ret_string = serde_json::to_string(&ret).map_err(|_| MulEcdsaError::ToStringFailed)?;
+
+        Ok(ret_string)
+    }
+
+    fn generate_private_result_json_string(&self) -> Result<String, MulEcdsaError> {
+        let ret = PrivateKey {
             cl_sk: self.cl_keypair.cl_priv_key.clone(),
             ec_sk: self.ec_keypair.secret_share.clone(),
             share_sk: self.share_private_key.clone(),
-            share_pks: self.share_public_key.clone(),
         };
         let ret_string = serde_json::to_string(&ret).map_err(|_| MulEcdsaError::ToStringFailed)?;
 
@@ -428,9 +450,11 @@ impl KeyGenPhase {
                 self.handle_phase_five_msg(index, &msg)?;
                 self.msgs.phase_five_msgs.insert(index, msg.clone());
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
-                    let keygen_json = self.generate_result_json_string()?;
+                    let pub_keygen_json = self.generate_public_result_json_string()?;
+                    let priv_keygen_json = self.generate_private_result_json_string()?;
+                    let keygen_json = vec![pub_keygen_json, priv_keygen_json]; //vec[0] stores public_key_json, vec[1] stores private_key_json by default
                     self.need_refresh = true;
-                    return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
+                    return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json)); 
                 }
             }
         }

@@ -164,7 +164,7 @@ impl KeyGenPhase {
 
                 let keygen_json = self.generate_result_json_string(&promise_state)?;
                 self.need_refresh = true;
-                return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
+                return Ok(SendingMessages::KeyGenSuccessWithResult(vec![keygen_json]));
             }
             _ => {
                 return Ok(SendingMessages::EmptyMsg);
