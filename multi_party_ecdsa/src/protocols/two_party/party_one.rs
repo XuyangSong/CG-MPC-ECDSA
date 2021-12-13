@@ -203,7 +203,7 @@ impl KeyGenPhase {
                 // Set refresh
                 self.need_refresh = true;
                 let keygen_json = self.generate_result_json_string()?;
-                return Ok(SendingMessages::KeyGenSuccessWithResult(vec![keygen_json]));
+                return Ok(SendingMessages::KeyGenSuccessWithResult(vec![keygen_json])); 
             }
             _ => return Ok(SendingMessages::EmptyMsg),
         }

@@ -138,7 +138,7 @@ impl KeyRefreshPhase {
            //Check polynomial constant item equals to old key share
            let share_public_key_old = self.public_key_old.share_pks.get(&index).ok_or(MulEcdsaError::GetIndexFailed)?;
            
-           if self.threshold_set.contains(&self.party_index) {//TBD: handle party with no input
+           if self.threshold_set.contains(&self.party_index) {
                if !(msg
                     .vss_scheme
                     .validate_share(&msg.secret_share, self.party_index + 1)
@@ -254,7 +254,7 @@ impl KeyRefreshPhase {
                      if self.msgs.phase_three_msgs.len() == self.params.share_count {
                          let pub_keygen_json = self.generate_public_result_json_string()?;
                          let priv_keygen_json = self.generate_private_result_json_string()?;
-                         let keygen_json = vec![pub_keygen_json, priv_keygen_json];
+                         let keygen_json = vec![pub_keygen_json, priv_keygen_json]; //vec[0] stores public_key_json, vec[1] stores private_key_json by default
                          return Ok(SendingMessages::KeyRefreshSuccessWithResult(keygen_json));
                      }
                 }

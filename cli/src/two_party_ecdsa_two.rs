@@ -163,7 +163,7 @@ impl MsgProcess<Message> for PartyTwo {
             SendingMessages::EmptyMsg => {
                 return Ok(ProcessMessage::Default());
             }
-            SendingMessages::KeyGenSuccessWithResult(res) => {
+            SendingMessages::KeyGenSuccessWithResult(res) => { // In two party, vector res contains only one element, res[0] is the keygen result
                 log::debug!("KeyGen: {}", res[0]);
 
                 // Load keygen result for signphase

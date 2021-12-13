@@ -452,9 +452,9 @@ impl KeyGenPhase {
                 if self.msgs.phase_five_msgs.len() == self.params.share_count {
                     let pub_keygen_json = self.generate_public_result_json_string()?;
                     let priv_keygen_json = self.generate_private_result_json_string()?;
-                    let keygen_json = vec![pub_keygen_json, priv_keygen_json];
+                    let keygen_json = vec![pub_keygen_json, priv_keygen_json]; //vec[0] stores public_key_json, vec[1] stores private_key_json by default
                     self.need_refresh = true;
-                    return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
+                    return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json)); 
                 }
             }
         }

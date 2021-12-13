@@ -146,7 +146,7 @@ impl MsgProcess<Message> for KeyRefresh {
             SendingMessages::BroadcastMessage(msg) => {
                 return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
-            SendingMessages::KeyRefreshSuccessWithResult(res) => {
+            SendingMessages::KeyRefreshSuccessWithResult(res) => { //res[0] stores public_key_json, res[1] stores private_key_json by default
                println!("Keyrefresh Success");
                log::info!("Keyrefresh Success");
                log::debug!("public keyrefresh ret: {}, private keyrefresh ret: {}", res[0], res[1]);

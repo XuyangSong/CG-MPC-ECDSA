@@ -114,7 +114,7 @@ impl MsgProcess<Message> for MultiPartyKeygen {
             SendingMessages::BroadcastMessage(msg) => {
                 return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
-            SendingMessages::KeyGenSuccessWithResult(res) => {
+            SendingMessages::KeyGenSuccessWithResult(res) => {//res[0] stores public_key_json, res[1] stores private_key_json by default
                 println!("Keygen Success");
                 log::info!("Keygen Success");
                 log::debug!("public keygen ret: {}, private keygen ret: {}", res[0], res[1]);
