@@ -175,11 +175,12 @@ pub extern "C" fn reconstruct(key_shares: *const c_char) -> *mut c_char {
 ///
 /// output json string format example:
 /// "["7213ee56e32e4cd0965f1e0a79c4ca62444883c3e5a73fb869a532e00a117dfe","22eb8f361cb493777c1e171312bdbc402cf7806d8b1a064802536c2d53b37a09"]"
-pub extern "C" fn restore(key_shares: *const c_char, restore_index: usize) -> *mut c_char {
+pub extern "C" fn restore(key_shares: *const c_char, index: *mut usize, len: usize, cap: usize) -> *mut c_char {
     let result = panic::catch_unwind(|| {
         let key_shares_string = c_pointer_to_string(key_shares).unwrap();
         let key_shares: Vec<VssRestoreInput> = serde_json::from_str(&key_shares_string).unwrap();
-        let key_restored = key_restore(key_shares, restore_index);
+        let restore_indices = unsafe{Vec::from_raw_parts(index, len, cap)};
+        let key_restored = key_restore(key_shares, restore_indices); 
         let result_json = serde_json::to_string(&key_restored).unwrap();
         string_to_c_pointer(result_json)
     });
@@ -337,15 +338,22 @@ fn test_restore() {
         "secret_shares_indice": [0, 1]
     }]"#;
     let c_pointer = CString::new(input_string).expect("CString::new failed");
-    let ret = restore(c_pointer.as_ptr(), 2);
+    let mut index = vec![2];
+    let index_ptr = index.as_mut_ptr();
+    let ret = restore(c_pointer.as_ptr(), index_ptr, 1, 1);
     assert_ne!(ret, ptr::null_mut());
+    unsafe{str_free(ret)};
 
-    // Failed instance, null pointer
-    let ret = restore(ptr::null_mut(), 2);
-    assert_eq!(ret, ptr::null_mut());
+    //Failed instance, null pointer
+    let mut index_1 = vec![2];
+    let index_ptr_1 = index_1.as_mut_ptr();
+    let ret1 = restore(ptr::null_mut(), index_ptr_1, 1, 1);
+    assert_eq!(ret1, ptr::null_mut());
 
     //Failed instance, invalid index to restore
-    let ret = restore(c_pointer.as_ptr(), 1);
+    let mut index_1 = vec![1];
+    let index_ptr_1 = index_1.as_mut_ptr();
+    let ret = restore(c_pointer.as_ptr(), index_ptr_1, 1, 1);
     assert_eq!(ret, ptr::null_mut());
 
     // Failed instance, invalid json format string

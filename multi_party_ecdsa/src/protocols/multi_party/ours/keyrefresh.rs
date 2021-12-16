@@ -88,7 +88,6 @@ impl KeyRefreshPhase {
                         secret_share: secret_shares[i],
                     };
                     if i == party_index {
-                        // Handle my onw msg_four
                         vss_scheme_map.insert(i, vss_scheme.clone());
                         let lambda = VerifiableSS::<GE>::map_share_to_new_params(&params, party_index, &threshold_set);
                         share_private_key_new = lambda*phase_two_msg.secret_share;

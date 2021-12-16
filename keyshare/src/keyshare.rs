@@ -204,11 +204,9 @@ fn test_key_share_verify_reconstruct_restore() {
     assert_eq!(
         vec![
             vec![key_shares[0].secret_shares[3],
-                    key_shares[1].secret_shares[3],
-                    key_shares[2].secret_shares[3]],
+                    key_shares[1].secret_shares[3]],
             vec![key_shares[0].secret_shares[4],
-                    key_shares[1].secret_shares[4],
-                    key_shares[2].secret_shares[4]]
+                    key_shares[1].secret_shares[4]]
         ],
         key_restored
     );
