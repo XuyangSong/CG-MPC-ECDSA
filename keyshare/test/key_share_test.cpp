@@ -43,10 +43,8 @@ void test_reconstruct() {
 }
 
 void test_restore() {
-    std::string input = "[{\"secret_shares\":[\"f2b1b915da12fd31986fffe689f4c36a428b2b879c0a9e5c259cbf2cbbdb00e1\",\"d814c87b21ca2b24568b32eb3b73dd7685dd59ff0f27d1d4886ab40bcc5bb35b\"],\"secret_shares_indice\":[0,2]},{\"secret_shares\":[\"25712b6592dd40c51feb2259a85f769c3bf50c8c7098b366d98e2701d1710c1a\",\"70538230b897c24f5fc1670cf91e63d4b3df25a551034dc41a37b242a7f0bf86\"],\"secret_shares_indice\":[0,2]}]";
-    std::uintptr_t a = 1;
-    std::uintptr_t *ptr = &a;
-    auto ret = restore(input.data(), ptr, 1, 1);
+    std::string input = "{\"key_shares\": [{\"secret_shares\": [\"21eff1a2ed10ce112c10660cb9a787d85d22b4c5321dc04b6281ad3a6ecda2ab\", \"43dfe345da219c225820cc19734f0fb0ba45698a643b8096c5035a74dd9b4555\"],\"secret_shares_indice\": [0, 1]}, {\"secret_shares\": [\"c02f5be8b267afc9226eb3a56f41748e8063b0333af3f1c270804b3a5dd98da0\", \"805eb7d164cf5f9244dd674ade82e91e4618837fc69f4349212e37e7eb7cd9fd\"],\"secret_shares_indice\": [0, 1]}],\"restore_indices\": [2]}";
+    auto ret = restore(input.data());
     assert(ret);
     printf("ret: %s\n", ret);
     std::cout << "restore test success!" << std::endl;

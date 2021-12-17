@@ -4,6 +4,13 @@ use crate::slices::*;
 use libc::c_char;
 use std::ffi::CString;
 use std::{panic, ptr};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct MultiRestoreInput {
+    pub key_shares: Vec<VssRestoreInput>, 
+    pub restore_indices: Vec<usize>,
+}
 
 #[no_mangle]
 /// Key sharing with any inputs.
@@ -165,22 +172,24 @@ pub extern "C" fn reconstruct(key_shares: *const c_char) -> *mut c_char {
 ///
 /// 'restore_index': index of share to restore.
 /// Input 'key_shares' json string format example:
-/// "[{
-///     "secret_shares": ["21eff1a2ed10ce112c10660cb9a787d85d22b4c5321dc04b6281ad3a6ecda2ab", "43dfe345da219c225820cc19734f0fb0ba45698a643b8096c5035a74dd9b4555"],
-///     "secret_shares_indice": [0, 1]
-///     }, {
-///     "secret_shares": ["c02f5be8b267afc9226eb3a56f41748e8063b0333af3f1c270804b3a5dd98da0", "805eb7d164cf5f9244dd674ade82e91e4618837fc69f4349212e37e7eb7cd9fd"],
-///     "secret_shares_indice": [0, 1]
-///     }]"
+/// "{
+///"key_shares": [{
+///    "secret_shares": ["21eff1a2ed10ce112c10660cb9a787d85d22b4c5321dc04b6281ad3a6ecda2ab", "43dfe345da219c225820cc19734f0fb0ba45698a643b8096c5035a74dd9b4555"],
+///    "secret_shares_indice": [0, 1]
+///}, {
+///   "secret_shares": ["c02f5be8b267afc9226eb3a56f41748e8063b0333af3f1c270804b3a5dd98da0", "805eb7d164cf5f9244dd674ade82e91e4618837fc69f4349212e37e7eb7cd9fd"],
+///    "secret_shares_indice": [0, 1]
+///}],
+///"restore_indices": [2]
+///}"
 ///
 /// output json string format example:
 /// "["7213ee56e32e4cd0965f1e0a79c4ca62444883c3e5a73fb869a532e00a117dfe","22eb8f361cb493777c1e171312bdbc402cf7806d8b1a064802536c2d53b37a09"]"
-pub extern "C" fn restore(key_shares: *const c_char, index: *mut usize, len: usize, cap: usize) -> *mut c_char {
+pub extern "C" fn restore(restore_inputs: *const c_char) -> *mut c_char {
     let result = panic::catch_unwind(|| {
-        let key_shares_string = c_pointer_to_string(key_shares).unwrap();
-        let key_shares: Vec<VssRestoreInput> = serde_json::from_str(&key_shares_string).unwrap();
-        let restore_indices = unsafe{Vec::from_raw_parts(index, len, cap)};
-        let key_restored = key_restore(key_shares, restore_indices); 
+        let restore_inputs_string = c_pointer_to_string(restore_inputs).unwrap();
+        let restore_inputs: MultiRestoreInput = serde_json::from_str(&restore_inputs_string).unwrap();
+        let key_restored = key_restore(restore_inputs.key_shares, restore_inputs.restore_indices); 
         let result_json = serde_json::to_string(&key_restored).unwrap();
         string_to_c_pointer(result_json)
     });
@@ -189,6 +198,7 @@ pub extern "C" fn restore(key_shares: *const c_char, index: *mut usize, len: usi
         Err(_) => ptr::null_mut(),
     }
 }
+
 
 #[no_mangle]
 /// String pointer free
@@ -329,36 +339,43 @@ fn test_reconstruct() {
 #[test]
 fn test_restore() {
     use std::ffi::CString;
-
-    let input_string = r#"[{
-        "secret_shares": ["21eff1a2ed10ce112c10660cb9a787d85d22b4c5321dc04b6281ad3a6ecda2ab", "43dfe345da219c225820cc19734f0fb0ba45698a643b8096c5035a74dd9b4555"],
-        "secret_shares_indice": [0, 1]
-    }, {
-        "secret_shares": ["c02f5be8b267afc9226eb3a56f41748e8063b0333af3f1c270804b3a5dd98da0", "805eb7d164cf5f9244dd674ade82e91e4618837fc69f4349212e37e7eb7cd9fd"],
-        "secret_shares_indice": [0, 1]
-    }]"#;
+    let input_string = r#"{
+        "key_shares": [{
+            "secret_shares": ["21eff1a2ed10ce112c10660cb9a787d85d22b4c5321dc04b6281ad3a6ecda2ab", "43dfe345da219c225820cc19734f0fb0ba45698a643b8096c5035a74dd9b4555"],
+            "secret_shares_indice": [0, 1]
+        }, {
+            "secret_shares": ["c02f5be8b267afc9226eb3a56f41748e8063b0333af3f1c270804b3a5dd98da0", "805eb7d164cf5f9244dd674ade82e91e4618837fc69f4349212e37e7eb7cd9fd"],
+            "secret_shares_indice": [0, 1]
+        }],
+        "restore_indices": [2]
+    }"#;
     let c_pointer = CString::new(input_string).expect("CString::new failed");
-    let mut index = vec![2];
-    let index_ptr = index.as_mut_ptr();
-    let ret = restore(c_pointer.as_ptr(), index_ptr, 1, 1);
+    let ret = restore(c_pointer.as_ptr());
     assert_ne!(ret, ptr::null_mut());
     unsafe{str_free(ret)};
 
     //Failed instance, null pointer
-    let mut index_1 = vec![2];
-    let index_ptr_1 = index_1.as_mut_ptr();
-    let ret1 = restore(ptr::null_mut(), index_ptr_1, 1, 1);
+    let ret1 = restore(ptr::null_mut());
     assert_eq!(ret1, ptr::null_mut());
 
     //Failed instance, invalid index to restore
-    let mut index_1 = vec![1];
-    let index_ptr_1 = index_1.as_mut_ptr();
-    let ret = restore(c_pointer.as_ptr(), index_ptr_1, 1, 1);
-    assert_eq!(ret, ptr::null_mut());
+    let input_string_1 = r#"{
+        "key_shares": [{
+            "secret_shares": ["21eff1a2ed10ce112c10660cb9a787d85d22b4c5321dc04b6281ad3a6ecda2ab", "43dfe345da219c225820cc19734f0fb0ba45698a643b8096c5035a74dd9b4555"],
+            "secret_shares_indice": [0, 1]
+        }, {
+            "secret_shares": ["c02f5be8b267afc9226eb3a56f41748e8063b0333af3f1c270804b3a5dd98da0", "805eb7d164cf5f9244dd674ade82e91e4618837fc69f4349212e37e7eb7cd9fd"],
+            "secret_shares_indice": [0, 1]
+        }],
+        "restore_indices": [1]
+    }"#;
+    let c_pointer_1 = CString::new(input_string_1).expect("CString::new failed");
+    let ret2 = restore(c_pointer_1.as_ptr());
+    assert_eq!(ret2, ptr::null_mut());
 
     // Failed instance, invalid json format string
     let invalid_json = r#"{"76f3f440a601bb04dd3730cbec67baf987c96b1eed4b3258ecefc}"#;
     let invalid_json_c_pointer = CString::new(invalid_json).expect("CString::new failed");
-    let ret = reconstruct(invalid_json_c_pointer.as_ptr());
+    let ret = restore(invalid_json_c_pointer.as_ptr());
     assert_eq!(ret, ptr::null_mut());
 }
