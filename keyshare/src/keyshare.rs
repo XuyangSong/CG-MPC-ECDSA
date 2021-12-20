@@ -75,12 +75,12 @@ pub fn key_reconstruct(key_shares: Vec<VssReconstructInput>) -> Vec<FE> {
     key_vec
 }
 
-pub fn key_restore(key_shares: Vec<VssRestoreInput>, restore_index: usize) -> Vec<FE> {
-    let mut restore_shares: Vec<FE> = Vec::new();
-    for i in 0..key_shares.len() {
-        let restore_share = restore(&key_shares[i], restore_index);
-        restore_shares.push(restore_share);
-    }
+pub fn key_restore(key_shares: Vec<VssRestoreInput>, restore_indices: Vec<usize>) -> Vec<Vec<FE>> {
+    let restore_shares = restore_indices.iter()
+        .map(|i| {
+            key_shares.iter()
+                .map(|j| restore(j, *i)).collect::<Vec<FE>>()
+        }).collect::<Vec<Vec<FE>>>();
     restore_shares
 }
 
@@ -145,7 +145,7 @@ fn test_key_share_verify_reconstruct_restore() {
     ];
 
     //key share
-    let key_shares = key_share(1, 3, key.clone());
+    let key_shares = key_share(2, 5, key.clone());
 
     //construct inputs to verify a share
     let mut verify_input_vec: Vec<VssVerifyInput> = Vec::new();
@@ -168,8 +168,9 @@ fn test_key_share_verify_reconstruct_restore() {
         let secret_shares: Vec<FE> = vec![
             key_shares[i].secret_shares[0],
             key_shares[i].secret_shares[1],
+            key_shares[i].secret_shares[2],
         ];
-        let secret_shares_indice: Vec<usize> = vec![0, 1];
+        let secret_shares_indice: Vec<usize> = vec![0, 1, 2];
         let reconstruct_input = VssReconstructInput {
             vss_scheme: key_shares[i].vss_scheme.clone(),
             secret_shares,
@@ -188,8 +189,9 @@ fn test_key_share_verify_reconstruct_restore() {
         let secret_shares: Vec<FE> = vec![
             key_shares[i].secret_shares[0],
             key_shares[i].secret_shares[1],
+            key_shares[i].secret_shares[2],
         ];
-        let secret_shares_indice: Vec<usize> = vec![0, 1];
+        let secret_shares_indice: Vec<usize> = vec![0, 1, 2];
         let reconstruct_input = VssRestoreInput {
             secret_shares,
             secret_shares_indice,
@@ -198,11 +200,13 @@ fn test_key_share_verify_reconstruct_restore() {
     }
 
     //key restore
-    let key_restored = key_restore(restore_input_vec, 2);
+    let key_restored = key_restore(restore_input_vec, vec![3, 4]);
     assert_eq!(
         vec![
-            key_shares[0].secret_shares[2],
-            key_shares[1].secret_shares[2]
+            vec![key_shares[0].secret_shares[3],
+                    key_shares[1].secret_shares[3]],
+            vec![key_shares[0].secret_shares[4],
+                    key_shares[1].secret_shares[4]]
         ],
         key_restored
     );
@@ -278,11 +282,11 @@ fn test_key_restore_fail_instance() {
         ECScalar::from(&BigInt::from(1)),
         ECScalar::from(&BigInt::from(2)),
     ];
-    let key_shares_true = key_share(1, 3, key.clone());
+    let key_shares_true = key_share(2, 5, key.clone());
     let mut restore_input_vec: Vec<VssRestoreInput> = Vec::new();
     for i in 0..key_shares_true.len() {
         let secret_shares: Vec<FE> = vec![key_shares_true[i].secret_shares[0], FE::new_random()];
-        let secret_shares_indice: Vec<usize> = vec![0, 1];
+        let secret_shares_indice: Vec<usize> = vec![0, 1, 2];
         let reconstruct_input = VssRestoreInput {
             secret_shares,
             secret_shares_indice,
@@ -291,13 +295,16 @@ fn test_key_restore_fail_instance() {
     }
 
     //key restore
-    let key_restored = key_restore(restore_input_vec, 2);
+    let key_restored = key_restore(restore_input_vec, vec![3, 4]);
     assert_eq!(
         vec![
-            key_shares_true[0].secret_shares[2],
-            key_shares_true[1].secret_shares[2]
+            vec![key_shares_true[0].secret_shares[3],
+                    key_shares_true[1].secret_shares[3],
+                    key_shares_true[2].secret_shares[3]],
+            vec![key_shares_true[0].secret_shares[4],
+                    key_shares_true[1].secret_shares[4],
+                    key_shares_true[2].secret_shares[4]]
         ],
-        key_restored,
-        "Restore share failed with error shares"
+        key_restored
     );
 }

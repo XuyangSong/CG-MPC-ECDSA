@@ -88,7 +88,6 @@ impl KeyRefreshPhase {
                         secret_share: secret_shares[i],
                     };
                     if i == party_index {
-                        // Handle my onw msg_four
                         vss_scheme_map.insert(i, vss_scheme.clone());
                         let lambda = VerifiableSS::<GE>::map_share_to_new_params(&params, party_index, &threshold_set);
                         share_private_key_new = lambda*phase_two_msg.secret_share;
@@ -232,7 +231,7 @@ impl KeyRefreshPhase {
                      self.msgs.phase_two_msgs.insert(index, msg.clone());
 
                      //Generate the next msg
-                     if self.msgs.phase_two_msgs.len() == self.params.threshold+1 {
+                     if self.msgs.phase_two_msgs.len() == self.threshold_set.len() {
                           let msg_three = self.generate_phase_three_msg();
                           self.msgs.phase_three_msgs.insert(self.party_index, msg_three.clone());
                           let sending_msg = ReceivingMessages::KeyRefreshMessage(KeyRefreshMessage::PhaseThreeMsg(msg_three));
