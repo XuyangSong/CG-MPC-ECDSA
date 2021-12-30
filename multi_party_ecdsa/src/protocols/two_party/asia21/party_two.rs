@@ -1,6 +1,6 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
+use crate::protocols::two_party::asia21::message::{PartyOneMsg, PartyTwoMsg};
 use crate::utilities::class::GROUP_UPDATE_128;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;

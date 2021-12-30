@@ -10,7 +10,7 @@ use curv::BigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
+use crate::protocols::two_party::asia21::message::{PartyOneMsg, PartyTwoMsg};
 use crate::utilities::class::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
