@@ -1,17 +1,16 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::two_party::asia21::message::{PartyOneMsg, PartyTwoMsg};
-use crate::utilities::class::GROUP_UPDATE_128;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
-use class_group::primitives::cl_dl_public_setup::Ciphertext;
-use class_group::primitives::cl_dl_public_setup::{
-    encrypt_without_r, eval_scal, eval_sum, Ciphertext as CLCiphertext, PK,
-};
-use class_group::BinaryQF;
-use curv::arithmetic::traits::Samplable;
+use crate::utilities::class_group::Ciphertext as CLCiphertext;
+use crate::utilities::class_group::*;
+use classgroup::gmp_classgroup::*;
+use classgroup::ClassGroup;
+use gmp::mpz::Mpz;
+
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::elliptic::curves::secp256_k1::FE;
@@ -84,9 +83,10 @@ impl KeyGenPhase {
         &self,
         h_caret: &PK,
         h: &PK,
-        gp: &BinaryQF,
+        gp: &GmpClassGroup,
     ) -> Result<(), MulEcdsaError> {
-        let h_ret = h_caret.0.exp(&FE::q());
+        let mut h_ret = h_caret.0.clone();
+        h_ret.pow(q());
         if h_ret != h.0 || *gp != GROUP_UPDATE_128.gq {
             return Err(MulEcdsaError::VrfyClassGroupFailed);
         }
@@ -203,7 +203,7 @@ impl SignPhase {
         // Precompute c1
         let k2_inv = keypair.get_secret_key().invert();
         let k2_inv_m = k2_inv * message;
-        let c1 = encrypt_without_r(&GROUP_UPDATE_128, &k2_inv_m);
+        let c1 = CLGroup::encrypt_without_r(&GROUP_UPDATE_128, &k2_inv_m);
 
         let d_log_proof = DLogProof::prove(keypair.get_secret_key());
 
@@ -237,7 +237,7 @@ impl SignPhase {
         // Precompute c1
         let k2_inv = self.keypair.get_secret_key().invert();
         let k2_inv_m = k2_inv * message;
-        let c1 = encrypt_without_r(&GROUP_UPDATE_128, &k2_inv_m);
+        let c1 = CLGroup::encrypt_without_r(&GROUP_UPDATE_128, &k2_inv_m);
         self.precompute_c1 = c1.0;
         // self.message = message;
 
@@ -269,12 +269,12 @@ impl SignPhase {
 
     pub fn sign(&self, ephemeral_public_share: &GE) -> Result<(CLCiphertext, FE), MulEcdsaError> {
         if let Some(keygen_result) = self.keygen_result.clone() {
-            let q = FE::q();
+            let q = q();
             let r_x: FE = ECScalar::from(
                 &ephemeral_public_share
                     .x_coor()
                     .ok_or(MulEcdsaError::XcoorNone)?
-                    .mod_floor(&q),
+                    .mod_floor(&FE::q()),
             );
             let k2_inv = self.keypair.get_secret_key().invert();
             // let k2_inv_m = k2_inv * message;
@@ -282,14 +282,14 @@ impl SignPhase {
             // let c1 = encrypt_without_r(GROUP_UPDATE_128, &k2_inv_m);
             let v = k2_inv * r_x * keygen_result.sk;
             let t =
-                BigInt::sample_below(&(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &q));
-            let t_p = ECScalar::from(&t.mod_floor(&q));
-            let t_plus = t + v.to_big_int();
-            let c2 = eval_scal(&keygen_result.cl_cipher, &t_plus);
+                BigInt::sample_below(&(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * &FE::q()));
+            let t_p = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&FE::q()).to_str_radix(16), 16).unwrap());
+            let t_plus = bigint_to_mpz(t) + into_mpz(&v);
+            let c2 = CLGroup::eval_scal(&keygen_result.cl_cipher, t_plus);
             if self.online_offline {
                 Ok((c2, t_p))
             } else {
-                Ok((eval_sum(&self.precompute_c1, &c2), t_p))
+                Ok((CLGroup::eval_sum(&self.precompute_c1, &c2), t_p))
             }
         } else {
             Err(MulEcdsaError::NotLoadKeyGenResult)
@@ -299,8 +299,8 @@ impl SignPhase {
     pub fn online(&self, message: &FE, c_2: &CLCiphertext) -> Result<CLCiphertext, MulEcdsaError> {
         let k2_inv = self.keypair.get_secret_key().invert();
         let k2_inv_m = k2_inv * message;
-        let c_1 = encrypt_without_r(&GROUP_UPDATE_128, &k2_inv_m);
-        Ok(eval_sum(&c_1.0, &c_2))
+        let c_1 = CLGroup::encrypt_without_r(&GROUP_UPDATE_128, &k2_inv_m);
+        Ok(CLGroup::eval_sum(&c_1.0, &c_2))
     }
 
     pub fn set_msg(&mut self, message_str: String) -> Result<(), MulEcdsaError> {

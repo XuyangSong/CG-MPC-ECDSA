@@ -1,6 +1,8 @@
-use class_group::primitives::cl_dl_public_setup::{CLGroup, PK, SK};
-use curv::elliptic::curves::secp256_k1::FE;
-use curv::elliptic::curves::traits::*;
+//use class_group::primitives::cl_dl_public_setup::{CLGroup, PK, SK};
+use crate::utilities::class_group::*;
+use classgroup::ClassGroup;
+// use curv::elliptic::curves::secp256_k1::FE;
+// use curv::elliptic::curves::traits::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -19,7 +21,7 @@ impl ClKeyPair {
     }
 
     pub fn from_sk(sk: SK, group: &CLGroup) -> Self {
-        let cl_pub_key = group.pk_for_sk(&sk);
+        let cl_pub_key = group.pk_for_sk(sk.clone());
         Self {
             cl_pub_key,
             cl_priv_key: sk,
@@ -27,7 +29,8 @@ impl ClKeyPair {
     }
 
     pub fn update_pk_exp_p(&mut self) {
-        let new_pk = self.cl_pub_key.0.exp(&FE::q());
+        let mut new_pk = self.cl_pub_key.0.clone();
+        new_pk.pow(q());
         self.cl_pub_key = PK(new_pk);
     }
 

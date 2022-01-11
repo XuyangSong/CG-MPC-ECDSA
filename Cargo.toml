@@ -7,4 +7,5 @@ members = [
     "cli",
     "message",
     "keyshare",
+    "classgroup",
 ]

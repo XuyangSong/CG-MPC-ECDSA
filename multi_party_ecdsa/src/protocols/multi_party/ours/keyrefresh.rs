@@ -2,11 +2,12 @@ use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::keygen::{Parameters, PublicKey, PrivateKey};
 use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::{GROUP_128, GROUP_UPDATE_128};
+use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
+use crate::utilities::class_group::*;
+use classgroup::gmp_classgroup::*;
+use classgroup::ClassGroup;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::eckeypair::EcKeyPair;
-use class_group::primitives::cl_dl_public_setup::PK;
-use class_group::BinaryQF;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::{VerifiableSS, ShamirSecretSharing};
 use curv::elliptic::curves::traits::ECScalar;
@@ -122,9 +123,10 @@ impl KeyRefreshPhase {
           &self,
           h_caret: &PK,
           h: &PK,
-          gp: &BinaryQF,
+          gp: &GmpClassGroup,
       ) -> Result<(), MulEcdsaError> {
-          let h_ret = h_caret.0.exp(&FE::q());
+          let mut h_ret = h_caret.0.clone();
+          h_ret.pow(q());
           if h_ret != h.0 || *gp != GROUP_UPDATE_128.gq {
               return Err(MulEcdsaError::VrfySignPhaseOneMsgFailed);
           }
