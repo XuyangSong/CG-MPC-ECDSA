@@ -1,9 +1,8 @@
 use curv::elliptic::curves::secp256_k1::{FE, GE};
-use class_group::primitives::cl_dl_public_setup::*;
-use class_group::primitives::cl_dl_public_setup::Ciphertext as CLCiphertext;
 use curv::elliptic::curves::traits::*;
+use crate::utilities::class_group::*;
 use curv::arithmetic::*;
-use crate::utilities::class::GROUP_128;
+use crate::utilities::cl_dl_proof::*;
 
 #[derive(Clone, Debug)]
 pub struct PartyOne {
@@ -17,13 +16,6 @@ pub struct PartyTwo {
      pub t_a: FE
 }
 
-#[derive(Clone, Debug)]
-pub struct Statement {
-     pk: PK,
-     ciphertext: Ciphertext,
-     public: GE
-}
-
 impl PartyOne {
      pub fn new(b: FE) -> Self {
           Self {
@@ -32,19 +24,24 @@ impl PartyOne {
           }
      }
 
-     pub fn generate_send_msg(&self, cl_pk: &PK) -> (CLDLProof, Statement) {
+     pub fn generate_send_msg(&self, cl_pk: &PK) -> (CLDLProof, CLDLState) {
           let b_pub = GE::generator() * self.b;
-          let (c_b, cl_dl_proof) = verifiably_encrypt(&GROUP_128, cl_pk, (&self.b, &b_pub));
-          let statement = Statement {
-               pk: (*cl_pk).clone(),
-               ciphertext: c_b,
-               public: b_pub,
+          let (c_b, r) = CLGroup::encrypt(&GROUP_128, cl_pk, &self.b);
+          let witness = CLDLWit {
+               dl_priv: self.b,
+               r
           };
+          let statement = CLDLState {
+               cipher: c_b,
+               cl_pub_key: (*cl_pk).clone(),
+               dl_pub: b_pub
+          };
+          let cl_dl_proof = CLDLProof::prove(&GROUP_128, witness, statement.clone());
           (cl_dl_proof, statement)
      }
 
      pub fn handle_receive_msg(&mut self, cl_sk: &SK, c_a: &Ciphertext) {
-          let beta_tag_bigint = decrypt(&GROUP_128, cl_sk, c_a).to_big_int();
+          let beta_tag_bigint = CLGroup::decrypt(&GROUP_128, cl_sk, c_a).to_big_int();
           let beta: FE = ECScalar::from(&beta_tag_bigint.mod_floor(&FE::q()));
           self.t_b = beta;
      }
@@ -58,16 +55,16 @@ impl PartyTwo {
           }
      }
 
-     pub fn receive_and_send_msg(&mut self, proof_cl: CLDLProof, statement: Statement) -> Result<CLCiphertext, String>{
+     pub fn receive_and_send_msg(&mut self, proof_cl: CLDLProof, statement: CLDLState) -> Result<Ciphertext, String>{
           let alpha_tag = FE::new_random();
           let alpha = FE::zero().sub(&alpha_tag.get_element());
           self.t_a = alpha;
 
           //verify cl-encryption dl proof
-          proof_cl.verify(&GROUP_128, &statement.pk, &statement.ciphertext, &statement.public).map_err(|_| "verify cl encryption dl proof failed")?;
-          let encrypted_alpha_tag = encrypt(&GROUP_128, &statement.pk, &alpha_tag);
-          let a_scal_c_b = eval_scal(&statement.ciphertext, &self.a.to_big_int());
-          let c_a = eval_sum(&a_scal_c_b, &encrypted_alpha_tag.0);
+          proof_cl.verify(&GROUP_128, statement.clone()).map_err(|_| "verify cl encryption dl proof failed")?;
+          let encrypted_alpha_tag = CLGroup::encrypt(&GROUP_128, &statement.cl_pub_key, &alpha_tag);
+          let a_scal_c_b = CLGroup::eval_scal(&statement.cipher, into_mpz(&self.a));
+          let c_a = CLGroup::eval_sum(&a_scal_c_b, &encrypted_alpha_tag.0);
           return Ok(c_a)
      }
 }

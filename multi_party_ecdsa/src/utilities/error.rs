@@ -49,6 +49,8 @@ pub enum MulEcdsaError {
     VrfyElgamalProofFailed,
     #[error("Verify CLEncProof failed")]
     VrfyClEncProofFailed,
+    #[error("Verify CLDLProof Failed")]
+    VrfyCLDLProofFailed,
     #[error("Not load keygen result")]
     NotLoadKeyGenResult,
     #[error("Invalid public key")]

@@ -12,3 +12,4 @@ pub mod promise_sigma;
 pub mod promise_sigma_multi;
 pub mod signature;
 pub mod class_group;
+pub mod cl_dl_proof;
