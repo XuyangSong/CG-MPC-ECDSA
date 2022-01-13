@@ -290,5 +290,26 @@ pub fn test_encrypt_decrypt() {
     assert_eq!(m ,m_new);
 }
 
+#[test]
+pub fn exp_a() {
+    use crate::utilities::class::GROUP_128;
+    let a = GROUP_128.gq.clone();
+    let b = BigInt::from_str_radix("123", 10).unwrap();
+    let start = time::now();
+    let c = a.exp(&b);
+    let end = time::now();
+    println!("time = {:?}", end - start);
+}
+
+#[test]
+pub fn pow_a() {
+    let mut a = GROUP_128.gq.clone();
+    let b = Mpz::from_str_radix("123", 10).unwrap();
+    let start = time::now();
+    a.pow(b);
+    let end = time::now();
+    println!("time = {:?}", end - start);
+}
+
 
 

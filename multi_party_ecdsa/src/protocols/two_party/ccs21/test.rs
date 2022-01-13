@@ -1,7 +1,7 @@
+use crate::utilities::clkeypair::ClKeyPair;
 use super::*;
 use crate::mta::*;
-use crate::utilities::clkeypair::ClKeyPair;
-use crate::utilities::class::GROUP_128;
+use crate::utilities::class_group::*;
 use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::traits::*;
 
