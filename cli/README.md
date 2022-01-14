@@ -284,7 +284,7 @@ OPTIONS:
 ### 3.2 sign cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --keygen_pub_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
+$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --pub_keygen_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
 ```
 Online_Offline Sign Model
 * No need to specify message at begining.

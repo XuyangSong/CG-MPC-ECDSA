@@ -6,7 +6,6 @@ use crate::utilities::promise_sigma_multi::*;
 use crate::utilities::signature::Signature;
 use crate::utilities::SECURITY_BITS;
 use classgroup::ClassGroup;
-use gmp::mpz::Mpz;
 use crate::utilities::class_group::GROUP_UPDATE_128;
 use crate::utilities::class_group::*;
 use crate::communication::receiving_messages::ReceivingMessages;
@@ -366,11 +365,11 @@ impl SignPhase {
 
         {
             // Generate random.
-            let t = sample_below(
-                &GROUP_UPDATE_128.stilde * Mpz::from(2).pow(40) * q()
+            let t = BigInt::sample_below(
+                &(&mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q())
             );
-            t_p_plus = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&q()).to_str_radix(16), 16).unwrap());
-            let omega_plus_t = into_mpz(&self.omega) + t;
+            t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
+            let omega_plus_t = into_mpz(&self.omega) + bigint_to_mpz(t);
 
             // Handle CL cipher.
             let mut c11 = cipher.cl_cipher.c1.clone();

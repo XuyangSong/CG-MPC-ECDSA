@@ -7,7 +7,6 @@ use crate::utilities::signature::Signature;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
-use gmp::mpz::Mpz;
 use std::collections::HashMap;
 use crate::utilities::class_group::*;
 use classgroup::gmp_classgroup::*;

@@ -7,7 +7,7 @@ use crate::utilities::SECURITY_PARAMETER;
 use crate::utilities::class_group::Ciphertext as CLCipher;
 use crate::utilities::class_group::*;
 use classgroup::gmp_classgroup::*;
-use gmp::mpz::Mpz;
+use classgroup::gmp::mpz::Mpz;
 use classgroup::ClassGroup;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;

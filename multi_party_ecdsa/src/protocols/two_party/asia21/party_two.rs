@@ -9,7 +9,6 @@ use crate::utilities::class_group::Ciphertext as CLCiphertext;
 use crate::utilities::class_group::*;
 use classgroup::gmp_classgroup::*;
 use classgroup::ClassGroup;
-use gmp::mpz::Mpz;
 
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
@@ -269,21 +268,19 @@ impl SignPhase {
 
     pub fn sign(&self, ephemeral_public_share: &GE) -> Result<(CLCiphertext, FE), MulEcdsaError> {
         if let Some(keygen_result) = self.keygen_result.clone() {
-            let q = q();
+            let q = FE::q();
             let r_x: FE = ECScalar::from(
                 &ephemeral_public_share
                     .x_coor()
                     .ok_or(MulEcdsaError::XcoorNone)?
-                    .mod_floor(&FE::q()),
+                    .mod_floor(&q),
             );
             let k2_inv = self.keypair.get_secret_key().invert();
-            // let k2_inv_m = k2_inv * message;
 
-            // let c1 = encrypt_without_r(GROUP_UPDATE_128, &k2_inv_m);
             let v = k2_inv * r_x * keygen_result.sk;
             let t =
-                BigInt::sample_below(&(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * &FE::q()));
-            let t_p = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&FE::q()).to_str_radix(16), 16).unwrap());
+                BigInt::sample_below(&(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * &q));
+            let t_p = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&q).to_str_radix(16), 16).unwrap());
             let t_plus = bigint_to_mpz(t) + into_mpz(&v);
             let c2 = CLGroup::eval_scal(&keygen_result.cl_cipher, t_plus);
             if self.online_offline {

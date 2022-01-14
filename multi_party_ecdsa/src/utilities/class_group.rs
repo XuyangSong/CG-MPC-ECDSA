@@ -1,8 +1,7 @@
-use gmp::mpz::Mpz;
+use classgroup::gmp::mpz::Mpz;
 use classgroup::gmp_classgroup::*;
 use std::str::FromStr;
 use classgroup::ClassGroup;
-use rand::{rngs::OsRng, RngCore};
 use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::traits::ECScalar;
 use curv::arithmetic::Converter;
@@ -82,7 +81,7 @@ impl CLGroup {
     pub fn encrypt(group: &CLGroup, public_key: &PK, m: &FE) -> (Ciphertext, SK) {
         //unsafe { pari_init(10000000, 2) };
         let k = into_mpz(m);
-        let (r, R) = group.keygen();
+        let (r, r_big) = group.keygen();
         let delta = group.gq.discriminant().clone();
         let exp_f = expo_f(&q(), &delta, &k);
         let mut h_exp_r = public_key.0.clone();
@@ -90,7 +89,7 @@ impl CLGroup {
     
         (
             Ciphertext {
-                c1: R.0,
+                c1: r_big.0,
                 c2: h_exp_r*exp_f,
             },
             r,
@@ -110,11 +109,11 @@ impl CLGroup {
 
     pub fn encrypt_without_r(group: &CLGroup, m: &FE) -> (Ciphertext, SK) {
         let r = SK::from(Mpz::from(0));
-        let R = group.pk_for_sk(r.clone());
+        let r_big = group.pk_for_sk(r.clone());
         let m_mpz = Mpz::from_str(&m.to_big_int().to_str_radix(10)).unwrap();
         let exp_f = expo_f(&q(), &group.gq.discriminant(), &m_mpz);
     
-        (Ciphertext { c1: R.0, c2: exp_f }, r)
+        (Ciphertext { c1: r_big.0, c2: exp_f }, r)
     }
 
     pub fn pk_for_sk(&self, sk: SK) -> PK {
@@ -177,33 +176,10 @@ pub fn discrete_log_f(p: &Mpz, delta: &Mpz, c: &GmpClassGroup) -> Mpz {
     if c == &principal_qf {
         return Mpz::zero();
     } else {
-        let Lk = c.b.div_floor(p);
-        let Lk_inv = Lk.invert(p).unwrap();
-        return Lk_inv;
+        let lk = c.b.div_floor(p);
+        let lk_inv = lk.invert(p).unwrap();
+        return lk_inv;
     }
-}
-
-pub fn sample_below(upper: Mpz) -> Mpz {
-    assert!(upper > Mpz::zero());
-        let bits = upper.bit_length();
-        loop {
-            let n = sample(bits);
-            if n < upper {
-                return n;
-            }
-        }
-}
-
-pub fn sample(bit_size: usize) -> Mpz {
-    if bit_size == 0 {
-        return Mpz::zero();
-    }
-    let mut rng = OsRng;
-    let bytes = (bit_size - 1) / 8 + 1;
-    let mut buf: Vec<u8> = vec![0; bytes];
-    rng.fill_bytes(&mut buf);
-    let rng_string = String::from_utf8(buf).unwrap();
-    Mpz::from_str(&rng_string).unwrap() >> (bytes * 8 - bit_size)
 }
 
 pub fn mpz_to_bigint(value: Mpz) -> BigInt {
@@ -227,10 +203,6 @@ pub fn update_class_group_by_p(group: &CLGroup) -> CLGroup {
 
 pub fn into_mpz(f: &FE) -> Mpz {
     Mpz::from_str(&f.to_big_int().to_str_radix(10)).unwrap()
-}
-
-lazy_static! {
-    pub static ref DISC: Mpz = Mpz::from_str("-75257495770792601579408435348799912112609846029965206820064851604692987230254538914853608976971793980958712372789231634579578971529235823075608739231635687425758158575368321348137900869894119507551586698602273331769113654968615517566745786072923103207661147676790644792111452136974276225728730910712947503901232735129687891775293591232029998265064837518833536297518857716272011348573253397254136847763813364524813537416619588617528698171849359403663703760169261184343946919401092992684996593982744033815507830560787451354075275532210193117085590501285653650352846925182015277946751628767130269342252523310043345421861896214174850131607385236887381965429994384214519104490505249675175386383257705274311668138257554180057201072703457873180274207162029503126883077609392094864657038777406276133886450239").unwrap();
 }
 
 lazy_static! {
@@ -296,7 +268,7 @@ pub fn exp_a() {
     let a = GROUP_128.gq.clone();
     let b = BigInt::from_str_radix("123", 10).unwrap();
     let start = time::now();
-    let c = a.exp(&b);
+    let _c = a.exp(&b);
     let end = time::now();
     println!("time = {:?}", end - start);
 }
@@ -309,6 +281,15 @@ pub fn pow_a() {
     a.pow(b);
     let end = time::now();
     println!("time = {:?}", end - start);
+}
+
+#[test]
+fn test_big_to_mpz() {
+    let a = BigInt::from_str_radix("123", 16).unwrap();
+    let start = time::now();
+    let _b = bigint_to_mpz(a);
+    let end = time::now();
+    println!("duration = {:?}", end - start);
 }
 
 

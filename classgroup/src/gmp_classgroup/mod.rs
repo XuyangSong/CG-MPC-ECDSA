@@ -13,8 +13,8 @@
 // limitations under the License.
 #![deny(unsafe_code)]
 use super::ClassGroup;
-use gmp::mpz::Mpz;
-use gmp::mpz::ProbabPrimeResult::NotPrime;
+use super::gmp::mpz::Mpz;
+use super::gmp::mpz::ProbabPrimeResult::NotPrime;
 use serde::{Deserialize, Serialize};
 use num_traits::{One, Zero};
 use std::{
