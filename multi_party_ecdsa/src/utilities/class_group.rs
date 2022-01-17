@@ -68,6 +68,17 @@ impl CLGroup {
         }
     }
 
+    pub fn update_class_group_by_p(group: &CLGroup) -> CLGroup {
+        let q = q();
+        let mut gq_new = group.gq.clone();
+        gq_new.pow(q);
+        CLGroup {
+            delta_k: group.delta_k.clone(),
+            gq: gq_new,
+            stilde: group.stilde.clone(),
+        }
+    }
+
     pub fn keygen(&self) -> (SK, PK) {
         let sk = SK(bigint_to_mpz(BigInt::sample_below(
             &(&(mpz_to_bigint(self.stilde.clone())) * BigInt::from(2).pow(40))))
@@ -133,7 +144,6 @@ impl CLGroup {
         c_new
     }
     
-    /// Homomorphically adds two ciphertexts so that the resulting ciphertext is the sum of the two input ciphertexts
     pub fn eval_sum(c1: &Ciphertext, c2: &Ciphertext) -> Ciphertext {
         let c_new = Ciphertext {
             c1: c1.c1.clone() * c2.c1.clone(),
@@ -189,16 +199,6 @@ pub fn bigint_to_mpz(value: BigInt) -> Mpz {
     Mpz::from_str_radix(&value.to_str_radix(16), 16).unwrap()
 }
 
-pub fn update_class_group_by_p(group: &CLGroup) -> CLGroup {
-    let q = q();
-    let mut gq_new = group.gq.clone();
-    gq_new.pow(q);
-    CLGroup {
-        delta_k: group.delta_k.clone(),
-        gq: gq_new,
-        stilde: group.stilde.clone(),
-    }
-}
 
 pub fn into_mpz(f: &FE) -> Mpz {
     Mpz::from_str(&f.to_big_int().to_str_radix(10)).unwrap()
@@ -209,7 +209,7 @@ lazy_static! {
 }
 
 lazy_static! {
-    pub static ref GROUP_UPDATE_128: CLGroup = update_class_group_by_p(&GROUP_128);
+    pub static ref GROUP_UPDATE_128: CLGroup = CLGroup::update_class_group_by_p(&GROUP_128);
 }
 
 // #[test]
