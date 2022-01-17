@@ -7,7 +7,7 @@ use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
-use multi_party_ecdsa::protocols::two_party::party_one;
+use multi_party_ecdsa::protocols::two_party::asia21::party_one;
 use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;

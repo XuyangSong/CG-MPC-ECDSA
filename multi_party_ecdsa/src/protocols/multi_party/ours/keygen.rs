@@ -1,13 +1,14 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::{GROUP_128, GROUP_UPDATE_128};
+use crate::utilities::class_group::*;
+use classgroup::gmp_classgroup::*;
+use classgroup::ClassGroup;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
-use class_group::primitives::cl_dl_public_setup::{PK, SK};
-use class_group::BinaryQF;
+use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
@@ -223,9 +224,10 @@ impl KeyGenPhase {
         &self,
         h_caret: &PK,
         h: &PK,
-        gp: &BinaryQF,
+        gp: &GmpClassGroup,
     ) -> Result<(), MulEcdsaError> {
-        let h_ret = h_caret.0.exp(&FE::q());
+        let mut h_ret = h_caret.0.clone();
+        h_ret.pow(q());
         if h_ret != h.0 || *gp != GROUP_UPDATE_128.gq {
             return Err(MulEcdsaError::VrfySignPhaseOneMsgFailed);
         }
@@ -463,23 +465,3 @@ impl KeyGenPhase {
     }
 }
 
-#[test]
-fn test_exp() {
-    use curv::arithmetic::traits::*;
-    use curv::BigInt;
-
-    let r_1 = BigInt::sample_below(&(&GROUP_128.stilde * BigInt::from(2).pow(40)));
-    let r_2 = BigInt::sample_below(
-        &(&GROUP_128.stilde
-            * BigInt::from(2).pow(40)
-            * BigInt::from(2).pow(128 as u32)
-            * BigInt::from(2).pow(40)),
-    );
-
-    let t1 = time::now();
-    GROUP_128.gq.exp(&r_1);
-    println!("time: {:?}", time::now() - t1);
-    let t2 = time::now();
-    GROUP_128.gq.exp(&r_2);
-    println!("time: {:?}", time::now() - t2);
-}

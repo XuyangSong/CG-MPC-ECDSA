@@ -12,10 +12,6 @@ serde_json="1.0"
 thiserror = "1"
 libc = "0.2.60"
 
-[dependencies.class_group]
-git = "https://github.com/XuyangSong/class"
-tag = "v1.5.2"
-
 [lib]
 name = "keyshare"
 crate-type = [ "cdylib", "staticlib" ]

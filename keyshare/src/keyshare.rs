@@ -276,7 +276,7 @@ fn test_key_reconstruct_fail_instance() {
 }
 
 #[test]
-#[should_panic(expected = "Restore share failed with error shares")]
+#[should_panic]
 fn test_key_restore_fail_instance() {
     let key = vec![
         ECScalar::from(&BigInt::from(1)),

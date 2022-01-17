@@ -8,14 +8,13 @@ use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use std::collections::HashMap;
+use crate::utilities::class_group::*;
+use classgroup::gmp_classgroup::*;
+use classgroup::ClassGroup;
 
-use crate::utilities::class::{GROUP_128, GROUP_UPDATE_128};
+use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::promise_sigma_multi::*;
 use crate::utilities::SECURITY_BITS;
-use class_group::primitives::cl_dl_public_setup::{
-    decrypt, encrypt_without_r, Ciphertext as CLCipher, PK as CLPK, SK as CLSK,
-};
-use class_group::BinaryQF;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -37,7 +36,7 @@ pub struct KeyGenTest {
     pub params: Parameters,
     pub cl_keypair: ClKeyPair,
     pub ec_keypair: EcKeyPair,
-    pub h_caret: CLPK,
+    pub h_caret: PK,
     pub private_signing_key: EcKeyPair,       // (u_i, u_iP)
     pub public_signing_key: GE,               // Q
     pub share_private_key: FE,                // x_i
@@ -90,7 +89,7 @@ impl KeyGenTest {
         }
     }
 
-    pub fn get_class_group_pk(&self) -> (CLPK, CLPK, BinaryQF) {
+    pub fn get_class_group_pk(&self) -> (PK, PK, GmpClassGroup) {
         (
             self.h_caret.clone(),
             self.cl_keypair.get_public_key().clone(),
@@ -100,10 +99,11 @@ impl KeyGenTest {
 
     pub fn verify_class_group_pk(
         &self,
-        pk_vec: &Vec<(CLPK, CLPK, BinaryQF)>,
+        pk_vec: &Vec<(PK, PK, GmpClassGroup)>,
     ) -> Result<(), MulEcdsaError> {
         for element in pk_vec.iter() {
-            let h_ret = element.0 .0.exp(&FE::q());
+            let mut h_ret = element.0.0.clone();
+            h_ret.pow(q());
             if h_ret != element.1 .0 || element.2 != GROUP_UPDATE_128.gq {
                 return Err(MulEcdsaError::GeneralError);
             }
@@ -315,39 +315,44 @@ impl SignPhaseTest {
             let beta = FE::new_random();
             {
                 // Generate random.
-                let t = BigInt::sample_below(
-                    &(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()),
+                let t = bigint_to_mpz(BigInt::sample_below(
+                    &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q()))
                 );
-                t_p = ECScalar::from(&t.mod_floor(&FE::q()));
-                let rho_plus_t = self.gamma.to_big_int() + t;
+                
+                t_p = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&q()).to_str_radix(16), 16).unwrap());
+                let rho_plus_t = into_mpz(&self.gamma) + t;
 
                 // Handle CL cipher.
                 let (r_cipher, _r_blind) =
-                    encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&beta.get_element()));
-                let c11 = cipher.cl_cipher.c1.exp(&rho_plus_t);
-                let c21 = cipher.cl_cipher.c2.exp(&rho_plus_t);
-                let c1 = c11.compose(&r_cipher.c1).reduce();
-                let c2 = c21.compose(&r_cipher.c2).reduce();
-                homocipher = CLCipher { c1, c2 };
+                    CLGroup::encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&beta.get_element()));
+                let mut c11 = cipher.cl_cipher.c1.clone();
+                c11.pow(rho_plus_t.clone());
+                let mut c21 = cipher.cl_cipher.c2.clone();
+                c21.pow(rho_plus_t);
+                let c1 = c11 * r_cipher.c1;
+                let c2 = c21 * r_cipher.c2;
+                homocipher = Ciphertext { c1, c2 };
             }
 
             let v = FE::new_random();
             {
                 // Generate random.
-                let t = BigInt::sample_below(
-                    &(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()),
+                let t = bigint_to_mpz(BigInt::sample_below(
+                    &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q()))
                 );
-                t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
-                let omega_plus_t = self.omega.to_big_int() + t;
+                t_p_plus = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&q()).to_str_radix(16), 16).unwrap());
+                let omega_plus_t = into_mpz(&self.omega) + t;
 
                 // Handle CL cipher.
                 let (r_cipher, _r_blind) =
-                    encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&v.get_element()));
-                let c11 = cipher.cl_cipher.c1.exp(&omega_plus_t);
-                let c21 = cipher.cl_cipher.c2.exp(&omega_plus_t);
-                let c1 = c11.compose(&r_cipher.c1).reduce();
-                let c2 = c21.compose(&r_cipher.c2).reduce();
-                homocipher_plus = CLCipher { c1, c2 };
+                    CLGroup::encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&v.get_element()));
+                let mut c11 = cipher.cl_cipher.c1.clone();
+                c11.pow(omega_plus_t.clone());
+                let mut c21 = cipher.cl_cipher.c2.clone();
+                c21.pow(omega_plus_t);
+                let c1 = c11 * r_cipher.c1;
+                let c2 = c21 * r_cipher.c2;
+                homocipher_plus = Ciphertext { c1, c2 };
 
                 let base: GE = ECPoint::generator();
                 b = base * v;
@@ -374,7 +379,7 @@ impl SignPhaseTest {
 
     pub fn phase_two_decrypt_and_verify(
         &mut self,
-        sk: &CLSK,
+        sk: &SK,
         msg_vec: &Vec<SignPhaseTwoMsg>,
     ) -> SignPhaseThreeMsg {
         assert_eq!(msg_vec.len(), self.party_num - 1);
@@ -385,12 +390,12 @@ impl SignPhaseTest {
             // Compute delta
             let k_mul_t = self.k * msg_vec[i].t_p;
             let alpha =
-                decrypt(&GROUP_UPDATE_128, &sk, &msg_vec[i].homocipher).sub(&k_mul_t.get_element());
+                CLGroup::decrypt(&GROUP_UPDATE_128, &sk, &msg_vec[i].homocipher).sub(&k_mul_t.get_element());
             delta = delta + alpha + self.beta_vec[i];
 
             // Compute sigma
             let k_mul_t_plus = self.k * msg_vec[i].t_p_plus;
-            let miu = decrypt(&GROUP_UPDATE_128, &sk, &msg_vec[i].homocipher_plus)
+            let miu = CLGroup::decrypt(&GROUP_UPDATE_128, &sk, &msg_vec[i].homocipher_plus)
                 .sub(&k_mul_t_plus.get_element());
             self.sigma = self.sigma + miu + self.v_vec[i];
 

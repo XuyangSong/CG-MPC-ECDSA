@@ -1,7 +1,9 @@
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::promise_sigma_multi::{PromiseProof, PromiseState};
-use class_group::primitives::cl_dl_public_setup::{Ciphertext as CLCipher, PK};
-use class_group::BinaryQF;
+//use class_group::primitives::cl_dl_public_setup::{Ciphertext as CLCipher, PK};
+//use class_group::BinaryQF;
+use classgroup::gmp_classgroup::*;
+use crate::utilities::class_group::*;
 use curv::cryptographic_primitives::proofs::sigma_correct_homomorphic_elgamal_enc::HomoELGamalProof;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
@@ -18,12 +20,12 @@ pub struct KeyGenMsgs {
     pub phase_five_msgs: HashMap<usize, KeyGenPhaseFiveMsg>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct KeyGenPhaseOneTwoMsg {
     pub h_caret: PK,
     pub h: PK,
     pub ec_pk: GE,
-    pub gp: BinaryQF,
+    pub gp: GmpClassGroup,
     pub commitment: BigInt,
 }
 
@@ -57,7 +59,7 @@ pub struct KeyRefreshPhaseOneMsg {
     pub h_caret: PK,
     pub h: PK,
     pub ec_pk: GE,
-    pub gp: BinaryQF
+    pub gp: GmpClassGroup
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -113,8 +115,8 @@ pub struct SignPhaseOneMsg {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignPhaseTwoMsg {
-    pub homocipher: CLCipher,
-    pub homocipher_plus: CLCipher,
+    pub homocipher: Ciphertext,
+    pub homocipher_plus: Ciphertext,
     pub t_p: FE,
     pub t_p_plus: FE,
     pub b: GE,

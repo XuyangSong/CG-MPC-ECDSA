@@ -8,19 +8,20 @@ use curv::elliptic::curves::secp256_k1::GE;
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use serde::{Deserialize, Serialize};
+use crate::utilities::class_group::Ciphertext as CLCiphertext;
+use crate::utilities::class_group::*;
+use classgroup::gmp_classgroup::*;
+
 
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
-use crate::utilities::class::{GROUP_128, GROUP_UPDATE_128};
+use crate::protocols::two_party::asia21::message::{PartyOneMsg, PartyTwoMsg};
+use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::promise_sigma::*;
 use crate::utilities::signature::Signature;
-use class_group::primitives::cl_dl_public_setup::SK;
-use class_group::primitives::cl_dl_public_setup::{decrypt, Ciphertext as CLCiphertext, PK};
-use class_group::BinaryQF;
 
 //****************** Begin: Party One structs ******************//
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -60,19 +61,16 @@ impl KeyGenPhase {
     pub fn new() -> Self {
         let keypair = EcKeyPair::new();
         let dl_com_zk = DLComZK::new(&keypair);
-
         // Generate cl keypair
         let mut cl_keypair = ClKeyPair::new(&GROUP_128);
         let h_caret = cl_keypair.get_public_key().clone();
         cl_keypair.update_pk_exp_p();
-
         // Precomputation: promise proof
         let cipher = PromiseCipher::encrypt(
             &GROUP_UPDATE_128,
             cl_keypair.get_public_key(),
             keypair.get_secret_key(),
         );
-
         let promise_state = PromiseState {
             cipher: cipher.0,
             cl_pub_key: cl_keypair.cl_pub_key.clone(),
@@ -82,7 +80,6 @@ impl KeyGenPhase {
             r: cipher.1,
         };
         let promise_proof = PromiseProof::prove(&GROUP_UPDATE_128, &promise_state, &promise_wit);
-
         Self {
             public_signing_key: None, // Compute later
             keypair,
@@ -125,7 +122,7 @@ impl KeyGenPhase {
         self.need_refresh = false;
     }
 
-    pub fn get_class_group_pk(&self) -> (PK, PK, BinaryQF) {
+    pub fn get_class_group_pk(&self) -> (PK, PK, GmpClassGroup) {
         (
             self.h_caret.clone(),
             self.cl_keypair.get_public_key().clone(),
@@ -316,7 +313,7 @@ impl SignPhase {
             );
             let k1_inv = self.keypair.get_secret_key().invert();
             let x1_mul_tp = keygen_result.ec_sk * t_p;
-            let s_tag = decrypt(&GROUP_UPDATE_128, &keygen_result.cl_sk, &partial_sig_c3)
+            let s_tag = CLGroup::decrypt(&GROUP_UPDATE_128, &keygen_result.cl_sk, &partial_sig_c3)
                 .sub(&x1_mul_tp.get_element());
             let s_tag_tag = k1_inv * s_tag;
             let s = cmp::min(s_tag_tag.to_big_int(), q - s_tag_tag.to_big_int());

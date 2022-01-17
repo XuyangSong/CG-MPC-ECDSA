@@ -1,6 +1,2 @@
-pub mod message;
-pub mod party_one;
-pub mod party_two;
-
-#[cfg(test)]
-mod test;
+pub mod asia21;
+pub mod ccs21;

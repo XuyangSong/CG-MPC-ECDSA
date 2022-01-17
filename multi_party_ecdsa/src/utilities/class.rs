@@ -38,3 +38,11 @@ lazy_static! {
 lazy_static! {
     pub static ref GROUP_UPDATE_128: CLGroup = update_class_group_by_p(&GROUP_128);
 }
+
+#[test]
+pub fn group_print(){
+    println!("gq = {:?}", GROUP_UPDATE_128.gq);
+    println!("stilde = {:?}", GROUP_128.stilde);
+    println!("discri = {:?}", GROUP_128.delta_q);
+    println!("delta_k = {:?}", GROUP_128.delta_k);
+}

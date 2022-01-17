@@ -5,15 +5,13 @@ use crate::utilities::error::MulEcdsaError;
 use crate::utilities::promise_sigma_multi::*;
 use crate::utilities::signature::Signature;
 use crate::utilities::SECURITY_BITS;
-use class_group::primitives::cl_dl_public_setup::{
-    decrypt, encrypt_without_r, Ciphertext as CLCipher,
-};
-
+use classgroup::ClassGroup;
+use crate::utilities::class_group::GROUP_UPDATE_128;
+use crate::utilities::class_group::*;
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::keygen::{PublicKey, PrivateKey, Parameters};
 use crate::protocols::multi_party::ours::message::*;
-use crate::utilities::class::GROUP_UPDATE_128;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -65,7 +63,7 @@ pub struct SignPhase {
     pub l: FE,
     pub beta_map: HashMap<usize, FE>,
     pub v_map: HashMap<usize, FE>,
-    pub precomputation: HashMap<usize, (CLCipher, CLCipher, GE)>,
+    pub precomputation: HashMap<usize, (Ciphertext, Ciphertext, GE)>,
     pub msgs: SignMsgs,
     pub need_refresh: bool,
     pub online_offline: bool,
@@ -302,12 +300,12 @@ impl SignPhase {
 
             let beta = FE::new_random();
             let (r_cipher_1, _r_blind) =
-                encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&beta.get_element()));
+                CLGroup::encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&beta.get_element()));
             self.beta_map.insert(*index, beta);
 
             let v = FE::new_random();
             let (r_cipher_2, _r_blind) =
-                encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&v.get_element()));
+                CLGroup::encrypt_without_r(&GROUP_UPDATE_128, &zero.sub(&v.get_element()));
             let b = base * v;
             self.v_map.insert(*index, v);
 
@@ -350,33 +348,37 @@ impl SignPhase {
         {
             // Generate random.
             let t = BigInt::sample_below(
-                &(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()),
+                &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q())
             );
             t_p = ECScalar::from(&t.mod_floor(&FE::q()));
-            let rho_plus_t = self.gamma.to_big_int() + t;
+            let rho_plus_t = into_mpz(&self.gamma) + bigint_to_mpz(t);
 
             // Handle CL cipher.
-            let c11 = cipher.cl_cipher.c1.exp(&rho_plus_t);
-            let c21 = cipher.cl_cipher.c2.exp(&rho_plus_t);
-            let c1 = c11.compose(&pre_cipher_1.c1).reduce();
-            let c2 = c21.compose(&pre_cipher_1.c2).reduce();
-            homocipher = CLCipher { c1, c2 };
+            let mut c11 = cipher.cl_cipher.c1.clone();
+            c11.pow(rho_plus_t.clone());
+            let mut c21 = cipher.cl_cipher.c2.clone();
+            c21.pow(rho_plus_t);
+            let c1 = c11 * pre_cipher_1.c1.clone();
+            let c2 = c21 * pre_cipher_1.c2.clone();
+            homocipher = Ciphertext { c1, c2 };
         }
 
         {
             // Generate random.
             let t = BigInt::sample_below(
-                &(&GROUP_UPDATE_128.stilde * BigInt::from(2).pow(40) * &FE::q()),
+                &(&mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q())
             );
             t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
-            let omega_plus_t = self.omega.to_big_int() + t;
+            let omega_plus_t = into_mpz(&self.omega) + bigint_to_mpz(t);
 
             // Handle CL cipher.
-            let c11 = cipher.cl_cipher.c1.exp(&omega_plus_t);
-            let c21 = cipher.cl_cipher.c2.exp(&omega_plus_t);
-            let c1 = c11.compose(&pre_cipher_2.c1).reduce();
-            let c2 = c21.compose(&pre_cipher_2.c2).reduce();
-            homocipher_plus = CLCipher { c1, c2 };
+            let mut c11 = cipher.cl_cipher.c1.clone();
+            c11.pow(omega_plus_t.clone());
+            let mut c21 = cipher.cl_cipher.c2.clone();
+            c21.pow(omega_plus_t);
+            let c1 = c11 * pre_cipher_2.c1.clone();
+            let c2 = c21 * pre_cipher_2.c2.clone();
+            homocipher_plus = Ciphertext { c1, c2 };
         }
 
         let msg_two = SignPhaseTwoMsg {
@@ -399,7 +401,7 @@ impl SignPhase {
     ) -> Result<(), MulEcdsaError> {
         // Compute delta
         let k_mul_t = self.k * msg.t_p;
-        let alpha = decrypt(
+        let alpha = CLGroup::decrypt(
             &GROUP_UPDATE_128,
             self.cl_keypair.get_secret_key(),
             &msg.homocipher,
@@ -414,7 +416,7 @@ impl SignPhase {
 
         // Compute sigma
         let k_mul_t_plus = self.k * msg.t_p_plus;
-        let miu = decrypt(
+        let miu = CLGroup::decrypt(
             &GROUP_UPDATE_128,
             self.cl_keypair.get_secret_key(),
             &msg.homocipher_plus,
