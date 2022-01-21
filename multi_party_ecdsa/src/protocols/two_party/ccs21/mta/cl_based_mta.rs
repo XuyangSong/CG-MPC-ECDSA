@@ -3,11 +3,13 @@ use curv::elliptic::curves::traits::*;
 use crate::utilities::class_group::*;
 use curv::arithmetic::*;
 use crate::utilities::cl_dl_proof::*;
+use crate::utilities::clkeypair::*;
 
 #[derive(Clone, Debug)]
 pub struct PartyOne {
      pub b: FE,
      pub t_b: FE,
+     pub cl_keypair: ClKeyPair,
 }
 
 #[derive(Clone, Debug)]
@@ -18,9 +20,11 @@ pub struct PartyTwo {
 
 impl PartyOne {
      pub fn new(b: FE) -> Self {
+          let cl_keypair = ClKeyPair::new(&GROUP_128);
           Self {
                b,
                t_b: FE::new_random(),
+               cl_keypair
           }
      }
 

@@ -14,7 +14,7 @@ use classgroup::gmp_classgroup::*;
 
 
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::two_party::asia21::message::{PartyOneMsg, PartyTwoMsg};
+use crate::protocols::two_party::message::{PartyOneMsg, PartyTwoMsg};
 use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
@@ -156,7 +156,7 @@ impl KeyGenPhase {
 
             // Party one time begin
             let msg_send: ReceivingMessages = ReceivingMessages::TwoKeyGenMessagePartyOne(
-                PartyOneMsg::KeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),
+                PartyOneMsg::AsiaKeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),
             );
             let msg_bytes: Vec<u8> =
                 bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
@@ -172,7 +172,7 @@ impl KeyGenPhase {
         msg_received: &PartyTwoMsg,
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
-            PartyTwoMsg::KenGenPartyTwoRoundOneMsg(msg) => {
+            PartyTwoMsg::AsiaKenGenPartyTwoRoundOneMsg(msg) => {
                 log::info!("KeyGen: Receiving RoundOneMsg from index 1");
                 let com_open = self.verify_and_get_next_msg(&msg)?;
                 self.compute_public_key(&msg.pk);
@@ -181,7 +181,7 @@ impl KeyGenPhase {
                 let (h_caret, h, gp) = self.get_class_group_pk();
 
                 let msg_send = ReceivingMessages::TwoKeyGenMessagePartyOne(
-                    PartyOneMsg::KeyGenPartyOneRoundTwoMsg(
+                    PartyOneMsg::AsiaKeyGenPartyOneRoundTwoMsg(
                         com_open,
                         h_caret,
                         h,
@@ -227,7 +227,7 @@ impl KeyGenPhase {
 impl SignPhase {
     pub fn new(message_str: &String, online_offline: bool) -> Result<Self, MulEcdsaError> {
         let message_bigint =
-            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message = ECScalar::from(&message_bigint);
 
         let keypair = EcKeyPair::new();
@@ -331,7 +331,7 @@ impl SignPhase {
     pub fn process_begin_sign(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError> {
         if index == 0 {
             let msg_send = ReceivingMessages::TwoSignMessagePartyOne(
-                PartyOneMsg::SignPartyOneRoundOneMsg(self.round_one_msg.clone()),
+                PartyOneMsg::AsiaSignPartyOneRoundOneMsg(self.round_one_msg.clone()),
             );
             let msg_bytes =
                 bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
@@ -356,20 +356,20 @@ impl SignPhase {
         msg_received: &PartyTwoMsg,
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
-            PartyTwoMsg::SignPartyTwoRoundOneMsg(msg) => {
+            PartyTwoMsg::AsiaSignPartyTwoRoundOneMsg(msg) => {
                 log::info!("Sign: Receiving RoundOneMsg from index 1");
 
                 let witness = self.verify_and_get_next_msg(&msg)?;
                 self.set_received_msg((*msg).clone());
 
                 let msg_send = ReceivingMessages::TwoSignMessagePartyOne(
-                    PartyOneMsg::SignPartyOneRoundTwoMsg(witness),
+                    PartyOneMsg::AsiaSignPartyOneRoundTwoMsg(witness),
                 );
                 let msg_bytes =
                     bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
-            PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p) => {
+            PartyTwoMsg::AsiaSignPartyTwoRoundTwoMsg(cipher, t_p) => {
                 log::info!("Sign: Receiving RoundTwoMsg from index 1");
 
                 if self.online_offline && self.msg_set == false {
