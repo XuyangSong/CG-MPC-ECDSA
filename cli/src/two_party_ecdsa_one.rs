@@ -113,10 +113,10 @@ impl MsgProcess<Message> for PartyOne {
             .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
-            ReceivingMessages::TwoKeyGenMessagePartyTwo(msg) => {
+            ReceivingMessages::AsiaTwoKeyGenMessagePartyTwo(msg) => {
                 sending_msg = self.party_one_keygen.msg_handler_keygen(&msg)?;
             }
-            ReceivingMessages::TwoSignMessagePartyTwo(msg) => {
+            ReceivingMessages::AsiaTwoSignMessagePartyTwo(msg) => {
                 sending_msg = self.party_one_sign.msg_handler_sign(&msg)?;
             }
             ReceivingMessages::KeyGenBegin => {

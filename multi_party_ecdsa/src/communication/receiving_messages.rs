@@ -1,5 +1,5 @@
 use crate::protocols::multi_party::ours::message::{MultiKeyGenMessage, MultiSignMessage, KeyRefreshMessage};
-use crate::protocols::two_party::asia21::message::{PartyOneMsg, PartyTwoMsg};
+use crate::protocols::two_party::message::{AsiaPartyOneMsg, AsiaPartyTwoMsg, CCSPartyOneMsg, CCSPartyTwoMsg};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -9,10 +9,14 @@ pub enum ReceivingMessages {
     KeyRefreshMessage(KeyRefreshMessage),
     MultiSignInitSync(usize),
     MultiSignMessage(MultiSignMessage),
-    TwoKeyGenMessagePartyOne(PartyOneMsg),
-    TwoSignMessagePartyOne(PartyOneMsg),
-    TwoKeyGenMessagePartyTwo(PartyTwoMsg),
-    TwoSignMessagePartyTwo(PartyTwoMsg),
+    AsiaTwoKeyGenMessagePartyOne(AsiaPartyOneMsg),
+    AsiaTwoSignMessagePartyOne(AsiaPartyOneMsg),
+    AsiaTwoKeyGenMessagePartyTwo(AsiaPartyTwoMsg),
+    AsiaTwoSignMessagePartyTwo(AsiaPartyTwoMsg),
+    CCSTwoKeyGenMessagePartyOne(CCSPartyOneMsg),
+    CCSTwoSignMessagePartyOne(CCSPartyOneMsg),
+    CCSTwoKeyGenMessagePartyTwo(CCSPartyTwoMsg),
+    CCSTwoSignMessagePartyTwo(CCSPartyTwoMsg),
     KeyGenBegin,
     SignBegin,
     KeyRefreshBegin,

@@ -814,6 +814,7 @@ impl SignPhase {
                         self.compute_r_x()?;
                         if self.online_offline {
                             log::info!("Offline phase finished");
+                            println!("Offline phase finished");
                             return Ok(SendingMessages::EmptyMsg);
                         } else {
                             let msg_five_one =

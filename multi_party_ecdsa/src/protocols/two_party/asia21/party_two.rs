@@ -1,6 +1,6 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::two_party::asia21::message::{PartyOneMsg, PartyTwoMsg};
+use crate::protocols::two_party::message::{AsiaPartyOneMsg, AsiaPartyTwoMsg};
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
@@ -123,10 +123,10 @@ impl KeyGenPhase {
 
     pub fn msg_handler_keygen(
         &mut self,
-        msg_received: &PartyOneMsg,
+        msg_received: &AsiaPartyOneMsg,
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
-            PartyOneMsg::KeyGenPartyOneRoundOneMsg(dlcom) => {
+            AsiaPartyOneMsg::KeyGenPartyOneRoundOneMsg(dlcom) => {
                 log::info!("KeyGen: Receiving RoundOneMsg from index 0");
                 // Refresh
                 if self.need_refresh {
@@ -135,14 +135,14 @@ impl KeyGenPhase {
 
                 // Party two time begin
                 self.set_dl_com((*dlcom).clone());
-                let msg_send = ReceivingMessages::TwoKeyGenMessagePartyTwo(
-                    PartyTwoMsg::KenGenPartyTwoRoundOneMsg(self.msg.clone()),
+                let msg_send = ReceivingMessages::AsiaTwoKeyGenMessagePartyTwo(
+                    AsiaPartyTwoMsg::KenGenPartyTwoRoundOneMsg(self.msg.clone()),
                 );
                 let msg_bytes =
                     bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
-            PartyOneMsg::KeyGenPartyOneRoundTwoMsg(
+            AsiaPartyOneMsg::KeyGenPartyOneRoundTwoMsg(
                 com_open,
                 h_caret,
                 h,
@@ -196,9 +196,9 @@ impl SignPhase {
         let keypair = EcKeyPair::new();
         // Load message
         let message_bigint =
-            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
-        let message = ECScalar::from(&message_bigint);
-
+        BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+        let message: FE = ECScalar::from(&message_bigint);
+      
         // Precompute c1
         let k2_inv = keypair.get_secret_key().invert();
         let k2_inv_m = k2_inv * message;
@@ -321,8 +321,8 @@ impl SignPhase {
                 let (c_2, t_p): (Ciphertext, FE) = serde_json::from_str(&data).unwrap();
                 let cipher = self.online(&self.message, &c_2).unwrap();
 
-                let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                    PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),
+                let msg_send = ReceivingMessages::AsiaTwoSignMessagePartyTwo(
+                    AsiaPartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),
                 );
                 let msg_bytes =
                     bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
@@ -342,7 +342,7 @@ impl SignPhase {
 
     pub fn msg_handler_sign(
         &mut self,
-        msg_received: &PartyOneMsg,
+        msg_received: &AsiaPartyOneMsg,
     ) -> Result<SendingMessages, MulEcdsaError> {
         if self.need_refresh {
             let msg_bytes = bincode::serialize(&ReceivingMessages::NeedRefresh)
@@ -353,17 +353,17 @@ impl SignPhase {
         }
 
         match msg_received {
-            PartyOneMsg::SignPartyOneRoundOneMsg(dlcom) => {
+            AsiaPartyOneMsg::SignPartyOneRoundOneMsg(dlcom) => {
                 log::info!("Sign: Receiving RoundOneMsg from index 0");
                 self.set_dl_com((*dlcom).clone());
-                let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                    PartyTwoMsg::SignPartyTwoRoundOneMsg(self.msg.clone()),
+                let msg_send = ReceivingMessages::AsiaTwoSignMessagePartyTwo(
+                    AsiaPartyTwoMsg::SignPartyTwoRoundOneMsg(self.msg.clone()),
                 );
                 let msg_bytes =
                     bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
-            PartyOneMsg::SignPartyOneRoundTwoMsg(witness) => {
+            AsiaPartyOneMsg::SignPartyOneRoundTwoMsg(witness) => {
                 log::info!("Sign: Receiving RoundTwoMsg from index 0");
                 SignPhase::verify_received_dl_com_zk(&self.received_round_one_msg, &witness)?;
                 let ephemeral_public_share =
@@ -383,8 +383,8 @@ impl SignPhase {
                 } else {
                     let (cipher, t_p) = self.sign(&ephemeral_public_share)?;
 
-                    let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                        PartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),
+                    let msg_send = ReceivingMessages::AsiaTwoSignMessagePartyTwo(
+                        AsiaPartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p),
                     );
                     let msg_bytes = bincode::serialize(&msg_send)
                         .map_err(|_| MulEcdsaError::SerializeFailed)?;
