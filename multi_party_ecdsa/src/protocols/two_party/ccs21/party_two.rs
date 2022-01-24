@@ -89,20 +89,20 @@ impl KeyGen {
 
     pub fn msg_handler_keygen(
         &mut self,
-        msg_received: &PartyOneMsg
+        msg_received: &CCSPartyOneMsg
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
-            PartyOneMsg::CCSKeyGenPartyOneRoundOneMsg(msg) => {
+            CCSPartyOneMsg::KeyGenPartyOneRoundOneMsg(msg) => {
                 log::info!("KeyGen: Receiving RoundOneMsg from index 0");
                 let msg_to_send =  self.get_msg_and_generate_second_round_msg(msg);
-                let msg_send = ReceivingMessages::TwoKeyGenMessagePartyTwo(
-                    PartyTwoMsg::CCSKeyGenPartyTwoRoundOneMsg(msg_to_send)
+                let msg_send = ReceivingMessages::CCSTwoKeyGenMessagePartyTwo(
+                    CCSPartyTwoMsg::KeyGenPartyTwoRoundOneMsg(msg_to_send)
                 );
                 let msg_bytes = 
                     bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
-            PartyOneMsg::CCSKeyGenPartyOneRoundTwoMsg(msg) => {
+            CCSPartyOneMsg::KeyGenPartyOneRoundTwoMsg(msg) => {
                 self.verify_third_roung_msg(msg)?;
                 let keygen_result = self.generate_key_result();
                 println!("keygen_result = {:?}", keygen_result);
@@ -196,8 +196,8 @@ impl Sign {
 
     pub fn process_begin_sign(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError> {
         if index == 1 {
-            let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                PartyTwoMsg::CCSSignPartyTwoRoundOneMsg(self.generate_nonce_com())
+            let msg_send = ReceivingMessages::CCSTwoSignMessagePartyTwo(
+                CCSPartyTwoMsg::SignPartyTwoRoundOneMsg(self.generate_nonce_com())
             );
             let msg_bytes =
                 bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
@@ -215,8 +215,8 @@ impl Sign {
          if index ==1 {
              if self.msg_set == true {
                 let s_2 = self.online_sign();
-                let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                    PartyTwoMsg::CCSSignPartyTwoRoundThreeMsgOnline(s_2)
+                let msg_send = ReceivingMessages::CCSTwoSignMessagePartyTwo(
+                    CCSPartyTwoMsg::SignPartyTwoRoundThreeMsgOnline(s_2)
                 );
                 let msg_bytes =
                     bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
@@ -235,26 +235,26 @@ impl Sign {
 
     pub fn msg_handler_sign(
         &mut self,
-        msg_received: &PartyOneMsg,
+        msg_received: &CCSPartyOneMsg,
         mta_party_two: &mut PartyTwo
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
-            PartyOneMsg::MtaPartyOneRoundOneMsg(msg) => {
+            CCSPartyOneMsg::MtaPartyOneRoundOneMsg(msg) => {
                 log::info!("Sign: Receiving RoundOneMsg from index 0");
                 let mta_second_round_msg = mta_party_two.receive_and_send_msg(msg.0.clone(), msg.1.clone()).unwrap();
-                let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                    PartyTwoMsg::MtaPartyTwoRoundOneMsg(mta_second_round_msg)
+                let msg_send = ReceivingMessages::CCSTwoSignMessagePartyTwo(
+                    CCSPartyTwoMsg::MtaPartyTwoRoundOneMsg(mta_second_round_msg)
                 );
                 let msg_bytes =
                     bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
-            PartyOneMsg::CCSSignPartyOneRoundOneMsg(mtaconsistencymsg, noncekemsg) => {
+            CCSPartyOneMsg::SignPartyOneRoundOneMsg(mtaconsistencymsg, noncekemsg) => {
                 self.verify_generate_mta_consistency(mta_party_two.t_a, mtaconsistencymsg).unwrap();
                 let party_two_nonce_ke_msg = self.verify_send_nonce_ke_msg(noncekemsg).unwrap();
                 if self.online_offline {
-                    let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                        PartyTwoMsg::CCSSignPartyTwoRoundTwoMsgOnline(party_two_nonce_ke_msg)
+                    let msg_send = ReceivingMessages::CCSTwoSignMessagePartyTwo(
+                        CCSPartyTwoMsg::SignPartyTwoRoundTwoMsgOnline(party_two_nonce_ke_msg)
                     );
                     let msg_bytes = 
                         bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
@@ -263,8 +263,8 @@ impl Sign {
                     return Ok(SendingMessages::BroadcastMessage(msg_bytes));
                 } else {
                     let s_2 = self.online_sign();
-                    let msg_send = ReceivingMessages::TwoSignMessagePartyTwo(
-                        PartyTwoMsg::CCSSignPartyTwoRoundTwoMsg(party_two_nonce_ke_msg, s_2)
+                    let msg_send = ReceivingMessages::CCSTwoSignMessagePartyTwo(
+                        CCSPartyTwoMsg::SignPartyTwoRoundTwoMsg(party_two_nonce_ke_msg, s_2)
                     );
                     let msg_bytes =
                         bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;

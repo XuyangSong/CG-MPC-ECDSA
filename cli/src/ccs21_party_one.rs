@@ -119,13 +119,13 @@ impl MsgProcess<Message> for PartyOne {
             .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
-            ReceivingMessages::TwoKeyGenMessagePartyTwo(msg) => {
+            ReceivingMessages::CCSTwoKeyGenMessagePartyTwo(msg) => {
                 sending_msg = self.party_one_keygen.msg_handler_keygen(&msg)?;
             }
             ReceivingMessages::KeyGenBegin => {
                 sending_msg = self.party_one_keygen.process_begin_keygen(index)?;
             }
-            ReceivingMessages::TwoSignMessagePartyTwo(msg) => {
+            ReceivingMessages::CCSTwoSignMessagePartyTwo(msg) => {
                 sending_msg = self.party_one_sign.msg_handler_sign(&msg, &mut self.mta_party_one)?;
             }
             _ => {

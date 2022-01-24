@@ -10,31 +10,44 @@ use curv::elliptic::curves::secp256_k1::{FE, GE};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum PartyOneMsg {
+pub enum AsiaPartyOneMsg {
     KeyGenInitSync(usize),
     SignInitSync(usize),
-    AsiaKeyGenPartyOneRoundOneMsg(DLCommitments),
-    AsiaKeyGenPartyOneRoundTwoMsg(CommWitness, PK, PK, GmpClassGroup, PromiseState, PromiseProof),
-    AsiaSignPartyOneRoundOneMsg(DLCommitments),
-    AsiaSignPartyOneRoundTwoMsg(CommWitness),
-    CCSKeyGenPartyOneRoundOneMsg(DLCommitments),
-    CCSKeyGenPartyOneRoundTwoMsg(CommWitness),
-    MtaPartyOneRoundOneMsg((CLDLProof, CLDLState)),
-    CCSSignPartyOneRoundOneMsg(MtaConsistencyMsg, NonceKEMsg),
+    KeyGenPartyOneRoundOneMsg(DLCommitments),
+    KeyGenPartyOneRoundTwoMsg(CommWitness, PK, PK, GmpClassGroup, PromiseState, PromiseProof),
+    SignPartyOneRoundOneMsg(DLCommitments),
+    SignPartyOneRoundTwoMsg(CommWitness),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum PartyTwoMsg {
+pub enum CCSPartyOneMsg {
     KeyGenInitSync(usize),
-    AsiaKenGenPartyTwoRoundOneMsg(DLogProof<GE>),
+    SignInitSync(usize),
+    KeyGenPartyOneRoundOneMsg(DLCommitments),
+    KeyGenPartyOneRoundTwoMsg(CommWitness),
+    MtaPartyOneRoundOneMsg((CLDLProof, CLDLState)),
+    SignPartyOneRoundOneMsg(MtaConsistencyMsg, NonceKEMsg),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AsiaPartyTwoMsg {
+    KeyGenInitSync(usize),
+    KenGenPartyTwoRoundOneMsg(DLogProof<GE>),
     KeyGenFinish,
     SignInitSync(usize),
-    AsiaSignPartyTwoRoundOneMsg(DLogProof<GE>),
-    AsiaSignPartyTwoRoundTwoMsg(Ciphertext, FE),
-    CCSKeyGenPartyTwoRoundOneMsg(KeyGenSecRoungMsg),
-    CCSSignPartyTwoRoundOneMsg(DLCommitments),
+    SignPartyTwoRoundOneMsg(DLogProof<GE>),
+    SignPartyTwoRoundTwoMsg(Ciphertext, FE),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CCSPartyTwoMsg {
+    KeyGenInitSync(usize),
+    KeyGenFinish,
+    SignInitSync(usize),
+    KeyGenPartyTwoRoundOneMsg(KeyGenSecRoungMsg),
+    SignPartyTwoRoundOneMsg(DLCommitments),
     MtaPartyTwoRoundOneMsg(Ciphertext),
-    CCSSignPartyTwoRoundTwoMsg(CommWitness, FE),
-    CCSSignPartyTwoRoundTwoMsgOnline(CommWitness),
-    CCSSignPartyTwoRoundThreeMsgOnline(FE),
+    SignPartyTwoRoundTwoMsg(CommWitness, FE),
+    SignPartyTwoRoundTwoMsgOnline(CommWitness),
+    SignPartyTwoRoundThreeMsgOnline(FE),
 }

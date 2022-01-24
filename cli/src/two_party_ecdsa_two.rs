@@ -7,7 +7,7 @@ use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
-use multi_party_ecdsa::protocols::two_party::message::PartyTwoMsg;
+use multi_party_ecdsa::protocols::two_party::message::AsiaPartyTwoMsg;
 use multi_party_ecdsa::protocols::two_party::asia21::party_two;
 use p2p::{Info, Node};
 use std::collections::HashMap;
@@ -114,10 +114,10 @@ impl MsgProcess<Message> for PartyTwo {
             .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
-            ReceivingMessages::TwoKeyGenMessagePartyOne(msg) => {
+            ReceivingMessages::AsiaTwoKeyGenMessagePartyOne(msg) => {
                 sending_msg = self.party_two_keygen.msg_handler_keygen(&msg)?;
             }
-            ReceivingMessages::TwoSignMessagePartyOne(msg) => {
+            ReceivingMessages::AsiaTwoSignMessagePartyOne(msg) => {
                 sending_msg = self.party_two_sign.msg_handler_sign(&msg)?;
             }
             ReceivingMessages::SetMessage(msg) => {
@@ -174,7 +174,7 @@ impl MsgProcess<Message> for PartyTwo {
 
                 // Send KeyGenFinish to party0
                 let msg_send =
-                    ReceivingMessages::TwoKeyGenMessagePartyTwo(PartyTwoMsg::KeyGenFinish);
+                    ReceivingMessages::AsiaTwoKeyGenMessagePartyTwo(AsiaPartyTwoMsg::KeyGenFinish);
                 let msg_bytes = bincode::serialize(&msg_send)
                     .map_err(|why| format_err!("bincode serialize error: {}", why))?;
 

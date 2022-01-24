@@ -120,10 +120,10 @@ impl MsgProcess<Message> for PartyTwo {
             .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
-            ReceivingMessages::TwoKeyGenMessagePartyOne(msg) => {
+            ReceivingMessages::CCSTwoKeyGenMessagePartyOne(msg) => {
                 sending_msg = self.party_two_keygen.msg_handler_keygen(&msg)?;
             }
-            ReceivingMessages::TwoSignMessagePartyOne(msg) => {
+            ReceivingMessages::CCSTwoSignMessagePartyOne(msg) => {
                 sending_msg = self.party_two_sign.msg_handler_sign(&msg, &mut self.mta_party_two)?;
             }
             ReceivingMessages::SignBegin => {
@@ -169,7 +169,7 @@ impl MsgProcess<Message> for PartyTwo {
 
                  // Send KeyGenFinish to party0
                  let msg_send =
-                 ReceivingMessages::TwoKeyGenMessagePartyTwo(PartyTwoMsg::KeyGenFinish);
+                 ReceivingMessages::CCSTwoKeyGenMessagePartyTwo(CCSPartyTwoMsg::KeyGenFinish);
                  let msg_bytes = bincode::serialize(&msg_send)
                  .map_err(|why| format_err!("bincode serialize error: {}", why))?;
 
