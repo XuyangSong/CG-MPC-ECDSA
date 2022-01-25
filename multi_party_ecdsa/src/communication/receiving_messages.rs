@@ -1,5 +1,9 @@
-use crate::protocols::multi_party::ours::message::{MultiKeyGenMessage, MultiSignMessage, KeyRefreshMessage};
-use crate::protocols::two_party::message::{AsiaPartyOneMsg, AsiaPartyTwoMsg, CCSPartyOneMsg, CCSPartyTwoMsg};
+use crate::protocols::multi_party::ours::message::{
+    KeyRefreshMessage, MultiKeyGenMessage, MultiSignMessage,
+};
+use crate::protocols::two_party::message::{
+    AsiaPartyOneMsg, AsiaPartyTwoMsg, CCSPartyOneMsg, CCSPartyTwoMsg,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

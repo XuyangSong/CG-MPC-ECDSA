@@ -137,7 +137,12 @@ impl Console {
                 .map_err(|why| format!("bincode serialize error: {}", why))?;
                 self.node.sendself(Message(msg)).await;
             }
-            UserCommand::MultiSignRefresh(message, keygen_pub_result_json, keygen_priv_result_json, subset) => {
+            UserCommand::MultiSignRefresh(
+                message,
+                keygen_pub_result_json,
+                keygen_priv_result_json,
+                subset,
+            ) => {
                 let msg = bincode::serialize(&ReceivingMessages::MultiPartySignRefresh(
                     message,
                     keygen_pub_result_json,
@@ -180,9 +185,9 @@ impl Console {
             Ok(UserCommand::KeyGen)
         } else if command == "sign" {
             Ok(UserCommand::Sign)
-        }  else if command == "keyrefresh" {
+        } else if command == "keyrefresh" {
             Ok(UserCommand::KeyRefresh)
-        }  else if command == "tworefresh" {
+        } else if command == "tworefresh" {
             let message = rest.ok_or_else(|| "Missing message".to_string())?;
             let keygen_result_file = head_tail
                 .next()
@@ -204,8 +209,8 @@ impl Console {
                 .map_err(|why| format!("Couldn't open {}: {}", keygen_pub_path.display(), why))?;
 
             let keygen_priv_result_file = head_tail
-            .next()
-            .ok_or_else(|| "Missing keygen result file".to_string())?;
+                .next()
+                .ok_or_else(|| "Missing keygen result file".to_string())?;
             let keygen_priv_path = Path::new(keygen_priv_result_file);
             let keygen_priv_result_json = fs::read_to_string(keygen_priv_path)
                 .map_err(|why| format!("Couldn't open {}: {}", keygen_priv_path.display(), why))?;

@@ -1,14 +1,14 @@
-use anyhow::format_err;
 use crate::config::TwoPartyConfig;
 use crate::console::Console;
 use crate::log::init_log;
+use anyhow::format_err;
 use log::Level;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
-use multi_party_ecdsa::protocols::two_party::message::AsiaPartyTwoMsg;
 use multi_party_ecdsa::protocols::two_party::asia21::party_two;
+use multi_party_ecdsa::protocols::two_party::message::AsiaPartyTwoMsg;
 use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
@@ -162,7 +162,8 @@ impl MsgProcess<Message> for PartyTwo {
             SendingMessages::EmptyMsg => {
                 return Ok(ProcessMessage::Default());
             }
-            SendingMessages::KeyGenSuccessWithResult(res) => { // In two party, vector res contains only one element, res[0] is the keygen result
+            SendingMessages::KeyGenSuccessWithResult(res) => {
+                // In two party, vector res contains only one element, res[0] is the keygen result
                 log::debug!("KeyGen: {}", res[0]);
 
                 // Load keygen result for signphase
@@ -210,11 +211,11 @@ impl Opt {
                     Node::<Message>::node_init(&init_messages.my_info)
                         .await
                         .expect("node init error");
-    
+
                 // Begin the UI.
                 let interactive_loop: task::JoinHandle<Result<(), String>> =
                     Console::spawn(node_handle.clone(), init_messages.peer_info);
-    
+
                 // Spawn the notifications loop
                 let mut message_process = init_messages.party_two_info;
                 let notifications_loop = {
@@ -225,7 +226,7 @@ impl Opt {
                         Result::<(), String>::Ok(())
                     })
                 };
-    
+
                 notifications_loop.await.expect("panic on JoinError")?;
                 interactive_loop.await.expect("panic on JoinError")
             })

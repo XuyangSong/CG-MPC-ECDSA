@@ -1,7 +1,7 @@
-use anyhow::format_err;
 use crate::config::MultiPartyConfig;
 use crate::console::Console;
 use crate::log::init_log;
+use anyhow::format_err;
 use log::Level;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
@@ -103,7 +103,7 @@ impl InitMessage {
         let keygen_pub_json_string = fs::read_to_string(keygen_pub_file)
             .map_err(|why| format_err!("Read to string err: {}", why))?;
         let keygen_priv_json_string = fs::read_to_string(keygen_priv_file)
-        .map_err(|why| format_err!("Read to string err: {}", why))?;
+            .map_err(|why| format_err!("Read to string err: {}", why))?;
 
         // Sign init
         let sign = SignPhase::new(
@@ -164,8 +164,18 @@ impl MsgProcess<Message> for MultiPartySign {
             ReceivingMessages::MultiSignMessage(msg) => {
                 sending_msg = self.sign.msg_handler(index, &msg)?;
             }
-            ReceivingMessages::MultiPartySignRefresh(message, keygen_pub_result_json, keygen_priv_result_json, subset) => {
-                self.sign.refresh(subset, &message, &keygen_pub_result_json, &keygen_priv_result_json)?;
+            ReceivingMessages::MultiPartySignRefresh(
+                message,
+                keygen_pub_result_json,
+                keygen_priv_result_json,
+                subset,
+            ) => {
+                self.sign.refresh(
+                    subset,
+                    &message,
+                    &keygen_pub_result_json,
+                    &keygen_priv_result_json,
+                )?;
                 println!("Refresh Success!");
                 log::info!("Refresh Success!");
             }
@@ -220,7 +230,8 @@ impl Opt {
         let init_messages = InitMessage::init_message(self).expect("Init message failed!");
 
         // Create the runtime.
-        let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
+        let mut rt =
+            tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
         let local = task::LocalSet::new();
         local
             .block_on(&mut rt, async move {
@@ -229,10 +240,11 @@ impl Opt {
                     Node::<Message>::node_init(&init_messages.my_info)
                         .await
                         .expect("node init error");
-    
+
                 // Begin the UI.
-                let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
-    
+                let interactive_loop =
+                    Console::spawn(node_handle.clone(), init_messages.peers_info);
+
                 let mut message_process = init_messages.multi_party_sign_info;
                 // Spawn the notifications loop
                 let notifications_loop = {
@@ -243,7 +255,7 @@ impl Opt {
                         Result::<(), String>::Ok(())
                     })
                 };
-    
+
                 notifications_loop.await.expect("panic on JoinError")?;
                 interactive_loop.await.expect("panic on JoinError")
             })

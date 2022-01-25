@@ -2,12 +2,12 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use crate::utilities::error::MulEcdsaError;
-use crate::utilities::SECURITY_PARAMETER;
 use crate::utilities::class_group::Ciphertext as CLCipher;
 use crate::utilities::class_group::*;
-use classgroup::gmp_classgroup::*;
+use crate::utilities::error::MulEcdsaError;
+use crate::utilities::SECURITY_PARAMETER;
 use classgroup::gmp::mpz::Mpz;
+use classgroup::gmp_classgroup::*;
 use classgroup::ClassGroup;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
@@ -68,7 +68,8 @@ impl PromiseProof {
             &(&mpz_to_bigint(group.stilde.clone())
                 * BigInt::from(2).pow(40)
                 * BigInt::from(2).pow(SECURITY_PARAMETER as u32)
-                * BigInt::from(2).pow(40)));
+                * BigInt::from(2).pow(40)),
+        );
         let A = base * sm;
         let mut a1 = group.gq.clone();
         a1.pow(bigint_to_mpz(sr.clone()));
@@ -82,11 +83,17 @@ impl PromiseProof {
         let e_fe: FE = ECScalar::from(&e);
         // Third round
         let zm = sm + e_fe * wit.m;
-        let zr = bigint_to_mpz(sr) + &(&Mpz::from_str_radix(&e.to_str_radix(16), 16).unwrap() * &wit.r.0);
+        let zr = bigint_to_mpz(sr)
+            + &(&Mpz::from_str_radix(&e.to_str_radix(16), 16).unwrap() * &wit.r.0);
         Self { A, a1, a2, zm, zr }
     }
 
-    pub fn challenge(state: &PromiseState, A: &GE, a1: &GmpClassGroup, a2: &GmpClassGroup) -> BigInt {
+    pub fn challenge(
+        state: &PromiseState,
+        A: &GE,
+        a1: &GmpClassGroup,
+        a2: &GmpClassGroup,
+    ) -> BigInt {
         let hash256 = HSha256::create_hash(&[
             // hash the statement i.e. the discrete log of Q is encrypted in (c1,c2) under encryption key h.
             &BigInt::from_bytes(&state.cipher.cl_cipher.c1.to_bytes()),

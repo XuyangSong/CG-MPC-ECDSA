@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #![deny(unsafe_code)]
-use super::ClassGroup;
 use super::gmp::mpz::Mpz;
 use super::gmp::mpz::ProbabPrimeResult::NotPrime;
-use serde::{Deserialize, Serialize};
+use super::ClassGroup;
 use num_traits::{One, Zero};
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
     cell::RefCell,
@@ -558,7 +558,6 @@ pub fn do_compute(discriminant: Mpz, iterations: u64) -> GmpClassGroup {
     f
 }
 
-
 #[cfg(test)]
 mod test {
     #![allow(unused_imports)]
@@ -595,7 +594,7 @@ mod test {
     }
 
     #[test]
-    fn one_test(){
+    fn one_test() {
         use std::str::FromStr;
         let r = Mpz::from_str("123").unwrap();
         let mut s = GmpClassGroup::new(
@@ -608,11 +607,11 @@ mod test {
         println!("s= {:?}", s);
     }
     #[test]
-    fn thread_test(){
-        use std::thread;
+    fn thread_test() {
         use std::str::FromStr;
-        for _i in 0..10{
-            thread::spawn(| | {
+        use std::thread;
+        for _i in 0..10 {
+            thread::spawn(|| {
                 let s_true = GmpClassGroup {
                     a: Mpz::from(27080),
                     b: Mpz::from_str("-12841").unwrap(),
@@ -632,5 +631,5 @@ mod test {
                 println!("s_true= {:?}", s_true);
             });
         }
-     }
+    }
 }

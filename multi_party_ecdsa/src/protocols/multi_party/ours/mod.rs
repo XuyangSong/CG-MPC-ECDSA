@@ -1,7 +1,7 @@
 pub mod keygen;
+pub mod keyrefresh;
 pub mod message;
 pub mod sign;
-pub mod keyrefresh;
 
 #[cfg(test)]
 mod test;

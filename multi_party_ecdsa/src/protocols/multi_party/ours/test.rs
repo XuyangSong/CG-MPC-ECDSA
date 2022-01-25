@@ -1,16 +1,16 @@
 use super::message::*;
+use crate::utilities::class_group::*;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::signature::Signature;
+use classgroup::gmp_classgroup::*;
+use classgroup::ClassGroup;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use std::collections::HashMap;
-use crate::utilities::class_group::*;
-use classgroup::gmp_classgroup::*;
-use classgroup::ClassGroup;
 
 use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::promise_sigma_multi::*;
@@ -102,7 +102,7 @@ impl KeyGenTest {
         pk_vec: &Vec<(PK, PK, GmpClassGroup)>,
     ) -> Result<(), MulEcdsaError> {
         for element in pk_vec.iter() {
-            let mut h_ret = element.0.0.clone();
+            let mut h_ret = element.0 .0.clone();
             h_ret.pow(q());
             if h_ret != element.1 .0 || element.2 != GROUP_UPDATE_128.gq {
                 return Err(MulEcdsaError::GeneralError);
@@ -316,10 +316,14 @@ impl SignPhaseTest {
             {
                 // Generate random.
                 let t = bigint_to_mpz(BigInt::sample_below(
-                    &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q()))
+                    &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone())
+                        * BigInt::from(2).pow(40)
+                        * FE::q()),
+                ));
+
+                t_p = ECScalar::from(
+                    &BigInt::from_str_radix(&t.mod_floor(&q()).to_str_radix(16), 16).unwrap(),
                 );
-                
-                t_p = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&q()).to_str_radix(16), 16).unwrap());
                 let rho_plus_t = into_mpz(&self.gamma) + t;
 
                 // Handle CL cipher.
@@ -338,9 +342,13 @@ impl SignPhaseTest {
             {
                 // Generate random.
                 let t = bigint_to_mpz(BigInt::sample_below(
-                    &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q()))
+                    &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone())
+                        * BigInt::from(2).pow(40)
+                        * FE::q()),
+                ));
+                t_p_plus = ECScalar::from(
+                    &BigInt::from_str_radix(&t.mod_floor(&q()).to_str_radix(16), 16).unwrap(),
                 );
-                t_p_plus = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&q()).to_str_radix(16), 16).unwrap());
                 let omega_plus_t = into_mpz(&self.omega) + t;
 
                 // Handle CL cipher.
@@ -389,8 +397,8 @@ impl SignPhaseTest {
         for i in 0..msg_vec.len() {
             // Compute delta
             let k_mul_t = self.k * msg_vec[i].t_p;
-            let alpha =
-                CLGroup::decrypt(&GROUP_UPDATE_128, &sk, &msg_vec[i].homocipher).sub(&k_mul_t.get_element());
+            let alpha = CLGroup::decrypt(&GROUP_UPDATE_128, &sk, &msg_vec[i].homocipher)
+                .sub(&k_mul_t.get_element());
             delta = delta + alpha + self.beta_vec[i];
 
             // Compute sigma

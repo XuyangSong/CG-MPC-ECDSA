@@ -2,13 +2,13 @@ use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::multi_party::ours::message::*;
 use crate::utilities::class_group::*;
-use classgroup::gmp_classgroup::*;
-use classgroup::ClassGroup;
+use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
-use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
+use classgroup::gmp_classgroup::*;
+use classgroup::ClassGroup;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
@@ -341,7 +341,6 @@ impl KeyGenPhase {
         Ok(())
     }
 
-
     fn generate_public_result_json_string(&self) -> Result<String, MulEcdsaError> {
         let ret = PublicKey {
             pk: self.public_signing_key.clone(),
@@ -456,7 +455,7 @@ impl KeyGenPhase {
                     let priv_keygen_json = self.generate_private_result_json_string()?;
                     let keygen_json = vec![pub_keygen_json, priv_keygen_json]; //vec[0] stores public_key_json, vec[1] stores private_key_json by default
                     self.need_refresh = true;
-                    return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json)); 
+                    return Ok(SendingMessages::KeyGenSuccessWithResult(keygen_json));
                 }
             }
         }
@@ -464,4 +463,3 @@ impl KeyGenPhase {
         Ok(SendingMessages::EmptyMsg)
     }
 }
-

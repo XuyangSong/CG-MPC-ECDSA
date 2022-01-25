@@ -399,6 +399,4 @@
 //         .unwrap();
 // }
 
-fn main() {
-    
-}
+fn main() {}

@@ -2,21 +2,21 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+use crate::utilities::class_group::Ciphertext as CLCipher;
+use crate::utilities::class_group::*;
 use crate::utilities::elgamal::ElgamalCipher;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::SECURITY_PARAMETER;
-use crate::utilities::class_group::Ciphertext as CLCipher;
-use crate::utilities::class_group::*;
-use classgroup::gmp_classgroup::*;
 use classgroup::gmp::mpz::Mpz;
+use classgroup::gmp_classgroup::*;
+use classgroup::ClassGroup;
+use curv::arithmetic::*;
 use curv::cryptographic_primitives::hashing::hash_sha256::HSha256;
 use curv::cryptographic_primitives::hashing::traits::Hash;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
 use curv::elliptic::curves::traits::*;
-use curv::arithmetic::*;
-use serde::{Deserialize, Serialize};
-use classgroup::ClassGroup;
 use curv::BigInt;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PromiseCipher {
@@ -76,12 +76,12 @@ impl PromiseProof {
         let P = stat.ec_pub_key;
 
         let s1: FE = FE::new_random();
-        let s2 = BigInt::sample_below(&(
-            &mpz_to_bigint(group.stilde.clone())
+        let s2 = BigInt::sample_below(
+            &(&mpz_to_bigint(group.stilde.clone())
                 * BigInt::from(2).pow(40)
                 * BigInt::from(2).pow(SECURITY_PARAMETER as u32)
-                * BigInt::from(2).pow(40)
-        ));
+                * BigInt::from(2).pow(40)),
+        );
         let sm = FE::new_random();
 
         let A1 = G * s1;
@@ -99,7 +99,8 @@ impl PromiseProof {
         // Third round
         let z11 = BigInt::mod_add(&s1.to_big_int(), &(&e * &wit.r1.to_big_int()), &FE::q());
         let z1 = ECScalar::from(&z11);
-        let z2 = bigint_to_mpz(s2) + &Mpz::from_str_radix(&e.to_str_radix(16), 16).unwrap() * &wit.r2.0;
+        let z2 =
+            bigint_to_mpz(s2) + &Mpz::from_str_radix(&e.to_str_radix(16), 16).unwrap() * &wit.r2.0;
         let zm1 = BigInt::mod_add(&sm.to_big_int(), &(&e * &wit.m.to_big_int()), &FE::q());
         let zm = ECScalar::from(&zm1);
 

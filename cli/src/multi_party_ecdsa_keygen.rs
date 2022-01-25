@@ -1,7 +1,7 @@
-use anyhow::format_err;
 use crate::config::MultiPartyConfig;
 use crate::console::Console;
 use crate::log::init_log;
+use anyhow::format_err;
 use log::Level;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
@@ -112,20 +112,29 @@ impl MsgProcess<Message> for MultiPartyKeygen {
             SendingMessages::BroadcastMessage(msg) => {
                 return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
-            SendingMessages::KeyGenSuccessWithResult(res) => {//res[0] stores public_key_json, res[1] stores private_key_json by default
+            SendingMessages::KeyGenSuccessWithResult(res) => {
+                //res[0] stores public_key_json, res[1] stores private_key_json by default
                 println!("Keygen Success");
                 log::info!("Keygen Success");
-                log::debug!("public keygen ret: {}, private keygen ret: {}", res[0], res[1]);
+                log::debug!(
+                    "public keygen ret: {}, private keygen ret: {}",
+                    res[0],
+                    res[1]
+                );
 
                 // Save public keygen result to file
-                let file_name =
-                    "./keygen_pub_result".to_string() + &self.keygen.party_index.to_string() + ".json";
-                fs::write(file_name, res[0].clone()).map_err(|why| format_err!("public result save err: {}", why))?;
+                let file_name = "./keygen_pub_result".to_string()
+                    + &self.keygen.party_index.to_string()
+                    + ".json";
+                fs::write(file_name, res[0].clone())
+                    .map_err(|why| format_err!("public result save err: {}", why))?;
 
                 //Save private key to a new file
-                let file_name =
-                    "./keygen_priv_result".to_string() + &self.keygen.party_index.to_string() + ".json";
-                fs::write(file_name, res[1].clone()).map_err(|why| format_err!("private result save err: {}", why))?;
+                let file_name = "./keygen_priv_result".to_string()
+                    + &self.keygen.party_index.to_string()
+                    + ".json";
+                fs::write(file_name, res[1].clone())
+                    .map_err(|why| format_err!("private result save err: {}", why))?;
                 return Ok(ProcessMessage::Default());
             }
             SendingMessages::EmptyMsg => {
@@ -144,7 +153,8 @@ impl Opt {
         let init_messages = InitMessage::init_message(self).expect("Init message failed!");
 
         // Create the runtime.
-        let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
+        let mut rt =
+            tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
         let local = task::LocalSet::new();
         local
             .block_on(&mut rt, async move {
@@ -153,10 +163,11 @@ impl Opt {
                     Node::<Message>::node_init(&init_messages.my_info)
                         .await
                         .expect("node init error");
-    
+
                 // Begin the UI.
-                let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
-    
+                let interactive_loop =
+                    Console::spawn(node_handle.clone(), init_messages.peers_info);
+
                 // Spawn the notifications loop
                 let mut message_process = init_messages.multi_party_keygen_info;
                 let notifications_loop = {
@@ -167,7 +178,7 @@ impl Opt {
                         Result::<(), String>::Ok(())
                     })
                 };
-    
+
                 notifications_loop.await.expect("panic on JoinError")?;
                 interactive_loop.await.expect("panic on JoinError")
             })
