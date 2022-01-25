@@ -14,9 +14,9 @@ pub enum Opt {
     CCSPartyTwo(CCSPartyTwoOpt),
     AsiaPartyOne(AsiaPartyOneOpt),
     AsiaPartyTwo(AsiaPartyTwoOpt),
-    AsiaKeygen(AsiaKeygenOpt),
-    AsiaSign(AsiaSignOpt),
-    AsiaKeyRefresh(KeyRefreshOpt),
+    AsiaMultiKeygen(AsiaKeygenOpt),
+    AsiaMultiSign(AsiaSignOpt),
+    KeyRefresh(KeyRefreshOpt),
 }
 
 impl Opt {
@@ -26,9 +26,9 @@ impl Opt {
             Self::CCSPartyTwo(opt) => opt.execute().await,
             Self::AsiaPartyOne(opt) => opt.execute().await,
             Self::AsiaPartyTwo(opt) => opt.execute().await,
-            Self::AsiaKeygen(opt) => opt.execute().await,
-            Self::AsiaSign(opt) => opt.execute().await,
-            Self::AsiaKeyRefresh(opt) => opt.execute().await,
+            Self::AsiaMultiKeygen(opt) => opt.execute().await,
+            Self::AsiaMultiSign(opt) => opt.execute().await,
+            Self::KeyRefresh(opt) => opt.execute().await,
         }
     }
 }
