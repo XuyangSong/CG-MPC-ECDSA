@@ -1,14 +1,14 @@
 use classgroup::gmp::mpz::Mpz;
 use classgroup::gmp_classgroup::*;
-use std::str::FromStr;
 use classgroup::ClassGroup;
+use curv::arithmetic::Converter;
+use curv::arithmetic::*;
 use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::traits::ECScalar;
-use curv::arithmetic::Converter;
+use curv::BigInt;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use curv::BigInt;
-use curv::arithmetic::*;
+use std::str::FromStr;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CLGroup {
@@ -64,7 +64,7 @@ impl CLGroup {
         Self {
             delta_k,
             gq,
-            stilde
+            stilde,
         }
     }
 
@@ -81,8 +81,8 @@ impl CLGroup {
 
     pub fn keygen(&self) -> (SK, PK) {
         let sk = SK(bigint_to_mpz(BigInt::sample_below(
-            &(&(mpz_to_bigint(self.stilde.clone())) * BigInt::from(2).pow(40))))
-        );
+            &(&(mpz_to_bigint(self.stilde.clone())) * BigInt::from(2).pow(40)),
+        )));
         let mut generator = self.gq.clone();
         generator.pow(sk.clone().0);
         let pk = PK(generator);
@@ -96,11 +96,11 @@ impl CLGroup {
         let exp_f = expo_f(&q(), &delta, &k);
         let mut h_exp_r = public_key.0.clone();
         h_exp_r.pow(r.0.clone());
-    
+
         (
             Ciphertext {
                 c1: r_big.0,
-                c2: h_exp_r*exp_f,
+                c2: h_exp_r * exp_f,
             },
             r,
         )
@@ -122,8 +122,14 @@ impl CLGroup {
         let r_big = group.pk_for_sk(r.clone());
         let m_mpz = Mpz::from_str(&m.to_big_int().to_str_radix(10)).unwrap();
         let exp_f = expo_f(&q(), &group.gq.discriminant(), &m_mpz);
-    
-        (Ciphertext { c1: r_big.0, c2: exp_f }, r)
+
+        (
+            Ciphertext {
+                c1: r_big.0,
+                c2: exp_f,
+            },
+            r,
+        )
     }
 
     pub fn pk_for_sk(&self, sk: SK) -> PK {
@@ -137,13 +143,10 @@ impl CLGroup {
         c1.pow(val.clone());
         let mut c2 = c.c2.clone();
         c2.pow(val);
-        let c_new = Ciphertext {
-            c1,
-            c2,
-        };
+        let c_new = Ciphertext { c1, c2 };
         c_new
     }
-    
+
     pub fn eval_sum(c1: &Ciphertext, c2: &Ciphertext) -> Ciphertext {
         let c_new = Ciphertext {
             c1: c1.c1.clone() * c2.c1.clone(),
@@ -162,14 +165,14 @@ pub fn from_discriminant(delta: &Mpz) -> GmpClassGroup {
     let a = Mpz::one();
     let b = Mpz::one();
     assert_eq!(delta.mod_floor(&Mpz::from(4)), Mpz::one());
-    assert!(delta < &Mpz::zero()); // in general delta can be positive but we don't deal with that case 
+    assert!(delta < &Mpz::zero()); // in general delta can be positive but we don't deal with that case
     ClassGroup::from_ab_discriminant(a, b, (*delta).clone())
 }
 
 pub fn expo_f(p: &Mpz, delta: &Mpz, k: &Mpz) -> GmpClassGroup {
     if k == &Mpz::zero() {
         let group = from_discriminant(delta);
-        return group
+        return group;
     }
     let mut k_inv = k.invert(p).unwrap();
     if k_inv.mod_floor(&Mpz::from(2)) == Mpz::zero() {
@@ -181,7 +184,7 @@ pub fn expo_f(p: &Mpz, delta: &Mpz, k: &Mpz) -> GmpClassGroup {
 }
 
 pub fn discrete_log_f(p: &Mpz, delta: &Mpz, c: &GmpClassGroup) -> Mpz {
-    let principal_qf =  from_discriminant(delta);
+    let principal_qf = from_discriminant(delta);
     if c == &principal_qf {
         return Mpz::zero();
     } else {
@@ -198,7 +201,6 @@ pub fn mpz_to_bigint(value: Mpz) -> BigInt {
 pub fn bigint_to_mpz(value: BigInt) -> Mpz {
     Mpz::from_str_radix(&value.to_str_radix(16), 16).unwrap()
 }
-
 
 pub fn into_mpz(f: &FE) -> Mpz {
     Mpz::from_str(&f.to_big_int().to_str_radix(10)).unwrap()
@@ -252,13 +254,13 @@ lazy_static! {
 //     println!("comp = {:?}", comp);
 // }
 
-#[test] 
+#[test]
 pub fn test_encrypt_decrypt() {
     let m = FE::new_random();
     let (sk, pk) = GROUP_128.keygen();
     let c = CLGroup::encrypt(&GROUP_128, &pk, &m);
     let m_new = CLGroup::decrypt(&GROUP_128, &sk, &c.0);
-    assert_eq!(m ,m_new);
+    assert_eq!(m, m_new);
 }
 
 // #[test]
@@ -290,6 +292,3 @@ fn test_big_to_mpz() {
     let end = time::now();
     println!("duration = {:?}", end - start);
 }
-
-
-

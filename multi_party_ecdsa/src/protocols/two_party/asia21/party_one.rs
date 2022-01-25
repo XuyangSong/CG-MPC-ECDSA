@@ -1,6 +1,9 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use std::cmp;
 
+use crate::utilities::class_group::Ciphertext as CLCiphertext;
+use crate::utilities::class_group::*;
+use classgroup::gmp_classgroup::*;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::elliptic::curves::secp256_k1::FE;
@@ -8,10 +11,6 @@ use curv::elliptic::curves::secp256_k1::GE;
 use curv::elliptic::curves::traits::*;
 use curv::BigInt;
 use serde::{Deserialize, Serialize};
-use crate::utilities::class_group::Ciphertext as CLCiphertext;
-use crate::utilities::class_group::*;
-use classgroup::gmp_classgroup::*;
-
 
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::two_party::message::{AsiaPartyOneMsg, AsiaPartyTwoMsg};
@@ -200,7 +199,7 @@ impl KeyGenPhase {
                 // Set refresh
                 self.need_refresh = true;
                 let keygen_json = self.generate_result_json_string()?;
-                return Ok(SendingMessages::KeyGenSuccessWithResult(vec![keygen_json])); 
+                return Ok(SendingMessages::KeyGenSuccessWithResult(vec![keygen_json]));
             }
             _ => return Ok(SendingMessages::EmptyMsg),
         }
@@ -227,7 +226,7 @@ impl KeyGenPhase {
 impl SignPhase {
     pub fn new(message_str: &String, online_offline: bool) -> Result<Self, MulEcdsaError> {
         let message_bigint =
-        BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message = ECScalar::from(&message_bigint);
 
         let keypair = EcKeyPair::new();

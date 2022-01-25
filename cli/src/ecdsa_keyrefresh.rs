@@ -1,7 +1,7 @@
+use crate::config::MultiPartyConfig;
+use crate::console::Console;
+use crate::log::init_log;
 use anyhow::format_err;
-use cli::config::MultiPartyConfig;
-use cli::console::Console;
-use cli::log::init_log;
 use log::Level;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
@@ -22,14 +22,14 @@ use tokio::task;
     author = "wangxueli",
     rename_all = "snake_case"
 )]
-struct Opt {
+pub struct Opt {
     /// My index
     #[structopt(short, long)]
     index: usize,
 
-     /// Participants index
-     #[structopt(short, long)]
-     threshold_set: Vec<usize>,
+    /// Participants index
+    #[structopt(short, long)]
+    threshold_set: Vec<usize>,
 
     /// Config Path
     #[structopt(short, long, default_value = "./configs/config_3pc.json")]
@@ -63,9 +63,7 @@ struct KeyRefresh {
 }
 
 impl InitMessage {
-    pub fn init_message() -> Result<Self, anyhow::Error> {
-        let opt = Opt::from_args();
-
+    pub fn init_message(opt: Opt) -> Result<Self, anyhow::Error> {
         // Init log
         let mut path = opt.log;
         path.push(format!("ecdsa_log_{}.log", opt.index));
@@ -74,7 +72,7 @@ impl InitMessage {
         // Process config
         let config = MultiPartyConfig::new_from_file(&opt.config_file)?;
         if opt.threshold_set.len() <= config.threshold {
-          return Err(anyhow::Error::msg("Subset is less than threshold"));
+            return Err(anyhow::Error::msg("Subset is less than threshold"));
         }
 
         let my_info = config.get_my_info(opt.index)?;
@@ -86,23 +84,33 @@ impl InitMessage {
         };
 
         let mut private_key_old: Option<String> = None;
-        if opt.threshold_set.contains(&opt.index){
+        if opt.threshold_set.contains(&opt.index) {
             // Load keygen result
             let mut keygen_priv_file = opt.keygen_path;
             keygen_priv_file.push(format!("keygen_priv_result{}.json", opt.index));
-            private_key_old = Some(fs::read_to_string(keygen_priv_file)
-            .map_err(|why| format_err!("Read to string err: {}", why))?);
+            private_key_old = Some(
+                fs::read_to_string(keygen_priv_file)
+                    .map_err(|why| format_err!("Read to string err: {}", why))?,
+            );
         }
-         
+
         //Load public key result
         let mut keygen_pub_file = opt.pub_keygen_path;
         keygen_pub_file.push(format!("keygen_pub_result{}.json", opt.index));
         let keygen_pub_result = fs::read_to_string(keygen_pub_file)
-        .map_err(|why| format_err!("Read to string err: {}", why))?;
+            .map_err(|why| format_err!("Read to string err: {}", why))?;
 
         // Init multi party info
-        let keyrefresh = KeyRefreshPhase::new(opt.index, private_key_old, params, opt.threshold_set, keygen_pub_result)?;
-        let keyrefresh_info = KeyRefresh { keyrefresh: keyrefresh };
+        let keyrefresh = KeyRefreshPhase::new(
+            opt.index,
+            private_key_old,
+            params,
+            opt.threshold_set,
+            keygen_pub_result,
+        )?;
+        let keyrefresh_info = KeyRefresh {
+            keyrefresh: keyrefresh,
+        };
         let init_messages = InitMessage {
             my_info,
             peers_info,
@@ -146,22 +154,31 @@ impl MsgProcess<Message> for KeyRefresh {
             SendingMessages::BroadcastMessage(msg) => {
                 return Ok(ProcessMessage::BroadcastMessage(Message(msg)));
             }
-            SendingMessages::KeyRefreshSuccessWithResult(res) => { //res[0] stores public_key_json, res[1] stores private_key_json by default
-               println!("Keyrefresh Success");
-               log::info!("Keyrefresh Success");
-               log::debug!("public keyrefresh ret: {}, private keyrefresh ret: {}", res[0], res[1]);
+            SendingMessages::KeyRefreshSuccessWithResult(res) => {
+                //res[0] stores public_key_json, res[1] stores private_key_json by default
+                println!("Keyrefresh Success");
+                log::info!("Keyrefresh Success");
+                log::debug!(
+                    "public keyrefresh ret: {}, private keyrefresh ret: {}",
+                    res[0],
+                    res[1]
+                );
 
-               // Save public keygen result to file
-               let file_name =
-                   "./keyrefresh_pub_result".to_string() + &self.keyrefresh.party_index.to_string() + ".json";
-               fs::write(file_name, res[0].clone()).map_err(|why| format_err!("public result save err: {}", why))?;
+                // Save public keygen result to file
+                let file_name = "./keyrefresh_pub_result".to_string()
+                    + &self.keyrefresh.party_index.to_string()
+                    + ".json";
+                fs::write(file_name, res[0].clone())
+                    .map_err(|why| format_err!("public result save err: {}", why))?;
 
-               // Save private keygen result to file
-               let file_name =
-                   "./keyrefresh_priv_result".to_string() + &self.keyrefresh.party_index.to_string() + ".json";
-               fs::write(file_name, res[1].clone()).map_err(|why| format_err!("private result save err: {}", why))?;
-               return Ok(ProcessMessage::Default());
-           }
+                // Save private keygen result to file
+                let file_name = "./keyrefresh_priv_result".to_string()
+                    + &self.keyrefresh.party_index.to_string()
+                    + ".json";
+                fs::write(file_name, res[1].clone())
+                    .map_err(|why| format_err!("private result save err: {}", why))?;
+                return Ok(ProcessMessage::Default());
+            }
             SendingMessages::EmptyMsg => {
                 return Ok(ProcessMessage::Default());
             }
@@ -173,36 +190,40 @@ impl MsgProcess<Message> for KeyRefresh {
     }
 }
 
-fn main() {
-    let init_messages = InitMessage::init_message().expect("Init message failed!");
+impl Opt {
+    pub async fn execute(self) {
+        let init_messages = InitMessage::init_message(self).expect("Init message failed!");
 
-    // Create the runtime.
-    let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
-    let local = task::LocalSet::new();
-    local
-        .block_on(&mut rt, async move {
-            // Setup a node
-            let (mut node_handle, notifications_channel) =
-                Node::<Message>::node_init(&init_messages.my_info)
-                    .await
-                    .expect("node init error");
+        // Create the runtime.
+        let mut rt =
+            tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
+        let local = task::LocalSet::new();
+        local
+            .block_on(&mut rt, async move {
+                // Setup a node
+                let (mut node_handle, notifications_channel) =
+                    Node::<Message>::node_init(&init_messages.my_info)
+                        .await
+                        .expect("node init error");
 
-            // Begin the UI.
-            let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
+                // Begin the UI.
+                let interactive_loop =
+                    Console::spawn(node_handle.clone(), init_messages.peers_info);
 
-            // Spawn the notifications loop
-            let mut message_process = init_messages.keyrefresh_info;
-            let notifications_loop = {
-                task::spawn_local(async move {
-                    node_handle
-                        .receive_(notifications_channel, &mut message_process)
-                        .await;
-                    Result::<(), String>::Ok(())
-                })
-            };
+                // Spawn the notifications loop
+                let mut message_process = init_messages.keyrefresh_info;
+                let notifications_loop = {
+                    task::spawn_local(async move {
+                        node_handle
+                            .receive_(notifications_channel, &mut message_process)
+                            .await;
+                        Result::<(), String>::Ok(())
+                    })
+                };
 
-            notifications_loop.await.expect("panic on JoinError")?;
-            interactive_loop.await.expect("panic on JoinError")
-        })
-        .expect("panic")
+                notifications_loop.await.expect("panic on JoinError")?;
+                interactive_loop.await.expect("panic on JoinError")
+            })
+            .expect("panic")
+    }
 }

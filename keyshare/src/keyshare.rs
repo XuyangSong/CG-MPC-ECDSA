@@ -76,11 +76,15 @@ pub fn key_reconstruct(key_shares: Vec<VssReconstructInput>) -> Vec<FE> {
 }
 
 pub fn key_restore(key_shares: Vec<VssRestoreInput>, restore_indices: Vec<usize>) -> Vec<Vec<FE>> {
-    let restore_shares = restore_indices.iter()
+    let restore_shares = restore_indices
+        .iter()
         .map(|i| {
-            key_shares.iter()
-                .map(|j| restore(j, *i)).collect::<Vec<FE>>()
-        }).collect::<Vec<Vec<FE>>>();
+            key_shares
+                .iter()
+                .map(|j| restore(j, *i))
+                .collect::<Vec<FE>>()
+        })
+        .collect::<Vec<Vec<FE>>>();
     restore_shares
 }
 
@@ -203,10 +207,14 @@ fn test_key_share_verify_reconstruct_restore() {
     let key_restored = key_restore(restore_input_vec, vec![3, 4]);
     assert_eq!(
         vec![
-            vec![key_shares[0].secret_shares[3],
-                    key_shares[1].secret_shares[3]],
-            vec![key_shares[0].secret_shares[4],
-                    key_shares[1].secret_shares[4]]
+            vec![
+                key_shares[0].secret_shares[3],
+                key_shares[1].secret_shares[3]
+            ],
+            vec![
+                key_shares[0].secret_shares[4],
+                key_shares[1].secret_shares[4]
+            ]
         ],
         key_restored
     );
@@ -298,12 +306,16 @@ fn test_key_restore_fail_instance() {
     let key_restored = key_restore(restore_input_vec, vec![3, 4]);
     assert_eq!(
         vec![
-            vec![key_shares_true[0].secret_shares[3],
-                    key_shares_true[1].secret_shares[3],
-                    key_shares_true[2].secret_shares[3]],
-            vec![key_shares_true[0].secret_shares[4],
-                    key_shares_true[1].secret_shares[4],
-                    key_shares_true[2].secret_shares[4]]
+            vec![
+                key_shares_true[0].secret_shares[3],
+                key_shares_true[1].secret_shares[3],
+                key_shares_true[2].secret_shares[3]
+            ],
+            vec![
+                key_shares_true[0].secret_shares[4],
+                key_shares_true[1].secret_shares[4],
+                key_shares_true[2].secret_shares[4]
+            ]
         ],
         key_restored
     );

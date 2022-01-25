@@ -1,9 +1,9 @@
-use crate::utilities::dl_com_zk::*;
-use crate::utilities::cl_dl_proof::*;
-use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
-use crate::utilities::class_group::*;
-use crate::protocols::two_party::ccs21::party_two::KeyGenSecRoungMsg;
 use crate::protocols::two_party::ccs21::party_one::{MtaConsistencyMsg, NonceKEMsg};
+use crate::protocols::two_party::ccs21::party_two::KeyGenSecRoungMsg;
+use crate::utilities::cl_dl_proof::*;
+use crate::utilities::class_group::*;
+use crate::utilities::dl_com_zk::*;
+use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
 use classgroup::gmp_classgroup::*;
 use curv::cryptographic_primitives::proofs::sigma_dlog::*;
 use curv::elliptic::curves::secp256_k1::{FE, GE};
@@ -14,7 +14,14 @@ pub enum AsiaPartyOneMsg {
     KeyGenInitSync(usize),
     SignInitSync(usize),
     KeyGenPartyOneRoundOneMsg(DLCommitments),
-    KeyGenPartyOneRoundTwoMsg(CommWitness, PK, PK, GmpClassGroup, PromiseState, PromiseProof),
+    KeyGenPartyOneRoundTwoMsg(
+        CommWitness,
+        PK,
+        PK,
+        GmpClassGroup,
+        PromiseState,
+        PromiseProof,
+    ),
     SignPartyOneRoundOneMsg(DLCommitments),
     SignPartyOneRoundTwoMsg(CommWitness),
 }

@@ -1,31 +1,34 @@
-use crate::utilities::clkeypair::ClKeyPair;
 use super::*;
 use crate::protocols::two_party::ccs21::mta::*;
 use crate::utilities::class_group::*;
+use crate::utilities::clkeypair::ClKeyPair;
 use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::traits::*;
 
 #[test]
-fn mta_test(){
-     let a = FE::new_random();
-     let b = FE::new_random();
-     let cl_keypair = ClKeyPair::new(&GROUP_128);
-     let mut mta_party_one = cl_based_mta::PartyOne::new(a);
-     let mut mta_party_two = cl_based_mta::PartyTwo::new(b);
-     let mta_first_round_msg = mta_party_one.generate_send_msg(&cl_keypair.cl_pub_key);
-     let mta_second_round_msg = mta_party_two.receive_and_send_msg(mta_first_round_msg.0, mta_first_round_msg.1).unwrap();
-     mta_party_one.handle_receive_msg(&cl_keypair.cl_priv_key, &mta_second_round_msg);
-     assert_eq!(a*b, mta_party_two.t_a+mta_party_one.t_b);
+fn mta_test() {
+    let a = FE::new_random();
+    let b = FE::new_random();
+    let cl_keypair = ClKeyPair::new(&GROUP_128);
+    let mut mta_party_one = cl_based_mta::PartyOne::new(a);
+    let mut mta_party_two = cl_based_mta::PartyTwo::new(b);
+    let mta_first_round_msg = mta_party_one.generate_send_msg(&cl_keypair.cl_pub_key);
+    let mta_second_round_msg = mta_party_two
+        .receive_and_send_msg(mta_first_round_msg.0, mta_first_round_msg.1)
+        .unwrap();
+    mta_party_one.handle_receive_msg(&cl_keypair.cl_priv_key, &mta_second_round_msg);
+    assert_eq!(a * b, mta_party_two.t_a + mta_party_one.t_b);
 }
 #[test]
 fn party_two_test() {
-     //keygen bigin
+    //keygen bigin
     let mut party_one_keygen = party_one::KeyGen::new();
     let mut party_two_keygen = party_two::KeyGen::new();
     let party_one_first_round = party_one_keygen.generate_first_round_msg();
     let party_two_sec_round =
         party_two_keygen.get_msg_and_generate_second_round_msg(&party_one_first_round);
-    let party_one_third_round = party_one_keygen.get_msg_and_generate_third_roung_msg(&party_two_sec_round);
+    let party_one_third_round =
+        party_one_keygen.get_msg_and_generate_third_roung_msg(&party_two_sec_round);
     party_two_keygen
         .verify_third_roung_msg(&party_one_third_round.unwrap())
         .unwrap();
@@ -35,7 +38,8 @@ fn party_two_test() {
     println!("party_two_key = {:?}", party_two_key);
 
     //sign begin
-    let message_str = "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string();
+    let message_str =
+        "eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d".to_string();
     let mut party_one_sign = party_one::Sign::new(&message_str, false).unwrap();
     let mut party_two_sign = party_two::Sign::new(&message_str, false).unwrap();
     party_one_sign.keygen_result = Some(party_one_key);
@@ -45,26 +49,33 @@ fn party_two_test() {
 
     //mta begin;
     let cl_keypair = ClKeyPair::new(&GROUP_128);
-    let mut mta_party_one = cl_based_mta::PartyOne::new(party_one_sign.reshared_keypair.secret_share);
+    let mut mta_party_one =
+        cl_based_mta::PartyOne::new(party_one_sign.reshared_keypair.secret_share);
     let mut mta_party_two = cl_based_mta::PartyTwo::new(party_two_sign.nonce_pair.secret_share);
 
     let mta_first_round_msg = mta_party_one.generate_send_msg(&cl_keypair.cl_pub_key);
-    let mta_second_round_msg = mta_party_two.receive_and_send_msg(mta_first_round_msg.0, mta_first_round_msg.1).unwrap();
+    let mta_second_round_msg = mta_party_two
+        .receive_and_send_msg(mta_first_round_msg.0, mta_first_round_msg.1)
+        .unwrap();
     mta_party_one.handle_receive_msg(&cl_keypair.cl_priv_key, &mta_second_round_msg);
     let mta_consistency_msg = party_one_sign.generate_mta_consistency(mta_party_one.t_b);
 
-    party_two_sign.verify_generate_mta_consistency(mta_party_two.t_a, &mta_consistency_msg).unwrap();
+    party_two_sign
+        .verify_generate_mta_consistency(mta_party_two.t_a, &mta_consistency_msg)
+        .unwrap();
 
     let party_one_nonce_ke_msg = party_one_sign.generate_nonce_ke_msg();
 
-    let party_two_nonce_ke_msg = party_two_sign.verify_send_nonce_ke_msg(&party_one_nonce_ke_msg).unwrap();
+    let party_two_nonce_ke_msg = party_two_sign
+        .verify_send_nonce_ke_msg(&party_one_nonce_ke_msg)
+        .unwrap();
 
-    party_one_sign.verify_nonce_ke_msg(&party_two_nonce_ke_msg).unwrap();
+    party_one_sign
+        .verify_nonce_ke_msg(&party_two_nonce_ke_msg)
+        .unwrap();
 
     let s_2 = party_two_sign.online_sign();
-    
+
     let signature = party_one_sign.online_sign(&s_2);
     println!("signature = {:?}", signature);
 }
-
-

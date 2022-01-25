@@ -1,12 +1,12 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
 use crate::protocols::two_party::message::{AsiaPartyOneMsg, AsiaPartyTwoMsg};
+use crate::utilities::class_group::Ciphertext as CLCiphertext;
+use crate::utilities::class_group::*;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
 use crate::utilities::error::MulEcdsaError;
 use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
-use crate::utilities::class_group::Ciphertext as CLCiphertext;
-use crate::utilities::class_group::*;
 use classgroup::gmp_classgroup::*;
 use classgroup::ClassGroup;
 
@@ -196,9 +196,9 @@ impl SignPhase {
         let keypair = EcKeyPair::new();
         // Load message
         let message_bigint =
-        BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
+            BigInt::from_hex(&message_str).map_err(|_| MulEcdsaError::FromHexFailed)?;
         let message: FE = ECScalar::from(&message_bigint);
-      
+
         // Precompute c1
         let k2_inv = keypair.get_secret_key().invert();
         let k2_inv_m = k2_inv * message;
@@ -278,9 +278,12 @@ impl SignPhase {
             let k2_inv = self.keypair.get_secret_key().invert();
 
             let v = k2_inv * r_x * keygen_result.sk;
-            let t =
-                BigInt::sample_below(&(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * &q));
-            let t_p = ECScalar::from(&BigInt::from_str_radix(&t.mod_floor(&q).to_str_radix(16), 16).unwrap());
+            let t = BigInt::sample_below(
+                &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * &q),
+            );
+            let t_p = ECScalar::from(
+                &BigInt::from_str_radix(&t.mod_floor(&q).to_str_radix(16), 16).unwrap(),
+            );
             let t_plus = bigint_to_mpz(t) + into_mpz(&v);
             let c2 = CLGroup::eval_scal(&keygen_result.cl_cipher, t_plus);
             if self.online_offline {

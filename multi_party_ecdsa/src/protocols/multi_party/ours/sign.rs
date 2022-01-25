@@ -1,3 +1,9 @@
+use crate::communication::receiving_messages::ReceivingMessages;
+use crate::communication::sending_messages::SendingMessages;
+use crate::protocols::multi_party::ours::keygen::{Parameters, PrivateKey, PublicKey};
+use crate::protocols::multi_party::ours::message::*;
+use crate::utilities::class_group::GROUP_UPDATE_128;
+use crate::utilities::class_group::*;
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::eckeypair::EcKeyPair;
@@ -6,12 +12,6 @@ use crate::utilities::promise_sigma_multi::*;
 use crate::utilities::signature::Signature;
 use crate::utilities::SECURITY_BITS;
 use classgroup::ClassGroup;
-use crate::utilities::class_group::GROUP_UPDATE_128;
-use crate::utilities::class_group::*;
-use crate::communication::receiving_messages::ReceivingMessages;
-use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::multi_party::ours::keygen::{PublicKey, PrivateKey, Parameters};
-use crate::protocols::multi_party::ours::message::*;
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::commitments::hash_commitment::HashCommitment;
 use curv::cryptographic_primitives::commitments::traits::Commitment;
@@ -109,8 +109,10 @@ impl SignPhase {
         keygen_priv_result_json: &String,
     ) -> Result<Self, MulEcdsaError> {
         // Load keygen result
-        let keygen_pub_result: PublicKey = serde_json::from_str(keygen_pub_result_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
-        let keygen_priv_result: PrivateKey = serde_json::from_str(keygen_priv_result_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_pub_result: PublicKey = serde_json::from_str(keygen_pub_result_json)
+            .map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_priv_result: PrivateKey = serde_json::from_str(keygen_priv_result_json)
+            .map_err(|_| MulEcdsaError::FromStringFailed)?;
         let ec_keypair = EcKeyPair::from_sk(keygen_priv_result.ec_sk);
         let cl_keypair = ClKeyPair::from_sk(keygen_priv_result.cl_sk, &GROUP_UPDATE_128);
         let share_public_key_map = keygen_pub_result.share_pks;
@@ -149,7 +151,7 @@ impl SignPhase {
                 ));
             big_omega_map.insert(*i, big_omega);
         }
-        
+
         let mut ret = SignPhase {
             party_index,
             party_num,
@@ -192,8 +194,10 @@ impl SignPhase {
         keygen_priv_result_json: &String,
     ) -> Result<(), MulEcdsaError> {
         // Load keygen result
-        let keygen_pub_result: PublicKey = serde_json::from_str(keygen_pub_result_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
-        let keygen_priv_result: PrivateKey = serde_json::from_str(keygen_priv_result_json).map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_pub_result: PublicKey = serde_json::from_str(keygen_pub_result_json)
+            .map_err(|_| MulEcdsaError::FromStringFailed)?;
+        let keygen_priv_result: PrivateKey = serde_json::from_str(keygen_priv_result_json)
+            .map_err(|_| MulEcdsaError::FromStringFailed)?;
         self.ec_keypair = EcKeyPair::from_sk(keygen_priv_result.ec_sk);
         self.cl_keypair = ClKeyPair::from_sk(keygen_priv_result.cl_sk, &GROUP_UPDATE_128);
         let share_public_key_map = keygen_pub_result.share_pks;
@@ -348,7 +352,9 @@ impl SignPhase {
         {
             // Generate random.
             let t = BigInt::sample_below(
-                &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q())
+                &(mpz_to_bigint(GROUP_UPDATE_128.stilde.clone())
+                    * BigInt::from(2).pow(40)
+                    * FE::q()),
             );
             t_p = ECScalar::from(&t.mod_floor(&FE::q()));
             let rho_plus_t = into_mpz(&self.gamma) + bigint_to_mpz(t);
@@ -366,7 +372,9 @@ impl SignPhase {
         {
             // Generate random.
             let t = BigInt::sample_below(
-                &(&mpz_to_bigint(GROUP_UPDATE_128.stilde.clone()) * BigInt::from(2).pow(40) * FE::q())
+                &(&mpz_to_bigint(GROUP_UPDATE_128.stilde.clone())
+                    * BigInt::from(2).pow(40)
+                    * FE::q()),
             );
             t_p_plus = ECScalar::from(&t.mod_floor(&FE::q()));
             let omega_plus_t = into_mpz(&self.omega) + bigint_to_mpz(t);
@@ -777,7 +785,7 @@ impl SignPhase {
                             MultiSignMessage::PhaseThreeMsg(msg_three),
                         );
                         let sending_msg_bytes = bincode::serialize(&sending_msg)
-                            .map_err(|_| MulEcdsaError::SerializeFailed)?; 
+                            .map_err(|_| MulEcdsaError::SerializeFailed)?;
                         return Ok(SendingMessages::SubsetMessage(sending_msg_bytes));
                     }
                 }

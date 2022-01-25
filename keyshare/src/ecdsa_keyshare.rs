@@ -2,13 +2,13 @@ use crate::common::{c_pointer_to_string, string_to_c_pointer};
 use crate::keyshare::*;
 use crate::slices::*;
 use libc::c_char;
+use serde::{Deserialize, Serialize};
 use std::ffi::CString;
 use std::{panic, ptr};
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct MultiRestoreInput {
-    pub key_shares: Vec<VssRestoreInput>, 
+    pub key_shares: Vec<VssRestoreInput>,
     pub restore_indices: Vec<usize>,
 }
 
@@ -188,8 +188,9 @@ pub extern "C" fn reconstruct(key_shares: *const c_char) -> *mut c_char {
 pub extern "C" fn restore(restore_inputs: *const c_char) -> *mut c_char {
     let result = panic::catch_unwind(|| {
         let restore_inputs_string = c_pointer_to_string(restore_inputs).unwrap();
-        let restore_inputs: MultiRestoreInput = serde_json::from_str(&restore_inputs_string).unwrap();
-        let key_restored = key_restore(restore_inputs.key_shares, restore_inputs.restore_indices); 
+        let restore_inputs: MultiRestoreInput =
+            serde_json::from_str(&restore_inputs_string).unwrap();
+        let key_restored = key_restore(restore_inputs.key_shares, restore_inputs.restore_indices);
         let result_json = serde_json::to_string(&key_restored).unwrap();
         string_to_c_pointer(result_json)
     });
@@ -198,7 +199,6 @@ pub extern "C" fn restore(restore_inputs: *const c_char) -> *mut c_char {
         Err(_) => ptr::null_mut(),
     }
 }
-
 
 #[no_mangle]
 /// String pointer free
@@ -352,7 +352,7 @@ fn test_restore() {
     let c_pointer = CString::new(input_string).expect("CString::new failed");
     let ret = restore(c_pointer.as_ptr());
     assert_ne!(ret, ptr::null_mut());
-    unsafe{str_free(ret)};
+    unsafe { str_free(ret) };
 
     //Failed instance, null pointer
     let ret1 = restore(ptr::null_mut());
