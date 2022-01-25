@@ -121,7 +121,6 @@ impl KeyGen {
             CCSPartyTwoMsg::KeyGenFinish => {
                 log::info!("KeyGen: Receiving KeyGenFinish from index 1");
                 let keygen_result = self.generate_key_result();
-                println!("keygen_result = {:?}", keygen_result);
                 let keygen_json = serde_json::to_string(&keygen_result).map_err(|_| MulEcdsaError::ToStringFailed)?;
                 return Ok(SendingMessages::KeyGenSuccessWithResult(vec![keygen_json])); 
             }

@@ -1,7 +1,7 @@
 use anyhow::format_err;
-use cli::config::MultiPartyConfig;
-use cli::console::Console;
-use cli::log::init_log;
+use crate::config::MultiPartyConfig;
+use crate::console::Console;
+use crate::log::init_log;
 use log::Level;
 use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
@@ -21,7 +21,7 @@ use tokio::task;
     author = "songxuyang",
     rename_all = "snake_case"
 )]
-struct Opt {
+pub struct Opt {
     /// My index
     #[structopt(short, long)]
     index: usize,
@@ -50,9 +50,7 @@ struct MultiPartyKeygen {
 }
 
 impl InitMessage {
-    pub fn init_message() -> Result<Self, anyhow::Error> {
-        let opt = Opt::from_args();
-
+    pub fn init_message(opt: Opt) -> Result<Self, anyhow::Error> {
         // Init log
         let mut path = opt.log;
         path.push(format!("ecdsa_log_{}.log", opt.index));
@@ -141,36 +139,38 @@ impl MsgProcess<Message> for MultiPartyKeygen {
     }
 }
 
-fn main() {
-    let init_messages = InitMessage::init_message().expect("Init message failed!");
+impl Opt {
+    pub async fn execute(self) {
+        let init_messages = InitMessage::init_message(self).expect("Init message failed!");
 
-    // Create the runtime.
-    let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
-    let local = task::LocalSet::new();
-    local
-        .block_on(&mut rt, async move {
-            // Setup a node
-            let (mut node_handle, notifications_channel) =
-                Node::<Message>::node_init(&init_messages.my_info)
-                    .await
-                    .expect("node init error");
-
-            // Begin the UI.
-            let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
-
-            // Spawn the notifications loop
-            let mut message_process = init_messages.multi_party_keygen_info;
-            let notifications_loop = {
-                task::spawn_local(async move {
-                    node_handle
-                        .receive_(notifications_channel, &mut message_process)
-                        .await;
-                    Result::<(), String>::Ok(())
-                })
-            };
-
-            notifications_loop.await.expect("panic on JoinError")?;
-            interactive_loop.await.expect("panic on JoinError")
-        })
-        .expect("panic")
+        // Create the runtime.
+        let mut rt = tokio::runtime::Runtime::new().expect("Should be able to init tokio::Runtime.");
+        let local = task::LocalSet::new();
+        local
+            .block_on(&mut rt, async move {
+                // Setup a node
+                let (mut node_handle, notifications_channel) =
+                    Node::<Message>::node_init(&init_messages.my_info)
+                        .await
+                        .expect("node init error");
+    
+                // Begin the UI.
+                let interactive_loop = Console::spawn(node_handle.clone(), init_messages.peers_info);
+    
+                // Spawn the notifications loop
+                let mut message_process = init_messages.multi_party_keygen_info;
+                let notifications_loop = {
+                    task::spawn_local(async move {
+                        node_handle
+                            .receive_(notifications_channel, &mut message_process)
+                            .await;
+                        Result::<(), String>::Ok(())
+                    })
+                };
+    
+                notifications_loop.await.expect("panic on JoinError")?;
+                interactive_loop.await.expect("panic on JoinError")
+            })
+            .expect("panic")
+    }
 }
