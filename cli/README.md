@@ -1,4 +1,4 @@
-# Run ECDSA demo
+# Run mpc-ecdsa
 
 ## 1. Two party
  You can found the example config file here: "configs/two_party_config.json".
@@ -16,13 +16,15 @@
     ]
 }
 ```
+### **1.1 Protocols in [DMZ+21]**
 
-### 1.1 How to use two_party_ecdsa
+
+### 1.1.1 How to use two-party ecdsa in [DMZ+21]
 ```shell
-$ cargo run --bin two_party_ecdsa_one -- --help
+$ cargo run --bin mpc-ecdsa asia-party-one --help
 
 USAGE:
-    two_party_ecdsa_one [FLAGS] [OPTIONS]
+    mpc-ecdsa asia-party-one [FLAGS] [OPTIONS]
 
 FLAGS:
     -h, --help              Prints help information
@@ -37,21 +39,20 @@ OPTIONS:
                                        eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d]
 ```
 
-### 1.2 two_party_ecdsa cli example
+### 1.1.2 two-party ecdsa in [DMZ+21] cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin two_party_ecdsa_one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa asia-party-one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 
-
-$ cargo run --bin two_party_ecdsa_two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa asia-party-two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
 Online_Offline Sign Model
-* No need to specify message at begining.
+
+*No need to specify message at begining.
 ```shell
-$ cargo run --bin two_party_ecdsa_one -- --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa asia-party-one -- --config_file ./configs/two_party_config.json  --online_offline
 
-
-$ cargo run --bin two_party_ecdsa_two -- --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa asia-party-two -- --config_file ./configs/two_party_config.json  --online_offline
 ```
 
 *Please start all nodes before connect.
@@ -67,13 +68,13 @@ Connect two parties.
 
 KeyGen Begin
 
-* Please run keygen by party 0.
+*Please run keygen by party 0.
 ```shell
 >> keygen
 ```
 
 ### (c) Step 3: sign
-* Please run sign by party 0.
+*Please run sign by party 0.
 ```shell
 >> sign
 ```
@@ -89,7 +90,7 @@ After refresh, you can sign again.
 * "./keygen_result0.json" is the file path of new keygen-result.
 
 ### (e) Step 4: set message (only used in online-offline model)
-* Please set message before online phase and run by both parties.
+*Please set message before online phase and run by both parties.
 ```shell
 >> setmessage eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
@@ -98,13 +99,87 @@ After refresh, you can sign again.
 >> signonline
 ```
 
-### (g) Step 4: Quit
+### (g) Step 6: Quit
 
 Disconnect peers.
 ```shell
 >> q
 ```
+### **1.2 Protocols in [XAX+21]**
+### 1.1.1 How to use two-party ecdsa in [XAX+21]
+```shell
+$ cargo run --bin mpc-ecdsa ccs-party-one --help
 
+USAGE:
+    mpc-ecdsa ccs-party-one [FLAGS] [OPTIONS]
+
+FLAGS:
+    -h, --help              Prints help information
+    -o, --online_offline    Sign Model
+    -V, --version           Prints version information
+
+OPTIONS:
+    -c, --config_file <config_file>    Config Path [default: ./configs/two_party_config.json]
+        --level <level>                Log level [default: DEBUG]
+        --log <log>                    Log path [default: /tmp]
+    -m, --message <message>            Message to sign [default:
+                                       eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d]
+```
+### 1.1.2 two-party ecdsa in [DMZ+21] cli example
+Normal Sign Model
+```shell
+$ cargo run --bin mpc-ecdsa ccs-party-one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+
+$ cargo run --bin mpc-ecdsa asia-party-two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+```
+Online_Offline Sign Model
+
+*No need to specify message at begining.
+```shell
+$ cargo run --bin mpc-ecdsa asia-party-one -- --config_file ./configs/two_party_config.json  --online_offline
+
+$ cargo run --bin mpc-ecdsa asia-party-two -- --config_file ./configs/two_party_config.json  --online_offline
+```
+
+*Please start all nodes before connect.
+
+### (a) Step 1: connect
+
+Connect two parties.
+```shell
+>> Connect
+```
+
+### (b) Step 2: KeyGen
+
+KeyGen Begin
+
+*Please run keygen by party 0.
+```shell
+>> keygen
+```
+
+### (c) Step 3: sign
+*Please run sign by party 1.
+```shell
+>> sign
+```
+
+### (d) Step 4: set message (only used in online-offline model)
+*Please set message before online phase and run by both parties.
+```shell
+>> setmessage eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+```
+### (e) Step 5: sign online phase (only used in online-offline model)
+```shell
+>> signonline
+```
+### (f) Step 6: Quit
+
+Disconnect peers.
+```shell
+>> q
+```
 ## 2. Multi party keygen
 
 You can found the example config file here: "configs/config_3pc.json".
@@ -130,13 +205,13 @@ You can found the example config file here: "configs/config_3pc.json".
 ```
 Specify the party_index, party_index should be less than the total share counts.
 
-### 2.1 How to use multi_party_ecdsa_keygen
+### 2.1 How to use asia_multi_party_keygen
 
 ```shell
-$ cargo run --bin multi_party_ecdsa_keygen -- --help
+$ cargo run --bin mpc-ecdsa asia-multi-keygen --help
 
 USAGE:
-    multi_party_ecdsa_keygen [OPTIONS] --index <index>
+    mpc-ecdsa asia-multi-keygen [OPTIONS] --index <index>
 
 FLAGS:
     -h, --help       Prints help information
@@ -151,7 +226,7 @@ OPTIONS:
 
 ### 2.2 keygen cli example
 ```shell
-$ cargo run --bin multi_party_ecdsa_keygen -- --config_file ./configs/config_3pc.json --index 0
+$ cargo run --bin mpc-ecdsa asia-multi-keygen --config_file ./configs/config_3pc.json --index 0
 ```
 
 *Please start all nodes before connect.
@@ -252,17 +327,16 @@ Disconnect peers.
 >> q
 ```
 
-
 ## 3. Multi party sign
 
 Use the same config file as keygen.
 
 ### 3.1 How to use multi_party_ecdsa_sign
 ```shell
-$ cargo run --bin multi_party_ecdsa_sign -- --help
+$ cargo run --bin mpc-ecdsa asia-multi-sign  --help
 
 USAGE:
-    multi_party_ecdsa_sign [FLAGS] [OPTIONS] --index <index>
+    mpc-ecdsa asia-multi-sign [FLAGS] [OPTIONS] --index <index>
 
 FLAGS:
     -h, --help              Prints help information
@@ -284,13 +358,15 @@ OPTIONS:
 ### 3.2 sign cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --pub_keygen_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
+$ cargo run --bin mpc-ecdsa asia-multi-sign --config_file ./configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --pub_keygen_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
 ```
 Online_Offline Sign Model
-* No need to specify message at begining.
+*No need to specify message at begining.
 ```shell
-$ cargo run --bin multi_party_ecdsa_sign -- --config_file ../configs/config_3pc.json --index 0 --subset 0 1 --keygen_pub_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json --online_offline
+$ cargo run --bin multi_party_ecdsa_sign -- --config_file ./configs/config_3pc.json --index 0 --subset 0 1 --pub_keygen_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json --online_offline
 ```
+* subset contains the participants of sign phase
+* pub_keygen_path and keygen_path are paths of public key and private key respectively
 
 *Please start all nodes before connect.
 
@@ -348,10 +424,10 @@ Use the same config file as keygen.
 
 ### 4.1 How to use ecdsa_keyrefresh
 ```shell
-$ cargo run --bin ecdsa_keyrefresh -- --help
+$ cargo run --bin mpc-ecdsa key-refresh --help
 
 USAGE:
-    ecdsa_keyrefresh [OPTIONS] --index <index>
+    mpc-ecdsa key-refresh [OPTIONS] --index <index>
 
 FLAGS:
     -h, --help       Prints help information
@@ -368,9 +444,9 @@ OPTIONS:
 ```
 ### 4.2 Key refresh cli example
 ```shell
-cargo run --bin ecdsa_keyrefresh -- --config_file ../configs/config_3pc.json --index 0  --threshold_set 0 1 --keygen_pub_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
+cargo run --bin mpc-ecdsa key-refresh --config_file ./configs/config_3pc.json --index 0  --threshold_set 0 1 --pub_keygen_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
 ```
-
+* threshold_set contains the indice of parties participate key refresh
 ### (a) Step 1: Key refresh connect
 
 Connect the subset peers.
