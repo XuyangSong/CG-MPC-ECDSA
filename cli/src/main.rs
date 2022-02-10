@@ -3,10 +3,10 @@ use structopt::StructOpt;
 use cli::ccs21_party_one::Opt as CCSPartyOneOpt;
 use cli::ccs21_party_two::Opt as CCSPartyTwoOpt;
 use cli::ecdsa_keyrefresh::Opt as KeyRefreshOpt;
-use cli::multi_party_ecdsa_keygen::Opt as AsiaKeygenOpt;
-use cli::multi_party_ecdsa_sign::Opt as AsiaSignOpt;
-use cli::two_party_ecdsa_one::Opt as AsiaPartyOneOpt;
-use cli::two_party_ecdsa_two::Opt as AsiaPartyTwoOpt;
+use cli::asia_multi_party_keygen::Opt as AsiaKeygenOpt;
+use cli::asia_multi_party_sign::Opt as AsiaSignOpt;
+use cli::asia21_party_one::Opt as AsiaPartyOneOpt;
+use cli::asia21_party_two::Opt as AsiaPartyTwoOpt;
 
 #[derive(Debug, StructOpt)]
 pub enum Opt {
