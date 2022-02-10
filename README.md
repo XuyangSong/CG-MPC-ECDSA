@@ -19,11 +19,6 @@ Notes:
 sudo apt install -y bison llvm clang
 ```
 
-# How to test
-```shell
-cargo test
-```
-
 # How to use
 ```shell
 $ cargo run --bin mpc-ecdsa
@@ -50,11 +45,7 @@ Details in:
 
 Instructions for use of keyshare in:
 [keyshare/README.md](keyshare/README.md)
-# How to run web
 
-```sh
-./run_web.sh [<parties> [<debug|release>]]
-```
 # References
 [DMZ+21] <https://link.springer.com/chapter/10.1007/978-3-030-92068-5_19>
 
