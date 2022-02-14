@@ -1,112 +1,75 @@
-# 机器配置信息
+# Machine Config
 
-CPU：16核，Intel(R) Xeon(R) Platinum 8269CY CPU T 3.10GHz
+CPU：Intel® Core™ i7-10510U CPU @ 1.80GHz × 8
 
-内存：32G
+Memory：16G
 
-硬盘：SSD 100G
+Disk：512G
 
-网卡：100M
+# Performance with p2p network
 
+## Two-Party ECDSA 
 
-
-# 网络性能
-
-## 两方ECDSA性能
-
-### Security bits: 112, discriminant: 1348
+### **protocol in [DMZ+21]** 
+Party One
 
 | KeyGen | Sign  |
-| ------ | ----- |
-| 595 ms | 577ms |
+| ------ | ----- | 
+|  1276ms | 533ms |
 
+Party Two
 
+| KeyGen | Sign  | 
+| ------ | ----- | 
+|  433ms | 309ms |
 
-### Security bits: 128, discriminant: 1827
+### **protocol in [XAX+21]** 
+Party One
 
 | KeyGen | Sign  |
-| ------ | ----- |
-| 942 ms | 947ms |
+| ------ | ----- | 
+|  12ms | 1796ms |
 
+Party Two
 
+| KeyGen | Sign  | 
+| ------ | ----- | 
+|  8ms | 1792ms |
 
-## 多方门限ECDSA性能
+## Multi-Party ECDSA
 
-### Security bits: 112, discriminant: 1348
 
 | (t, n)  | KeyGen | Sign   |
 | ------- | ------ | ------ |
-| (1,2)   | 265ms  | 1.88s  |
-| (2, 4)  | 278ms  | 3.38s  |
-| (4, 8)  | 504ms  | 6.35s  |
-| (6, 12) | 823ms  | 9.37s  |
-| (8, 16) | 1011ms | 12.38s |
+| (1,3)   | 371ms  | 892ms  |
+| (2, 4)  | 426ms  | 3045ms  |
+| (3, 5)  | 510ms  | 4641ms  |
+
+
+# Local Performance
+
+## Two-Party ECDSA 
+
+### **protocol in [DMZ+21]** 
+
+| KeyGen | Sign-Offline  | Sign-Online|
+| ------ | ----- | ------ |
+| 1260 ms | 357ms | 142ms |
+
+### **protocol in [XAX+21]** 
+
+| KeyGen | Sign-Offline  | Sign-Online |
+| ------ | ----- | ------ |
+| 11 ms | 1797ms | 0.1ms |
 
 
 
-### Security bits: 128, discriminant: 1827
+## Multi-Party ECDSA
 
-| (t, n)  | KeyGen | Sign   |
-| ------- | ------ | ------ |
-| (1,2)   | 272ms  | 3.03s  |
-| (2, 4)  | 383ms  | 5.56s  |
-| (4, 8)  | 644ms  | 10.73s |
-| (6, 12) | 942ms  | 15.96s |
-| (8, 16) | 1270ms | 21.14s |
+| (t, n) | KeyGen | Sign-Offline  | Sign-Online |
+| ------ | ------ | ----- | ------ |
+| (1,3)  | 289ms   | 1503ms | 0.8ms |
+| (2, 4) | 345ms  | 3590ms | 1.19ms|
+| (4, 8) | 494ms  | 6752ms | 2ms |
 
-# 本地性能
-
-本地性能使用与网络性能测试使用机器性能相同，唯一区别是本地通信与分布式网络通信。
-
-## 本地两方ECDSA性能
-
-### Security bits: 112, discriminant: 1348
-
-| KeyGen | Sign  |
-| ------ | ----- |
-| 409 ms | 434ms |
-
-### Two party local performance(Security bits 128)
-
-| KeyGen | Sign  |
-| ------ | ----- |
-| 635 ms | 732ms |
-
-
-
-## 本地多方门限ECDSA性能
-
-### Security bits: 112, discriminant: 1348
-
-| (t, n) | KeyGen | Sign  |
-| ------ | ------ | ----- |
-| (1,2)  | 62ms   | 1.17s |
-| (2, 4) | 143ms  | 2.43s |
-| (4, 8) | 335ms  | 4.94s |
-
-
-
-### Security bits: 128, discriminant: 1827
-
-| (t, n) | KeyGen | Sign  |
-| ------ | ------ | ----- |
-| (1,2)  | 116ms  | 1.96s |
-| (2, 4) | 175ms  | 3.93s |
-| (4, 8) | 450ms  | 7.63s |
-
-
-
-# Class Group exp性能
-
-## 机器配置
-
-Intel(R) Core(TM) i7-9700K @ 3.6GHz
-
-## Security bits: 128, discriminant: 1827
-
-
-| exp bit size  | time    |
-| ------------- | ------- |
-| log(s)+40     | 76.5ms  |
-| Log(s)+128+80 | 105.9ms |
 

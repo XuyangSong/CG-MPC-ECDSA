@@ -50,9 +50,9 @@ Online_Offline Sign Model
 
 *No need to specify message at begining.
 ```shell
-$ cargo run --bin mpc-ecdsa asia-party-one -- --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa asia-party-one --config_file ./configs/two_party_config.json  --online_offline
 
-$ cargo run --bin mpc-ecdsa asia-party-two -- --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa asia-party-two --config_file ./configs/two_party_config.json  --online_offline
 ```
 
 *Please start all nodes before connect.
