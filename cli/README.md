@@ -42,9 +42,9 @@ OPTIONS:
 ### 1.1.2 two-party ecdsa in [DMZ+21] cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin mpc-ecdsa dmz-party-one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa dmz-party-one --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 
-$ cargo run --bin mpc-ecdsa dmz-party-two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa dmz-party-two --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
 Online_Offline Sign Model
 
@@ -128,17 +128,17 @@ OPTIONS:
 ### 1.1.2 two-party ecdsa in [DMZ+21] cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin mpc-ecdsa xax-party-one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa xax-party-one --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 
-$ cargo run --bin mpc-ecdsa dmz-party-two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa xax-party-two --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
 Online_Offline Sign Model
 
 *No need to specify message at begining.
 ```shell
-$ cargo run --bin mpc-ecdsa dmz-party-one -- --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa dmz-party-one --config_file ./configs/two_party_config.json  --online_offline
 
-$ cargo run --bin mpc-ecdsa dmz-party-two -- --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa dmz-party-two --config_file ./configs/two_party_config.json  --online_offline
 ```
 
 *Please start all nodes before connect.
