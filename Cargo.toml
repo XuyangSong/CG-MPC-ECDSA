@@ -2,7 +2,6 @@
 
 members = [
     "multi_party_ecdsa",
-    "readerwriter",
     "p2p",
     "cli",
     "classgroup",

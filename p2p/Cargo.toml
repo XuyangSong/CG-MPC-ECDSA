@@ -1,7 +1,7 @@
 [package]
 name = "p2p"
 version = "0.1.0"
-authors = ["Oleg Andreev <oleganza@gmail.com>, songxuyang"]
+authors = ["Oleg Andreev <oleganza@gmail.com>", "songxuyang", "wangxueli"]
 edition = "2018"
 
 [dependencies]
@@ -16,9 +16,9 @@ tokio-util = {version = "0.3.1", features=["codec"]}
 bytes = "0.5.4"
 aes-siv = {version = "0.6.2",features = ["pmac"]}
 rand = "0.7"
-readerwriter = {path = "../readerwriter", features=["bytes"]}
+readerwriter = {path = "../p2p/readerwriter", features=["bytes"]}
 serde = { version = "1.0", features = ["derive"] }
 time = "0.1"
-message = {path = "../p2p/src/message"}
+message = {path = "../p2p/message"}
 anyhow = "1.0"
 
