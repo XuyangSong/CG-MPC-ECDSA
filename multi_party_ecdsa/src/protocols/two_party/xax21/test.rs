@@ -1,5 +1,5 @@
 use super::*;
-use crate::protocols::two_party::ccs21::mta::*;
+use crate::protocols::two_party::xax21::mta::*;
 use crate::utilities::class_group::*;
 use crate::utilities::clkeypair::ClKeyPair;
 use curv::elliptic::curves::secp256_k1::FE;

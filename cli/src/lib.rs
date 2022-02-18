@@ -1,10 +1,10 @@
-pub mod ccs21_party_one;
-pub mod ccs21_party_two;
+pub mod xax21_party_one;
+pub mod xax21_party_two;
 pub mod config;
 pub mod console;
 pub mod ecdsa_keyrefresh;
 pub mod log;
-pub mod asia_multi_party_keygen;
-pub mod asia_multi_party_sign;
-pub mod asia21_party_one;
-pub mod asia21_party_two;
+pub mod dmz21_multi_party_keygen;
+pub mod dmz21_multi_party_sign;
+pub mod dmz21_party_one;
+pub mod dmz21_party_two;

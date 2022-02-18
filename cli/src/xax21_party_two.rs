@@ -7,8 +7,8 @@ use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
-use multi_party_ecdsa::protocols::two_party::ccs21::mta::cl_based_mta;
-use multi_party_ecdsa::protocols::two_party::ccs21::party_two;
+use multi_party_ecdsa::protocols::two_party::xax21::mta::cl_based_mta;
+use multi_party_ecdsa::protocols::two_party::xax21::party_two;
 use multi_party_ecdsa::protocols::two_party::message::*;
 use p2p::{Info, Node};
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ use tokio::task;
 
 #[derive(StructOpt, Debug)]
 #[structopt(
-    name = "ccs21-two-party",
+    name = "xax21-two-party",
     author = "wangxueli",
     rename_all = "snake_case"
 )]
@@ -119,10 +119,10 @@ impl MsgProcess<Message> for PartyTwo {
             .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
-            ReceivingMessages::CCSTwoKeyGenMessagePartyOne(msg) => {
+            ReceivingMessages::XAXTwoKeyGenMessagePartyOne(msg) => {
                 sending_msg = self.party_two_keygen.msg_handler_keygen(&msg)?;
             }
-            ReceivingMessages::CCSTwoSignMessagePartyOne(msg) => {
+            ReceivingMessages::XAXTwoSignMessagePartyOne(msg) => {
                 sending_msg = self
                     .party_two_sign
                     .msg_handler_sign(&msg, &mut self.mta_party_two)?;
@@ -171,7 +171,7 @@ impl MsgProcess<Message> for PartyTwo {
 
                 // Send KeyGenFinish to party0
                 let msg_send =
-                    ReceivingMessages::CCSTwoKeyGenMessagePartyTwo(CCSPartyTwoMsg::KeyGenFinish);
+                    ReceivingMessages::XAXTwoKeyGenMessagePartyTwo(XAXPartyTwoMsg::KeyGenFinish);
                 let msg_bytes = bincode::serialize(&msg_send)
                     .map_err(|why| format_err!("bincode serialize error: {}", why))?;
 

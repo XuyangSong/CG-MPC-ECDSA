@@ -1,7 +1,7 @@
 use crate::communication::receiving_messages::ReceivingMessages;
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::multi_party::ours::keygen::{Parameters, PrivateKey, PublicKey};
-use crate::protocols::multi_party::ours::message::*;
+use crate::protocols::multi_party::dmz21::keygen::{Parameters, PrivateKey, PublicKey};
+use crate::protocols::multi_party::dmz21::message::*;
 use crate::utilities::class_group::GROUP_UPDATE_128;
 use crate::utilities::class_group::*;
 use crate::utilities::clkeypair::ClKeyPair;

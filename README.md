@@ -31,14 +31,14 @@ FLAGS:
     -V, --version    Prints version information
 
 SUBCOMMANDS:
-    asia-multi-keygen    
-    asia-multi-sign      
-    asia-party-one       
-    asia-party-two       
-    ccs-party-one        
-    ccs-party-two        
-    help                 Prints this message or the help of the given subcommand(s)
-    key-refresh
+    dmz-multi-keygen    
+    dmz-multi-sign      
+    dmz-party-one       
+    dmz-party-two       
+    help                Prints this message or the help of the given subcommand(s)
+    key-refresh         
+    xax-party-one       
+    xax-party-two
 ```
 Details in: 
 [cli/README.md](cli/README.md)

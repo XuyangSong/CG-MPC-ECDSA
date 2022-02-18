@@ -1,9 +1,0 @@
-[package]
-name = "message"
-version = "0.1.0"
-authors = ["songxuyang"]
-edition = "2018"
-
-[dependencies]
-readerwriter = {path = "../readerwriter", features=["bytes"]}
-anyhow = "1.0"

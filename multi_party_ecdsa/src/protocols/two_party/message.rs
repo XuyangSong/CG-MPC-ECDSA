@@ -1,5 +1,5 @@
-use crate::protocols::two_party::ccs21::party_one::{MtaConsistencyMsg, NonceKEMsg};
-use crate::protocols::two_party::ccs21::party_two::KeyGenSecRoungMsg;
+use crate::protocols::two_party::xax21::party_one::{MtaConsistencyMsg, NonceKEMsg};
+use crate::protocols::two_party::xax21::party_two::KeyGenSecRoungMsg;
 use crate::utilities::cl_dl_proof::*;
 use crate::utilities::class_group::*;
 use crate::utilities::dl_com_zk::*;
@@ -10,7 +10,7 @@ use curv::elliptic::curves::secp256_k1::{FE, GE};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AsiaPartyOneMsg {
+pub enum DMZPartyOneMsg {
     KeyGenInitSync(usize),
     SignInitSync(usize),
     KeyGenPartyOneRoundOneMsg(DLCommitments),
@@ -27,7 +27,7 @@ pub enum AsiaPartyOneMsg {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CCSPartyOneMsg {
+pub enum XAXPartyOneMsg {
     KeyGenInitSync(usize),
     SignInitSync(usize),
     KeyGenPartyOneRoundOneMsg(DLCommitments),
@@ -37,7 +37,7 @@ pub enum CCSPartyOneMsg {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AsiaPartyTwoMsg {
+pub enum DMZPartyTwoMsg {
     KeyGenInitSync(usize),
     KenGenPartyTwoRoundOneMsg(DLogProof<GE>),
     KeyGenFinish,
@@ -47,7 +47,7 @@ pub enum AsiaPartyTwoMsg {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CCSPartyTwoMsg {
+pub enum XAXPartyTwoMsg {
     KeyGenInitSync(usize),
     KeyGenFinish,
     SignInitSync(usize),

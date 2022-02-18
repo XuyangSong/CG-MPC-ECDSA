@@ -1,33 +1,33 @@
 use structopt::StructOpt;
 
-use cli::ccs21_party_one::Opt as CCSPartyOneOpt;
-use cli::ccs21_party_two::Opt as CCSPartyTwoOpt;
+use cli::xax21_party_one::Opt as XAXPartyOneOpt;
+use cli::xax21_party_two::Opt as XAXPartyTwoOpt;
 use cli::ecdsa_keyrefresh::Opt as KeyRefreshOpt;
-use cli::asia_multi_party_keygen::Opt as AsiaKeygenOpt;
-use cli::asia_multi_party_sign::Opt as AsiaSignOpt;
-use cli::asia21_party_one::Opt as AsiaPartyOneOpt;
-use cli::asia21_party_two::Opt as AsiaPartyTwoOpt;
+use cli::dmz21_multi_party_keygen::Opt as DMZKeygenOpt;
+use cli::dmz21_multi_party_sign::Opt as DMZSignOpt;
+use cli::dmz21_party_one::Opt as DMZPartyOneOpt;
+use cli::dmz21_party_two::Opt as DMZPartyTwoOpt;
 
 #[derive(Debug, StructOpt)]
 pub enum Opt {
-    CCSPartyOne(CCSPartyOneOpt),
-    CCSPartyTwo(CCSPartyTwoOpt),
-    AsiaPartyOne(AsiaPartyOneOpt),
-    AsiaPartyTwo(AsiaPartyTwoOpt),
-    AsiaMultiKeygen(AsiaKeygenOpt),
-    AsiaMultiSign(AsiaSignOpt),
+    XAXPartyOne(XAXPartyOneOpt),
+    XAXPartyTwo(XAXPartyTwoOpt),
+    DMZPartyOne(DMZPartyOneOpt),
+    DMZPartyTwo(DMZPartyTwoOpt),
+    DMZMultiKeygen(DMZKeygenOpt),
+    DMZMultiSign(DMZSignOpt),
     KeyRefresh(KeyRefreshOpt),
 }
 
 impl Opt {
     pub async fn execute(self) {
         match self {
-            Self::CCSPartyOne(opt) => opt.execute().await,
-            Self::CCSPartyTwo(opt) => opt.execute().await,
-            Self::AsiaPartyOne(opt) => opt.execute().await,
-            Self::AsiaPartyTwo(opt) => opt.execute().await,
-            Self::AsiaMultiKeygen(opt) => opt.execute().await,
-            Self::AsiaMultiSign(opt) => opt.execute().await,
+            Self::XAXPartyOne(opt) => opt.execute().await,
+            Self::XAXPartyTwo(opt) => opt.execute().await,
+            Self::DMZPartyOne(opt) => opt.execute().await,
+            Self::DMZPartyTwo(opt) => opt.execute().await,
+            Self::DMZMultiKeygen(opt) => opt.execute().await,
+            Self::DMZMultiSign(opt) => opt.execute().await,
             Self::KeyRefresh(opt) => opt.execute().await,
         }
     }

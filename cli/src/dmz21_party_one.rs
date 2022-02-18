@@ -7,7 +7,7 @@ use message::message::Message;
 use message::message_process::{MsgProcess, ProcessMessage};
 use multi_party_ecdsa::communication::receiving_messages::ReceivingMessages;
 use multi_party_ecdsa::communication::sending_messages::SendingMessages;
-use multi_party_ecdsa::protocols::two_party::asia21::party_one;
+use multi_party_ecdsa::protocols::two_party::dmz21::party_one;
 use p2p::{Info, Node};
 use std::collections::HashMap;
 use std::fs;
@@ -112,10 +112,10 @@ impl MsgProcess<Message> for PartyOne {
             .map_err(|why| format_err!("bincode deserialize error: {}", why))?;
         let mut sending_msg = SendingMessages::EmptyMsg;
         match received_msg {
-            ReceivingMessages::AsiaTwoKeyGenMessagePartyTwo(msg) => {
+            ReceivingMessages::DMZTwoKeyGenMessagePartyTwo(msg) => {
                 sending_msg = self.party_one_keygen.msg_handler_keygen(&msg)?;
             }
-            ReceivingMessages::AsiaTwoSignMessagePartyTwo(msg) => {
+            ReceivingMessages::DMZTwoSignMessagePartyTwo(msg) => {
                 sending_msg = self.party_one_sign.msg_handler_sign(&msg)?;
             }
             ReceivingMessages::KeyGenBegin => {

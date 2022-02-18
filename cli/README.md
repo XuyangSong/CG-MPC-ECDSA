@@ -21,10 +21,10 @@
 
 ### 1.1.1 How to use two-party ecdsa in [DMZ+21]
 ```shell
-$ cargo run --bin mpc-ecdsa asia-party-one --help
+$ cargo run --bin mpc-ecdsa dmz-party-one --help
 
 USAGE:
-    mpc-ecdsa asia-party-one [FLAGS] [OPTIONS]
+    mpc-ecdsa dmz-party-one [FLAGS] [OPTIONS]
 
 FLAGS:
     -h, --help              Prints help information
@@ -42,17 +42,17 @@ OPTIONS:
 ### 1.1.2 two-party ecdsa in [DMZ+21] cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin mpc-ecdsa asia-party-one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa dmz-party-one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 
-$ cargo run --bin mpc-ecdsa asia-party-two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa dmz-party-two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
 Online_Offline Sign Model
 
 *No need to specify message at begining.
 ```shell
-$ cargo run --bin mpc-ecdsa asia-party-one --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa dmz-party-one --config_file ./configs/two_party_config.json  --online_offline
 
-$ cargo run --bin mpc-ecdsa asia-party-two --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa dmz-party-two --config_file ./configs/two_party_config.json  --online_offline
 ```
 
 *Please start all nodes before connect.
@@ -108,10 +108,10 @@ Disconnect peers.
 ### **1.2 Protocols in [XAX+21]**
 ### 1.1.1 How to use two-party ecdsa in [XAX+21]
 ```shell
-$ cargo run --bin mpc-ecdsa ccs-party-one --help
+$ cargo run --bin mpc-ecdsa xax-party-one --help
 
 USAGE:
-    mpc-ecdsa ccs-party-one [FLAGS] [OPTIONS]
+    mpc-ecdsa xax-party-one [FLAGS] [OPTIONS]
 
 FLAGS:
     -h, --help              Prints help information
@@ -128,17 +128,17 @@ OPTIONS:
 ### 1.1.2 two-party ecdsa in [DMZ+21] cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin mpc-ecdsa ccs-party-one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa xax-party-one -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 
-$ cargo run --bin mpc-ecdsa asia-party-two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
+$ cargo run --bin mpc-ecdsa dmz-party-two -- --config_file ./configs/two_party_config.json  --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d
 ```
 Online_Offline Sign Model
 
 *No need to specify message at begining.
 ```shell
-$ cargo run --bin mpc-ecdsa asia-party-one -- --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa dmz-party-one -- --config_file ./configs/two_party_config.json  --online_offline
 
-$ cargo run --bin mpc-ecdsa asia-party-two -- --config_file ./configs/two_party_config.json  --online_offline
+$ cargo run --bin mpc-ecdsa dmz-party-two -- --config_file ./configs/two_party_config.json  --online_offline
 ```
 
 *Please start all nodes before connect.
@@ -205,13 +205,13 @@ You can found the example config file here: "configs/config_3pc.json".
 ```
 Specify the party_index, party_index should be less than the total share counts.
 
-### 2.1 How to use asia_multi_party_keygen
+### 2.1 How to use dmz_multi_party_keygen
 
 ```shell
-$ cargo run --bin mpc-ecdsa asia-multi-keygen --help
+$ cargo run --bin mpc-ecdsa dmz-multi-keygen --help
 
 USAGE:
-    mpc-ecdsa asia-multi-keygen [OPTIONS] --index <index>
+    mpc-ecdsa dmz-multi-keygen [OPTIONS] --index <index>
 
 FLAGS:
     -h, --help       Prints help information
@@ -226,7 +226,7 @@ OPTIONS:
 
 ### 2.2 keygen cli example
 ```shell
-$ cargo run --bin mpc-ecdsa asia-multi-keygen --config_file ./configs/config_3pc.json --index 0
+$ cargo run --bin mpc-ecdsa dmz-multi-keygen --config_file ./configs/config_3pc.json --index 0
 ```
 
 *Please start all nodes before connect.
@@ -333,10 +333,10 @@ Use the same config file as keygen.
 
 ### 3.1 How to use multi_party_ecdsa_sign
 ```shell
-$ cargo run --bin mpc-ecdsa asia-multi-sign  --help
+$ cargo run --bin mpc-ecdsa dmz-multi-sign  --help
 
 USAGE:
-    mpc-ecdsa asia-multi-sign [FLAGS] [OPTIONS] --index <index>
+    mpc-ecdsa dmz-multi-sign [FLAGS] [OPTIONS] --index <index>
 
 FLAGS:
     -h, --help              Prints help information
@@ -358,7 +358,7 @@ OPTIONS:
 ### 3.2 sign cli example
 Normal Sign Model
 ```shell
-$ cargo run --bin mpc-ecdsa asia-multi-sign --config_file ./configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --pub_keygen_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
+$ cargo run --bin mpc-ecdsa dmz-multi-sign --config_file ./configs/config_3pc.json --index 0 --message eadffe25ea1e8127c2b9aae457d8fdde1040fbbb62e11c281f348f2375dd3f1d --subset 0 1 --pub_keygen_path ./keygen_pub_result0.json --keygen_path ./kengen_priv_result0.json
 ```
 Online_Offline Sign Model
 *No need to specify message at begining.

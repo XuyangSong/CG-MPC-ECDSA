@@ -1,8 +1,8 @@
-use crate::protocols::multi_party::ours::message::{
+use crate::protocols::multi_party::dmz21::message::{
     KeyRefreshMessage, MultiKeyGenMessage, MultiSignMessage,
 };
 use crate::protocols::two_party::message::{
-    AsiaPartyOneMsg, AsiaPartyTwoMsg, CCSPartyOneMsg, CCSPartyTwoMsg,
+    DMZPartyOneMsg, DMZPartyTwoMsg, XAXPartyOneMsg, XAXPartyTwoMsg,
 };
 use serde::{Deserialize, Serialize};
 
@@ -13,14 +13,14 @@ pub enum ReceivingMessages {
     KeyRefreshMessage(KeyRefreshMessage),
     MultiSignInitSync(usize),
     MultiSignMessage(MultiSignMessage),
-    AsiaTwoKeyGenMessagePartyOne(AsiaPartyOneMsg),
-    AsiaTwoSignMessagePartyOne(AsiaPartyOneMsg),
-    AsiaTwoKeyGenMessagePartyTwo(AsiaPartyTwoMsg),
-    AsiaTwoSignMessagePartyTwo(AsiaPartyTwoMsg),
-    CCSTwoKeyGenMessagePartyOne(CCSPartyOneMsg),
-    CCSTwoSignMessagePartyOne(CCSPartyOneMsg),
-    CCSTwoKeyGenMessagePartyTwo(CCSPartyTwoMsg),
-    CCSTwoSignMessagePartyTwo(CCSPartyTwoMsg),
+    DMZTwoKeyGenMessagePartyOne(DMZPartyOneMsg),
+    DMZTwoSignMessagePartyOne(DMZPartyOneMsg),
+    DMZTwoKeyGenMessagePartyTwo(DMZPartyTwoMsg),
+    DMZTwoSignMessagePartyTwo(DMZPartyTwoMsg),
+    XAXTwoKeyGenMessagePartyOne(XAXPartyOneMsg),
+    XAXTwoSignMessagePartyOne(XAXPartyOneMsg),
+    XAXTwoKeyGenMessagePartyTwo(XAXPartyTwoMsg),
+    XAXTwoSignMessagePartyTwo(XAXPartyTwoMsg),
     KeyGenBegin,
     SignBegin,
     KeyRefreshBegin,

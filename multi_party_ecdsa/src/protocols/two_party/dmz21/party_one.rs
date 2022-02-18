@@ -13,7 +13,7 @@ use curv::BigInt;
 use serde::{Deserialize, Serialize};
 
 use crate::communication::sending_messages::SendingMessages;
-use crate::protocols::two_party::message::{AsiaPartyOneMsg, AsiaPartyTwoMsg};
+use crate::protocols::two_party::message::{DMZPartyOneMsg, DMZPartyTwoMsg};
 use crate::utilities::class_group::{GROUP_128, GROUP_UPDATE_128};
 use crate::utilities::clkeypair::ClKeyPair;
 use crate::utilities::dl_com_zk::*;
@@ -154,8 +154,8 @@ impl KeyGenPhase {
             }
 
             // Party one time begin
-            let msg_send: ReceivingMessages = ReceivingMessages::AsiaTwoKeyGenMessagePartyOne(
-                AsiaPartyOneMsg::KeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),
+            let msg_send: ReceivingMessages = ReceivingMessages::DMZTwoKeyGenMessagePartyOne(
+                DMZPartyOneMsg::KeyGenPartyOneRoundOneMsg(self.round_one_msg.clone()),
             );
             let msg_bytes: Vec<u8> =
                 bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
@@ -168,10 +168,10 @@ impl KeyGenPhase {
 
     pub fn msg_handler_keygen(
         &mut self,
-        msg_received: &AsiaPartyTwoMsg,
+        msg_received: &DMZPartyTwoMsg,
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
-            AsiaPartyTwoMsg::KenGenPartyTwoRoundOneMsg(msg) => {
+            DMZPartyTwoMsg::KenGenPartyTwoRoundOneMsg(msg) => {
                 log::info!("KeyGen: Receiving RoundOneMsg from index 1");
                 let com_open = self.verify_and_get_next_msg(&msg)?;
                 self.compute_public_key(&msg.pk);
@@ -179,8 +179,8 @@ impl KeyGenPhase {
                 // Get pk and pk'
                 let (h_caret, h, gp) = self.get_class_group_pk();
 
-                let msg_send = ReceivingMessages::AsiaTwoKeyGenMessagePartyOne(
-                    AsiaPartyOneMsg::KeyGenPartyOneRoundTwoMsg(
+                let msg_send = ReceivingMessages::DMZTwoKeyGenMessagePartyOne(
+                    DMZPartyOneMsg::KeyGenPartyOneRoundTwoMsg(
                         com_open,
                         h_caret,
                         h,
@@ -194,7 +194,7 @@ impl KeyGenPhase {
 
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
-            AsiaPartyTwoMsg::KeyGenFinish => {
+            DMZPartyTwoMsg::KeyGenFinish => {
                 log::info!("KeyGen: Receiving KeyGenFinish from index 1");
                 // Set refresh
                 self.need_refresh = true;
@@ -329,8 +329,8 @@ impl SignPhase {
 
     pub fn process_begin_sign(&mut self, index: usize) -> Result<SendingMessages, MulEcdsaError> {
         if index == 0 {
-            let msg_send = ReceivingMessages::AsiaTwoSignMessagePartyOne(
-                AsiaPartyOneMsg::SignPartyOneRoundOneMsg(self.round_one_msg.clone()),
+            let msg_send = ReceivingMessages::DMZTwoSignMessagePartyOne(
+                DMZPartyOneMsg::SignPartyOneRoundOneMsg(self.round_one_msg.clone()),
             );
             let msg_bytes =
                 bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
@@ -352,23 +352,23 @@ impl SignPhase {
 
     pub fn msg_handler_sign(
         &mut self,
-        msg_received: &AsiaPartyTwoMsg,
+        msg_received: &DMZPartyTwoMsg,
     ) -> Result<SendingMessages, MulEcdsaError> {
         match msg_received {
-            AsiaPartyTwoMsg::SignPartyTwoRoundOneMsg(msg) => {
+            DMZPartyTwoMsg::SignPartyTwoRoundOneMsg(msg) => {
                 log::info!("Sign: Receiving RoundOneMsg from index 1");
 
                 let witness = self.verify_and_get_next_msg(&msg)?;
                 self.set_received_msg((*msg).clone());
 
-                let msg_send = ReceivingMessages::AsiaTwoSignMessagePartyOne(
-                    AsiaPartyOneMsg::SignPartyOneRoundTwoMsg(witness),
+                let msg_send = ReceivingMessages::DMZTwoSignMessagePartyOne(
+                    DMZPartyOneMsg::SignPartyOneRoundTwoMsg(witness),
                 );
                 let msg_bytes =
                     bincode::serialize(&msg_send).map_err(|_| MulEcdsaError::SerializeFailed)?;
                 return Ok(SendingMessages::BroadcastMessage(msg_bytes));
             }
-            AsiaPartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p) => {
+            DMZPartyTwoMsg::SignPartyTwoRoundTwoMsg(cipher, t_p) => {
                 log::info!("Sign: Receiving RoundTwoMsg from index 1");
 
                 if self.online_offline && self.msg_set == false {
