@@ -21,10 +21,6 @@ env_logger = "0.9.0"
 log4rs = "1.0.0"
 async-std = { version = "1.6.2", features = ["attributes"] }
 
-#[dependencies.class_group]
-#git = "https://github.com/XuyangSong/class"
-#tag = "v1.5.2"
-
 # ##################################
 # futures-core = { version = "0.3", default-features = false }
 # futures-channel = "0.3"
@@ -41,7 +37,3 @@ async-std = { version = "1.6.2", features = ["attributes"] }
 [[bin]]
 name = "mpc-ecdsa"
 path = "src/main.rs"
-
-# [[bin]]
-# name = "mpc_ecdsa_web"
-# path = "src/mpc_ecdsa_web.rs"
