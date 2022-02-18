@@ -50,57 +50,34 @@ Instructions for use of keyshare in:
 Running with Intel® Core™ i7-10510U CPU @ 1.80GHz × 8.
 ## performance with p2p network
 
-protocol in [DMZ+21] 
+Two-Party ECDSA 
 
-Party One
+| Protocols | KeyGen | Sign-Offline  | Sign-Online|
+| ------ | ----- | ------|------|
+|[DMZ+21]|  1276ms | 384ms |169ms|
+|[XAX+21]|  12ms | 1698ms |1.5ms|
 
-| KeyGen | Sign  |
-| ------ | ----- | 
-|  1276ms | 533ms |
 
-Party Two
+Multi-Party ECDSA
 
-| KeyGen | Sign  | 
-| ------ | ----- | 
-|  433ms | 309ms |
-
-protocol in [XAX+21]
-
-Party One
-
-| KeyGen | Sign  |
-| ------ | ----- | 
-|  12ms | 1796ms |
-
-Party Two
-
-| KeyGen | Sign  | 
-| ------ | ----- | 
-|  8ms | 1792ms |
-
-multi-party protocols in [DMZ+21]
-
-| (t, n)  | KeyGen | Sign   |
-| ------- | ------ | ------ |
-| (1,3)   | 371ms  | 892ms  |
-| (2, 4)  | 426ms  | 3045ms  |
-| (3, 5)  | 510ms  | 4641ms  |
+| (t, n)  | KeyGen | Sign-Offline   |Sign-Online|
+| ------- | ------ | ------ |------|
+| (1,3)   | 371ms  | 1593ms  |6.1ms |
+| (2, 4)  | 426ms  | 4318ms  |14ms |
+| (3, 5)  | 510ms  | 5065ms  |19ms|
 
 ## Local Performance
 
-protocol in [DMZ+21]
+Two-Party ECDSA 
 
-| KeyGen | Sign-Offline  | Sign-Online|
-| ------ | ----- | ------ |
-| 1260 ms | 357ms | 142ms |
+|Protocols| KeyGen | Sign-Offline  | Sign-Online|
+| ------ | ----- | ------ |------|
+|[DMZ+21]| 1260 ms | 357ms | 142ms |
+|[XAX+21]| 11 ms | 1797ms | 0.1ms |
 
-protocols in [XAX+21]
 
-| KeyGen | Sign-Offline  | Sign-Online |
-| ------ | ----- | ------ |
-| 11 ms | 1797ms | 0.1ms |
+Multi-Party ECDSA
 
-multi-party protocols in [DMZ+21]
 | (t, n) | KeyGen | Sign-Offline  | Sign-Online |
 | ------ | ------ | ----- | ------ |
 | (1,3)  | 289ms   | 1503ms | 0.8ms |

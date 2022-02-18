@@ -10,58 +10,30 @@ Disk：512G
 
 ## Two-Party ECDSA 
 
-### **protocol in [DMZ+21]** 
-Party One
+| Protocols | KeyGen | Sign-Offline  | Sign-Online|
+| ------ | ----- | ------|------|
+|[DMZ+21]|  1276ms | 384ms |169ms|
+|[XAX+21]|  12ms | 1698ms |1.5ms|
 
-| KeyGen | Sign  |
-| ------ | ----- | 
-|  1276ms | 533ms |
-
-Party Two
-
-| KeyGen | Sign  | 
-| ------ | ----- | 
-|  433ms | 309ms |
-
-### **protocol in [XAX+21]** 
-Party One
-
-| KeyGen | Sign  |
-| ------ | ----- | 
-|  12ms | 1796ms |
-
-Party Two
-
-| KeyGen | Sign  | 
-| ------ | ----- | 
-|  8ms | 1792ms |
 
 ## Multi-Party ECDSA
 
 
-| (t, n)  | KeyGen | Sign   |
-| ------- | ------ | ------ |
-| (1,3)   | 371ms  | 892ms  |
-| (2, 4)  | 426ms  | 3045ms  |
-| (3, 5)  | 510ms  | 4641ms  |
+| (t, n)  | KeyGen | Sign-Offline   |Sign-Online|
+| ------- | ------ | ------ |------|
+| (1,3)   | 371ms  | 1593ms  |6.1ms |
+| (2, 4)  | 426ms  | 4318ms  |14ms |
+| (3, 5)  | 510ms  | 5065ms  |19ms|
 
 
 # Local Performance
 
 ## Two-Party ECDSA 
 
-### **protocol in [DMZ+21]** 
-
-| KeyGen | Sign-Offline  | Sign-Online|
-| ------ | ----- | ------ |
-| 1260 ms | 357ms | 142ms |
-
-### **protocol in [XAX+21]** 
-
-| KeyGen | Sign-Offline  | Sign-Online |
-| ------ | ----- | ------ |
-| 11 ms | 1797ms | 0.1ms |
-
+|Protocols| KeyGen | Sign-Offline  | Sign-Online|
+| ------ | ----- | ------ |------|
+|[DMZ+21]| 1260 ms | 357ms | 142ms |
+|[XAX+21]| 11 ms | 1797ms | 0.1ms |
 
 
 ## Multi-Party ECDSA
