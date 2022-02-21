@@ -81,8 +81,8 @@ Multi-Party ECDSA
 | (t, n) | KeyGen | Sign-Offline  | Sign-Online |
 | ------ | ------ | ----- | ------ |
 | (1,3)  | 289ms   | 1503ms | 0.8ms |
-| (2, 4) | 345ms  | 3590ms | 1.19ms|
-| (4, 8) | 494ms  | 6752ms | 2ms |
+| (2, 4) | 345ms  | 3590ms | 1.2ms|
+| (3, 5) | 382ms  | 4681ms | 1.6ms |
 
 # References
 [DMZ+21] <https://link.springer.com/chapter/10.1007/978-3-030-92068-5_19>

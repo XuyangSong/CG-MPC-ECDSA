@@ -61,7 +61,7 @@ $ cargo run --bin mpc-ecdsa dmz-party-two --config_file ./configs/two_party_conf
 
 Connect two parties.
 ```shell
->> Connect
+>> connect
 ```
 
 ### (b) Step 2: KeyGen
@@ -147,7 +147,7 @@ $ cargo run --bin mpc-ecdsa dmz-party-two --config_file ./configs/two_party_conf
 
 Connect two parties.
 ```shell
->> Connect
+>> connect
 ```
 
 ### (b) Step 2: KeyGen
