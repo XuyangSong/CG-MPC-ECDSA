@@ -1,8 +1,8 @@
-use crate::utilities::cl_dl_proof::*;
+use crate::utilities::cl_proof::*;
 use crate::utilities::class_group::*;
 use crate::utilities::clkeypair::*;
 use curv::arithmetic::*;
-use curv::elliptic::curves::secp256_k1::{FE, GE};
+use curv::elliptic::curves::secp256_k1::FE;
 use curv::elliptic::curves::traits::*;
 
 #[derive(Clone, Debug)]
@@ -28,17 +28,15 @@ impl PartyOne {
         }
     }
 
-    pub fn generate_send_msg(&self, cl_pk: &PK) -> (CLDLProof, CLDLState) {
-        let b_pub = GE::generator() * self.b;
+    pub fn generate_send_msg(&self, cl_pk: &PK) -> (CLProof, CLState) {
         let (c_b, r) = CLGroup::encrypt(&GROUP_128, cl_pk, &self.b);
-        let witness = CLDLWit { dl_priv: self.b, r };
-        let statement = CLDLState {
+        let witness = CLWit { x: self.b, r };
+        let statement = CLState {
             cipher: c_b,
             cl_pub_key: (*cl_pk).clone(),
-            dl_pub: b_pub,
         };
-        let cl_dl_proof = CLDLProof::prove(&GROUP_128, witness, statement.clone());
-        (cl_dl_proof, statement)
+        let cl_proof = CLProof::prove(&GROUP_128, witness, statement.clone());
+        (cl_proof, statement)
     }
 
     pub fn handle_receive_msg(&mut self, cl_sk: &SK, c_a: &Ciphertext) {
@@ -58,8 +56,8 @@ impl PartyTwo {
 
     pub fn receive_and_send_msg(
         &mut self,
-        proof_cl: CLDLProof,
-        statement: CLDLState,
+        proof_cl: CLProof,
+        statement: CLState,
     ) -> Result<Ciphertext, String> {
         let alpha_tag = FE::new_random();
         let alpha = FE::zero().sub(&alpha_tag.get_element());

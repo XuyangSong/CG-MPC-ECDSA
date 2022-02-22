@@ -1,6 +1,6 @@
 use crate::protocols::two_party::xax21::party_one::{MtaConsistencyMsg, NonceKEMsg};
 use crate::protocols::two_party::xax21::party_two::KeyGenSecRoungMsg;
-use crate::utilities::cl_dl_proof::*;
+use crate::utilities::cl_proof::*;
 use crate::utilities::class_group::*;
 use crate::utilities::dl_com_zk::*;
 use crate::utilities::promise_sigma::{PromiseProof, PromiseState};
@@ -32,7 +32,7 @@ pub enum XAXPartyOneMsg {
     SignInitSync(usize),
     KeyGenPartyOneRoundOneMsg(DLCommitments),
     KeyGenPartyOneRoundTwoMsg(CommWitness),
-    MtaPartyOneRoundOneMsg((CLDLProof, CLDLState)),
+    MtaPartyOneRoundOneMsg((CLProof, CLState)),
     SignPartyOneRoundOneMsg(MtaConsistencyMsg, NonceKEMsg),
 }
 
