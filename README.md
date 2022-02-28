@@ -1,4 +1,7 @@
+
 # CG-MPC-ECDSA
+[![github license](https://img.shields.io/badge/license-LGPLv3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.en.html)
+
 This project aims to implement two-party and multi-party ECDSA protocols based on class group with Rust.
 It currently includes schemes described in [DMZ+21] (published in Asiacrypt 2021) and  [XAX+21] (published in CCS 2021). 
 
