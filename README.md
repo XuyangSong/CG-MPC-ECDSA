@@ -9,10 +9,9 @@ It currently includes schemes described in [DMZ+21] (published in Asiacrypt 2021
 | [DMZ+21]   | This paper proposes efficient two-party and multi-party threshold ECDSA protocols from CL encryptions based on class groups. This protocol avoids the low order assumption, which is a strong and non-standard assumption, and reduces the communication cost in keygen. |
 | [XAX+21]   | This paper proposes a framework of two-party ECDSA protocols. It seperates the signing part into online and offline phases. The online phase is non-interactive and somehow optimal, and the offline phase only needs a single call of MtA. |
 
-Here are some notes:
-- We adopts CL-based MtA in [CCL+19] when implementing [XAX+21].
+- We adopt CL-based MtA in [CCL+19] when implementing [XAX+21].
 - We implement the refresh function. This function allows key shares to be refreshed while keeping the whole secret key (then the public key) unchanged.
-- Class group used in this project support multithreaded execution.
+- Class group library used in this project supports multi-threaded execution.
 
 
 # How to use
