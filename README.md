@@ -40,9 +40,9 @@ Details in:
 
 # Performance
 Running with Intel® Core™ i7-10510U CPU @ 1.80GHz × 8.
-## performance with p2p network
+## P2P network
 
-Two-Party ECDSA 
+- Two-Party ECDSA
 
 | Protocols | KeyGen | Sign-Offline  | Sign-Online|
 | ------ | ----- | ------|------|
@@ -50,7 +50,7 @@ Two-Party ECDSA
 |[XAX+21]|  12ms | 1698ms |1.5ms|
 
 
-Multi-Party ECDSA
+- Multi-Party ECDSA
 
 | (t, n)  | KeyGen | Sign-Offline   |Sign-Online|
 | ------- | ------ | ------ |------|
@@ -58,9 +58,9 @@ Multi-Party ECDSA
 | (2, 4)  | 426ms  | 4318ms  |14ms |
 | (3, 5)  | 510ms  | 5065ms  |19ms|
 
-## Local Performance
+## Local
 
-Two-Party ECDSA 
+- Two-Party ECDSA 
 
 |Protocols| KeyGen | Sign-Offline  | Sign-Online|
 | ------ | ----- | ------ |------|
@@ -68,7 +68,7 @@ Two-Party ECDSA
 |[XAX+21]| 11 ms | 1797ms | 0.1ms |
 
 
-Multi-Party ECDSA
+- Multi-Party ECDSA
 
 | (t, n) | KeyGen | Sign-Offline  | Sign-Online |
 | ------ | ------ | ----- | ------ |
