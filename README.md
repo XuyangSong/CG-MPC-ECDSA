@@ -2,7 +2,7 @@
 This project aims to implement two-party and multi-party ECDSA protocols based on class group with Rust.
 It currently includes schemes described in [DMZ+21] (published in Asiacrypt 2021) and  [XAX+21] (published in CCS 2021). 
 
-- Introduction of the protocols are as follows:
+- Descriptions of the protocols are as follows:
 
 | Protocol | Introduction                                                 |
 | -------- | ------------------------------------------------------------ |
@@ -83,5 +83,3 @@ Multi-Party ECDSA
 [XAX+21] <https://dl.acm.org/doi/pdf/10.1145/3460120.3484803>
 
 [CCL+19] <https://eprint.iacr.org/2019/503.pdf>
-
-[CCL+20] <https://eprint.iacr.org/2020/084.pdf>
